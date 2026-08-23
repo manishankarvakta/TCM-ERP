@@ -4,32 +4,32 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useSocket } from "@/components/providers/SocketProvider";
 import { getWorkManagementDashboardData } from "@/app/actions/projects/work-management-dashboard.action";
 import {
-  FiUsers,
-  FiFolder,
-  FiCheckSquare,
-  FiClock,
-  FiAlertTriangle,
-  FiAlertOctagon,
-  FiActivity,
-  FiSearch,
-  FiFilter,
-  FiCheck,
-  FiPlay,
-  FiCoffee,
-  FiSquare,
-  FiInbox,
-  FiRefreshCw,
-  FiArrowRight,
-} from "react-icons/fi";
+  Users,
+  Folder,
+  CheckSquare,
+  Clock,
+  AlertTriangle,
+  Activity,
+  Search,
+  Filter,
+  Check,
+  Play,
+  Coffee,
+  Square,
+  Inbox,
+  RefreshCw,
+  ArrowRight,
+} from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 
 interface Props {
   initialData: any;
   currentUser: any;
+  hideHeader?: boolean;
 }
 
-export default function WorkManagementDashboard({ initialData, currentUser }: Props) {
+export default function WorkManagementDashboard({ initialData, currentUser, hideHeader = false }: Props) {
   const [data, setData] = useState(initialData);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -143,9 +143,9 @@ export default function WorkManagementDashboard({ initialData, currentUser }: Pr
 
   if (!data) {
     return (
-      <div className="flex h-[60vh] flex-col items-center justify-center gap-4 text-muted-foreground">
-        <FiRefreshCw className="h-8 w-8 animate-spin text-primary" />
-        <p>Loading command center data...</p>
+      <div className="flex h-[60vh] flex-col items-center justify-center gap-3 text-muted-foreground">
+        <RefreshCw className="h-6 w-6 animate-spin text-primary" />
+        <p className="text-xs font-semibold">Loading command center data...</p>
       </div>
     );
   }
@@ -155,130 +155,132 @@ export default function WorkManagementDashboard({ initialData, currentUser }: Pr
   return (
     <div className="space-y-6">
       {/* Header section */}
-      <div className="flex flex-col gap-4 border-b border-border pb-5 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-primary via-blue-500 to-indigo-500 bg-clip-text text-transparent">
-            Work Management Command Center
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Realtime Operational Dashboard &bull; Dhaka Time: <span className="font-semibold text-foreground">{businessDate}</span>
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-xs">
-            <span className={`inline-block h-2.5 w-2.5 rounded-full ${isConnected ? "bg-emerald-500 animate-pulse" : "bg-zinc-500"}`} />
-            <span className="text-muted-foreground">{isConnected ? "Realtime Active" : "Realtime Offline"}</span>
+      {!hideHeader && (
+        <div className="flex flex-col gap-4 border-b border-border pb-5 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight text-foreground">
+              Work Management Command Center
+            </h1>
+            <p className="text-xs text-muted-foreground mt-1">
+              Realtime Operational Dashboard &bull; Dhaka Time: <span className="font-semibold text-foreground">{businessDate}</span>
+            </p>
           </div>
 
-          <button
-            onClick={() => refreshData()}
-            disabled={loading}
-            className="flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-sm font-medium hover:bg-accent transition"
-          >
-            <FiRefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-            Refresh
-          </button>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-xs">
+              <span className={`inline-block h-2.5 w-2.5 rounded-full ${isConnected ? "bg-emerald-500 animate-pulse" : "bg-zinc-500"}`} />
+              <span className="text-muted-foreground">{isConnected ? "Realtime Active" : "Realtime Offline"}</span>
+            </div>
+
+            <button
+              onClick={() => refreshData()}
+              disabled={loading}
+              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold hover:bg-accent transition"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+              Refresh
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Summary Grid Cards */}
       <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
         {/* Team Members */}
-        <div className="rounded-xl border border-border bg-card p-4 shadow-sm hover:shadow-md transition">
+        <div className="rounded-xl border border-border bg-card p-4 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-muted-foreground">Team Members</span>
-            <FiUsers className="h-4 w-4 text-primary" />
+            <span className="text-xs font-semibold text-muted-foreground">Team Members</span>
+            <Users className="h-4 w-4 text-muted-foreground" />
           </div>
-          <div className="mt-2.5 flex items-baseline gap-2">
-            <span className="text-3xl font-bold">{summary.totalTeamMembers}</span>
-            <span className="text-xs text-muted-foreground">Active Profiles</span>
+          <div className="mt-2 flex items-baseline gap-1.5">
+            <span className="text-2xl font-bold text-foreground">{summary.totalTeamMembers}</span>
+            <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Active Profiles</span>
           </div>
         </div>
 
         {/* Active Projects */}
-        <div className="rounded-xl border border-border bg-card p-4 shadow-sm hover:shadow-md transition">
+        <div className="rounded-xl border border-border bg-card p-4 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-muted-foreground">Active Projects</span>
-            <FiFolder className="h-4 w-4 text-indigo-500" />
+            <span className="text-xs font-semibold text-muted-foreground">Active Projects</span>
+            <Folder className="h-4 w-4 text-muted-foreground" />
           </div>
-          <div className="mt-2.5 flex items-baseline gap-2">
-            <span className="text-3xl font-bold">{summary.activeProjects}</span>
-            <span className="text-xs text-muted-foreground">In Progress</span>
+          <div className="mt-2 flex items-baseline gap-1.5">
+            <span className="text-2xl font-bold text-foreground">{summary.activeProjects}</span>
+            <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">In Progress</span>
           </div>
         </div>
 
         {/* Today's Tasks */}
-        <div className="rounded-xl border border-border bg-card p-4 shadow-sm hover:shadow-md transition">
+        <div className="rounded-xl border border-border bg-card p-4 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-muted-foreground">Today's Tasks</span>
-            <FiCheckSquare className="h-4 w-4 text-emerald-500" />
+            <span className="text-xs font-semibold text-muted-foreground">Today's Tasks</span>
+            <CheckSquare className="h-4 w-4 text-muted-foreground" />
           </div>
-          <div className="mt-2.5 flex items-baseline gap-2">
-            <span className="text-3xl font-bold">{summary.todayTasks}</span>
-            <span className="text-xs text-muted-foreground">Allocated</span>
+          <div className="mt-2 flex items-baseline gap-1.5">
+            <span className="text-2xl font-bold text-foreground">{summary.todayTasks}</span>
+            <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Allocated</span>
           </div>
         </div>
 
         {/* Completed Today */}
-        <div className="rounded-xl border border-border bg-card p-4 shadow-sm hover:shadow-md transition">
+        <div className="rounded-xl border border-border bg-card p-4 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-muted-foreground">Completed Today</span>
+            <span className="text-xs font-semibold text-muted-foreground">Completed Today</span>
             <div className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600">
-              <FiCheck className="h-3 w-3" />
+              <Check className="h-3 w-3" />
             </div>
           </div>
-          <div className="mt-2.5 flex items-baseline gap-2">
-            <span className="text-3xl font-bold text-emerald-600">{summary.completedToday}</span>
-            <span className="text-xs text-muted-foreground">Tasks Completed</span>
+          <div className="mt-2 flex items-baseline gap-1.5">
+            <span className="text-2xl font-bold text-emerald-600">{summary.completedToday}</span>
+            <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Completed</span>
           </div>
         </div>
 
         {/* In Progress */}
-        <div className="rounded-xl border border-border bg-card p-4 shadow-sm hover:shadow-md transition">
+        <div className="rounded-xl border border-border bg-card p-4 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-muted-foreground">In Progress</span>
-            <FiPlay className="h-4 w-4 text-blue-500" />
+            <span className="text-xs font-semibold text-muted-foreground">In Progress</span>
+            <Play className="h-4 w-4 text-muted-foreground" />
           </div>
-          <div className="mt-2.5 flex items-baseline gap-2">
-            <span className="text-3xl font-bold text-blue-600">{summary.inProgress}</span>
-            <span className="text-xs text-muted-foreground">Active Tasks</span>
+          <div className="mt-2 flex items-baseline gap-1.5">
+            <span className="text-2xl font-bold text-blue-600">{summary.inProgress}</span>
+            <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Active</span>
           </div>
         </div>
 
         {/* Blocked */}
-        <div className="rounded-xl border border-border bg-card p-4 shadow-sm hover:shadow-md transition">
+        <div className="rounded-xl border border-border bg-card p-4 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-muted-foreground">Blocked</span>
-            <FiAlertOctagon className="h-4 w-4 text-rose-500" />
+            <span className="text-xs font-semibold text-muted-foreground">Blocked</span>
+            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
           </div>
-          <div className="mt-2.5 flex items-baseline gap-2">
-            <span className="text-3xl font-bold text-rose-600">{summary.blocked}</span>
-            <span className="text-xs text-muted-foreground">Attention Needed</span>
+          <div className="mt-2 flex items-baseline gap-1.5">
+            <span className="text-2xl font-bold text-rose-600">{summary.blocked}</span>
+            <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Blocked</span>
           </div>
         </div>
 
         {/* Overdue */}
-        <div className="rounded-xl border border-border bg-card p-4 shadow-sm hover:shadow-md transition">
+        <div className="rounded-xl border border-border bg-card p-4 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-muted-foreground">Overdue</span>
-            <FiAlertTriangle className="h-4 w-4 text-amber-500" />
+            <span className="text-xs font-semibold text-muted-foreground">Overdue</span>
+            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
           </div>
-          <div className="mt-2.5 flex items-baseline gap-2">
-            <span className="text-3xl font-bold text-amber-600">{summary.overdue}</span>
-            <span className="text-xs text-muted-foreground">Outstanding</span>
+          <div className="mt-2 flex items-baseline gap-1.5">
+            <span className="text-2xl font-bold text-amber-600">{summary.overdue}</span>
+            <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Overdue</span>
           </div>
         </div>
 
         {/* Missing Updates */}
-        <div className="rounded-xl border border-border bg-card p-4 shadow-sm hover:shadow-md transition">
+        <div className="rounded-xl border border-border bg-card p-4 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-muted-foreground">Missing Updates</span>
-            <FiClock className="h-4 w-4 text-zinc-500" />
+            <span className="text-xs font-semibold text-muted-foreground">Missing Updates</span>
+            <Clock className="h-4 w-4 text-muted-foreground" />
           </div>
-          <div className="mt-2.5 flex items-baseline gap-2">
-            <span className="text-3xl font-bold text-zinc-600">{summary.missingUpdates}</span>
-            <span className="text-xs text-muted-foreground">No Daily Report</span>
+          <div className="mt-2 flex items-baseline gap-1.5">
+            <span className="text-2xl font-bold text-zinc-650">{summary.missingUpdates}</span>
+            <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Missing Update</span>
           </div>
         </div>
       </div>
@@ -291,14 +293,14 @@ export default function WorkManagementDashboard({ initialData, currentUser }: Pr
           
           <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
             {/* Blocked Tasks List */}
-            <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+            <div className="rounded-xl border border-border bg-card p-4 space-y-3 shadow-xs">
               <h3 className="text-sm font-bold text-rose-600 flex items-center gap-1.5">
-                <FiAlertOctagon className="h-4 w-4" /> Blocked Tasks ({needsAttention.blockedTasks.length})
+                <AlertTriangle className="h-4 w-4" /> Blocked Tasks ({needsAttention.blockedTasks.length})
               </h3>
 
               {needsAttention.blockedTasks.length === 0 ? (
                 <div className="flex h-32 flex-col items-center justify-center text-xs text-muted-foreground">
-                  <FiCheck className="h-5 w-5 text-emerald-500 mb-1" />
+                  <Check className="h-5 w-5 text-emerald-500 mb-1" />
                   <p>Great! No blocked tasks.</p>
                 </div>
               ) : (
@@ -319,14 +321,14 @@ export default function WorkManagementDashboard({ initialData, currentUser }: Pr
             </div>
 
             {/* Overdue Tasks List */}
-            <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+            <div className="rounded-xl border border-border bg-card p-4 space-y-3 shadow-xs">
               <h3 className="text-sm font-bold text-amber-600 flex items-center gap-1.5">
-                <FiAlertTriangle className="h-4 w-4" /> Overdue Tasks ({needsAttention.overdueTasks.length})
+                <AlertTriangle className="h-4 w-4" /> Overdue Tasks ({needsAttention.overdueTasks.length})
               </h3>
 
               {needsAttention.overdueTasks.length === 0 ? (
                 <div className="flex h-32 flex-col items-center justify-center text-xs text-muted-foreground">
-                  <FiCheck className="h-5 w-5 text-emerald-500 mb-1" />
+                  <Check className="h-5 w-5 text-emerald-500 mb-1" />
                   <p>All tasks are on schedule.</p>
                 </div>
               ) : (
@@ -347,14 +349,14 @@ export default function WorkManagementDashboard({ initialData, currentUser }: Pr
             </div>
 
             {/* Missing Daily Updates */}
-            <div className="rounded-xl border border-border bg-card p-4 space-y-3">
-              <h3 className="text-sm font-bold text-zinc-500 flex items-center gap-1.5">
-                <FiClock className="h-4 w-4" /> Missing Today's Updates ({needsAttention.missingUpdates.length})
+            <div className="rounded-xl border border-border bg-card p-4 space-y-3 shadow-xs">
+              <h3 className="text-sm font-bold text-zinc-550 flex items-center gap-1.5">
+                <Clock className="h-4 w-4" /> Missing Today's Updates ({needsAttention.missingUpdates.length})
               </h3>
 
               {needsAttention.missingUpdates.length === 0 ? (
                 <div className="flex h-32 flex-col items-center justify-center text-xs text-muted-foreground">
-                  <FiCheck className="h-5 w-5 text-emerald-500 mb-1" />
+                  <Check className="h-5 w-5 text-emerald-500 mb-1" />
                   <p>All updates submitted today!</p>
                 </div>
               ) : (
@@ -372,14 +374,14 @@ export default function WorkManagementDashboard({ initialData, currentUser }: Pr
             </div>
 
             {/* High Workload Alerts */}
-            <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+            <div className="rounded-xl border border-border bg-card p-4 space-y-3 shadow-xs">
               <h3 className="text-sm font-bold text-rose-500 flex items-center gap-1.5">
-                <FiActivity className="h-4 w-4" /> High Workload ({needsAttention.highWorkload.length})
+                <Activity className="h-4 w-4" /> High Workload ({needsAttention.highWorkload.length})
               </h3>
 
               {needsAttention.highWorkload.length === 0 ? (
                 <div className="flex h-32 flex-col items-center justify-center text-xs text-muted-foreground">
-                  <FiCheck className="h-5 w-5 text-emerald-500 mb-1" />
+                  <Check className="h-5 w-5 text-emerald-500 mb-1" />
                   <p>Workloads balanced.</p>
                 </div>
               ) : (
@@ -403,10 +405,10 @@ export default function WorkManagementDashboard({ initialData, currentUser }: Pr
         <div className="space-y-4">
           <h2 className="text-lg font-bold tracking-tight">⚡ Realtime Activity</h2>
 
-          <div className="rounded-xl border border-border bg-card p-4 space-y-4 h-[252px] overflow-y-auto shadow-sm">
+          <div className="rounded-xl border border-border bg-card p-4 space-y-4 h-[252px] overflow-y-auto shadow-xs">
             {recentActivity.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center text-xs text-muted-foreground">
-                <FiInbox className="h-6 w-6 mb-2" />
+                <Inbox className="h-6 w-6 mb-2" />
                 <p>No recent activity logs.</p>
               </div>
             ) : (
@@ -485,7 +487,7 @@ export default function WorkManagementDashboard({ initialData, currentUser }: Pr
 
                     {/* Clock timer */}
                     <div className="flex items-center gap-1 text-[11px] font-mono text-muted-foreground">
-                      <FiClock className="h-3 w-3" />
+                      <Clock className="h-3 w-3" />
                       <span>{formatDuration(activeDurationMs)}</span>
                     </div>
                   </div>
@@ -540,7 +542,7 @@ export default function WorkManagementDashboard({ initialData, currentUser }: Pr
           {/* Quick Filters and Search */}
           <div className="flex flex-col sm:flex-row items-center gap-3">
             <div className="relative w-full sm:w-60">
-              <FiSearch className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
               <input
                 type="text"
                 placeholder="Search employee, project..."

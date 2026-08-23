@@ -5,20 +5,27 @@ import { useSocket } from "@/components/providers/SocketProvider";
 import { getEmployeeWorkProfile } from "@/app/actions/projects/work-management-team.action";
 import { createTask, updateTask } from "@/app/actions/system/task.action";
 import {
-  FiArrowLeft,
-  FiUser,
-  FiClock,
-  FiFolder,
-  FiCheckCircle,
-  FiPlay,
-  FiAlertCircle,
-  FiCalendar,
-  FiPlus,
-  FiEdit3,
-  FiActivity,
-  FiBriefcase,
-  FiCheck,
-} from "react-icons/fi";
+  ArrowLeft,
+  User,
+  Clock,
+  Folder,
+  CheckCircle2,
+  Play,
+  AlertCircle,
+  Calendar,
+  Plus,
+  Edit3,
+  Activity,
+  Briefcase,
+  Check,
+} from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import Link from "next/link";
 import { toast } from "sonner";
 
@@ -217,13 +224,13 @@ export default function EmployeeWorkProfileView({ profile: initialProfile, curre
             href="/dashboard/work-management/team"
             className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground transition"
           >
-            <FiArrowLeft className="h-4 w-4" /> Back to My Team
+            <ArrowLeft className="h-4 w-4" /> Back to My Team
           </Link>
         </div>
       )}
 
       {/* Main Profile Header Card */}
-      <div className="rounded-xl border border-border bg-card p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
+      <div className="rounded-xl border border-border bg-card p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="flex items-center gap-4">
           <div className="h-16 w-16 rounded-full bg-muted overflow-hidden flex items-center justify-center font-bold text-xl">
             {profile.photo ? (
@@ -261,9 +268,9 @@ export default function EmployeeWorkProfileView({ profile: initialProfile, curre
           {isManager && (
             <button
               onClick={() => setIsTaskModalOpen(true)}
-              className="inline-flex items-center gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold px-4 py-2 rounded-lg shadow transition"
+              className="inline-flex items-center gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold px-4 py-2 rounded-lg shadow-xs transition"
             >
-              <FiPlus className="h-4 w-4" /> Assign New Task
+              <Plus className="h-4 w-4" /> Assign New Task
             </button>
           )}
 
@@ -277,12 +284,12 @@ export default function EmployeeWorkProfileView({ profile: initialProfile, curre
       {/* Tabs Menu Navigation */}
       <div className="flex border-b border-border overflow-x-auto gap-2">
         {[
-          { id: "overview", label: "Overview", icon: FiUser },
-          { id: "tasks", label: "Tasks & Work", icon: FiCheckCircle },
-          { id: "projects", label: "Projects", icon: FiFolder },
-          { id: "updates", label: "Daily Updates", icon: FiCalendar },
-          { id: "sessions", label: "Sessions Log", icon: FiClock },
-          { id: "activity", label: "Activity Ledger", icon: FiActivity },
+          { id: "overview", label: "Overview", icon: User },
+          { id: "tasks", label: "Tasks & Work", icon: CheckCircle2 },
+          { id: "projects", label: "Projects", icon: Folder },
+          { id: "updates", label: "Daily Updates", icon: Calendar },
+          { id: "sessions", label: "Sessions Log", icon: Clock },
+          { id: "activity", label: "Activity Ledger", icon: Activity },
         ].map((tab) => {
           const Icon = tab.icon;
           return (
@@ -312,27 +319,27 @@ export default function EmployeeWorkProfileView({ profile: initialProfile, curre
               {/* Needs Attention Alert List */}
               <div className="rounded-xl border border-border bg-card p-5 space-y-3">
                 <h3 className="text-sm font-bold text-rose-600 flex items-center gap-1.5">
-                  <FiAlertCircle className="h-4 w-4" /> Operational Actions Needed
+                  <AlertCircle className="h-4 w-4" /> Operational Actions Needed
                 </h3>
 
                 <div className="space-y-2 text-xs">
                   {profile.taskStats.overdue > 0 && (
                     <div className="flex items-center gap-2 text-rose-700 bg-rose-50 border border-rose-100 rounded px-3 py-2">
-                      <FiAlertCircle className="h-4 w-4 shrink-0" />
+                      <AlertCircle className="h-4 w-4 shrink-0" />
                       <span>Employee has <strong>{profile.taskStats.overdue}</strong> overdue task(s) on active projects.</span>
                     </div>
                   )}
 
                   {profile.taskStats.blocked > 0 && (
                     <div className="flex items-center gap-2 text-rose-700 bg-rose-50 border border-rose-100 rounded px-3 py-2">
-                      <FiAlertCircle className="h-4 w-4 shrink-0" />
+                      <AlertCircle className="h-4 w-4 shrink-0" />
                       <span>Employee has <strong>{profile.taskStats.blocked}</strong> blocked task(s) waiting for clearances.</span>
                     </div>
                   )}
 
                   {!profile.todayUpdateSubmitted && profile.sessionState.status !== "NOT STARTED" && (
                     <div className="flex items-center gap-2 text-amber-700 bg-amber-50 border border-amber-100 rounded px-3 py-2">
-                      <FiClock className="h-4 w-4 shrink-0" />
+                      <Clock className="h-4 w-4 shrink-0" />
                       <span>Employee has not submitted today's Daily Updates report.</span>
                     </div>
                   )}
@@ -348,7 +355,7 @@ export default function EmployeeWorkProfileView({ profile: initialProfile, curre
               {/* Work Session Current Focus Details */}
               <div className="rounded-xl border border-border bg-card p-5 space-y-4">
                 <h3 className="text-sm font-bold flex items-center gap-1.5">
-                  <FiClock className="h-4 w-4 text-primary" /> Today's Session Progress
+                  <Clock className="h-4 w-4 text-primary" /> Today's Session Progress
                 </h3>
 
                 <div className="grid gap-4 grid-cols-2 md:grid-cols-4 text-xs font-mono text-center">
@@ -394,7 +401,7 @@ export default function EmployeeWorkProfileView({ profile: initialProfile, curre
               {/* Workload Capacity progress widget */}
               <div className="rounded-xl border border-border bg-card p-5 space-y-4">
                 <h3 className="text-sm font-bold flex items-center gap-1.5">
-                  <FiActivity className="h-4 w-4 text-primary" /> Active Workload Engine
+                  <Activity className="h-4 w-4 text-primary" /> Active Workload Engine
                 </h3>
 
                 <div className="space-y-2 text-xs">
@@ -429,7 +436,7 @@ export default function EmployeeWorkProfileView({ profile: initialProfile, curre
               {/* Today's Tasks completed metrics card */}
               <div className="rounded-xl border border-border bg-card p-5 space-y-4">
                 <h3 className="text-sm font-bold flex items-center gap-1.5">
-                  <FiCheckCircle className="h-4 w-4 text-emerald-500" /> Today's Task Metrics
+                  <CheckCircle2 className="h-4 w-4 text-emerald-500" /> Today's Task Metrics
                 </h3>
 
                 <div className="grid grid-cols-2 gap-3 text-xs">
@@ -459,7 +466,7 @@ export default function EmployeeWorkProfileView({ profile: initialProfile, curre
               <div className="rounded-xl border border-border bg-card p-5 space-y-4 shadow-sm">
                 <h3 className="text-sm font-bold flex items-center justify-between">
                   <span className="flex items-center gap-1.5">
-                    <FiCalendar className="h-4 w-4 text-primary" /> Today's My Day Plan
+                    <Calendar className="h-4 w-4 text-primary" /> Today's My Day Plan
                   </span>
                   <Link
                     href={`/dashboard/work-management/my-day/${profile.id}`}
@@ -498,7 +505,7 @@ export default function EmployeeWorkProfileView({ profile: initialProfile, curre
                   onClick={() => setIsTaskModalOpen(true)}
                   className="inline-flex items-center gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold px-3 py-1.5 rounded"
                 >
-                  <FiPlus /> New Task
+                  <Plus className="h-3.5 w-3.5" /> New Task
                 </button>
               )}
             </div>
@@ -772,103 +779,98 @@ export default function EmployeeWorkProfileView({ profile: initialProfile, curre
       </div>
 
       {/* Task Creation Modal Form Popup */}
-      {isTaskModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-card border border-border rounded-xl w-full max-w-md p-6 space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold text-foreground">Assign New Task</h3>
-              <button
-                onClick={() => setIsTaskModalOpen(false)}
-                className="text-muted-foreground hover:text-foreground text-sm font-bold"
-              >
-                ✕
-              </button>
+      <Dialog open={isTaskModalOpen} onOpenChange={setIsTaskModalOpen}>
+        <DialogContent className="sm:max-w-[425px] border border-border bg-card p-6 shadow-2xl text-xs">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold text-foreground">Assign New Task</DialogTitle>
+            <DialogDescription className="text-[11px] text-muted-foreground">
+              Create and assign a new task to {profile.name}.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleAssignTask} className="space-y-4 text-xs mt-2">
+            <div className="space-y-1">
+              <label className="font-semibold text-muted-foreground">Task Title *</label>
+              <input
+                type="text"
+                required
+                placeholder="Task name"
+                value={taskTitle}
+                onChange={(e) => setTaskTitle(e.target.value)}
+                className="w-full rounded-lg border border-border bg-background py-2 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary shadow-xs transition"
+              />
             </div>
 
-            <form onSubmit={handleAssignTask} className="space-y-4 text-xs">
+            <div className="space-y-1">
+              <label className="font-semibold text-muted-foreground">Description</label>
+              <textarea
+                placeholder="Task details"
+                value={taskDesc}
+                onChange={(e) => setTaskDesc(e.target.value)}
+                className="w-full rounded-lg border border-border bg-background py-2 px-3 text-xs h-20 focus:outline-none focus:ring-1 focus:ring-primary shadow-xs transition"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
-                <label className="font-semibold text-muted-foreground">Task Title *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Task name"
-                  value={taskTitle}
-                  onChange={(e) => setTaskTitle(e.target.value)}
-                  className="w-full rounded-lg border border-border bg-background py-2 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="font-semibold text-muted-foreground">Description</label>
-                <textarea
-                  placeholder="Task details"
-                  value={taskDesc}
-                  onChange={(e) => setTaskDesc(e.target.value)}
-                  className="w-full rounded-lg border border-border bg-background py-2 px-3 text-xs h-20 focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="font-semibold text-muted-foreground">Priority</label>
-                  <select
-                    value={taskPriority}
-                    onChange={(e) => setTaskPriority(e.target.value)}
-                    className="w-full rounded-lg border border-border bg-background py-2 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                  >
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="font-semibold text-muted-foreground">Due Date</label>
-                  <input
-                    type="date"
-                    value={taskDueDate}
-                    onChange={(e) => setTaskDueDate(e.target.value)}
-                    className="w-full rounded-lg border border-border bg-background py-2 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="font-semibold text-muted-foreground">Project Context</label>
+                <label className="font-semibold text-muted-foreground">Priority</label>
                 <select
-                  value={taskProject}
-                  onChange={(e) => setTaskProject(e.target.value)}
-                  className="w-full rounded-lg border border-border bg-background py-2 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                  value={taskPriority}
+                  onChange={(e) => setTaskPriority(e.target.value)}
+                  className="w-full rounded-lg border border-border bg-background py-2 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary shadow-xs transition"
                 >
-                  <option value="">General (No project)</option>
-                  {profile.projects.map((p: any) => (
-                    <option key={p.id} value={p.id}>
-                      {p.title}
-                    </option>
-                  ))}
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
                 </select>
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3">
-                <button
-                  type="button"
-                  onClick={() => setIsTaskModalOpen(false)}
-                  className="rounded-lg border border-border px-4 py-2 hover:bg-accent font-semibold"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isPending}
-                  className="bg-primary text-primary-foreground rounded-lg px-4 py-2 hover:bg-primary/90 font-semibold"
-                >
-                  {isPending ? "Assigning..." : "Assign Task"}
-                </button>
+              <div className="space-y-1">
+                <label className="font-semibold text-muted-foreground">Due Date</label>
+                <input
+                  type="date"
+                  value={taskDueDate}
+                  onChange={(e) => setTaskDueDate(e.target.value)}
+                  className="w-full rounded-lg border border-border bg-background py-2 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary shadow-xs transition"
+                />
               </div>
-            </form>
-          </div>
-        </div>
-      )}
+            </div>
+
+            <div className="space-y-1">
+              <label className="font-semibold text-muted-foreground">Project Context</label>
+              <select
+                value={taskProject}
+                onChange={(e) => setTaskProject(e.target.value)}
+                className="w-full rounded-lg border border-border bg-background py-2 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary shadow-xs transition"
+              >
+                <option value="">General (No project)</option>
+                {profile.projects.map((p: any) => (
+                  <option key={p.id} value={p.id}>
+                    {p.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-3">
+              <button
+                type="button"
+                onClick={() => setIsTaskModalOpen(false)}
+                className="rounded-lg border border-border px-4 py-2 hover:bg-accent font-semibold transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isPending}
+                className="bg-primary text-primary-foreground rounded-lg px-4 py-2 hover:bg-primary/90 font-semibold transition shadow-xs"
+              >
+                {isPending ? "Assigning..." : "Assign Task"}
+              </button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

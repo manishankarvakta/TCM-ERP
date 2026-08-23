@@ -74,7 +74,6 @@ export const MENU_TEMPLATE: MenuItemData[] = [
     module: "projects",
     subMenu: [
       { href: "/dashboard/projects", label: "Dashboard", icon: "FiTarget", module: "projects", permissionKey: "projects.projects" },
-      { href: "/dashboard/work-management", label: "Work Management", icon: "FiClock", module: "projects", permissionKey: "projects.work-management" },
       { href: "/dashboard/work-management/my-day", label: "My Day", icon: "FiCalendar", module: "projects", permissionKey: "projects.work-management-myday" },
       { href: "/dashboard/work-management/team", label: "My Team", icon: "FiUsers", module: "projects", permissionKey: "projects.work-management-team" },
       { href: "/dashboard/work-management/tasks", label: "Task Center", icon: "FiCheckSquare", module: "projects", permissionKey: "projects.work-management-tasks" },

@@ -4,15 +4,15 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useSocket } from "@/components/providers/SocketProvider";
 import { getTeamMembersWorkSummary } from "@/app/actions/projects/work-management-team.action";
 import {
-  FiUsers,
-  FiSearch,
-  FiClock,
-  FiCheckCircle,
-  FiPlayCircle,
-  FiAlertCircle,
-  FiActivity,
-  FiRefreshCw,
-} from "react-icons/fi";
+  Users,
+  Search,
+  Clock,
+  CheckCircle,
+  PlayCircle,
+  AlertCircle,
+  Activity,
+  RefreshCw,
+} from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 
@@ -147,46 +147,46 @@ export default function MyTeamView({ initialTeam }: Props) {
   }, [team, searchQuery, statusFilter, workloadFilter, updateFilter]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header */}
-      <div className="flex flex-col gap-4 border-b border-border pb-5 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-4 border-b border-border/40 pb-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-primary via-blue-500 to-indigo-500 bg-clip-text text-transparent">
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">
             My Team Directory
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="text-xs text-muted-foreground mt-0.5">
             Operational status, workloads, and task completions of all active team members.
           </p>
         </div>
 
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-xs">
-            <span className={`inline-block h-2.5 w-2.5 rounded-full ${isConnected ? "bg-emerald-500 animate-pulse" : "bg-zinc-500"}`} />
+            <span className={`inline-block h-2 w-2 rounded-full ${isConnected ? "bg-emerald-500 animate-pulse" : "bg-zinc-500"}`} />
             <span className="text-muted-foreground">{isConnected ? "Realtime Active" : "Realtime Offline"}</span>
           </div>
 
           <button
             onClick={() => refreshTeam()}
             disabled={loading}
-            className="flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-sm font-medium hover:bg-accent transition"
+            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold hover:bg-accent transition"
           >
-            <FiRefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
             Refresh
           </button>
         </div>
       </div>
 
       {/* Filters & Search Grid */}
-      <div className="rounded-xl border border-border bg-card p-4 grid gap-4 grid-cols-1 md:grid-cols-4 shadow-sm">
+      <div className="rounded-xl border border-border/60 bg-card p-3 grid gap-4 grid-cols-1 md:grid-cols-4 shadow-xs text-xs">
         {/* Search */}
         <div className="relative">
-          <FiSearch className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
           <input
             type="text"
             placeholder="Search name, position, dept..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-lg border border-border bg-background py-1.5 pl-9 pr-4 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+            className="w-full rounded-lg border border-border bg-background py-1.5 pl-9 pr-4 text-xs focus:outline-none focus:ring-1 focus:ring-primary shadow-xs transition"
           />
         </div>
 
@@ -311,7 +311,7 @@ export default function MyTeamView({ initialTeam }: Props) {
                   </div>
 
                   <div className="flex items-center gap-1 text-xs font-mono text-muted-foreground">
-                    <FiClock className="h-3.5 w-3.5" />
+                    <Clock className="h-3.5 w-3.5" />
                     <span>{formatDurationSimple(emp.activeTimeMs)}</span>
                   </div>
                 </div>
@@ -332,13 +332,13 @@ export default function MyTeamView({ initialTeam }: Props) {
                   <div className="space-y-1.5 pl-3.5 border-l border-border/60">
                     <div className="text-muted-foreground flex items-center justify-between">
                       <span className="flex items-center gap-1">
-                        <FiCheckCircle className="text-emerald-500" /> Completed
+                        <CheckCircle className="h-3.5 w-3.5 text-emerald-500" /> Completed
                       </span>
                       <span className="font-semibold text-emerald-600">{emp.completedCount}</span>
                     </div>
                     <div className="text-muted-foreground flex items-center justify-between">
                       <span className="flex items-center gap-1">
-                        <FiPlayCircle className="text-blue-500" /> In Progress
+                        <PlayCircle className="h-3.5 w-3.5 text-blue-500" /> In Progress
                       </span>
                       <span className="font-semibold text-blue-600">{emp.inProgressCount}</span>
                     </div>
@@ -348,14 +348,14 @@ export default function MyTeamView({ initialTeam }: Props) {
                 {/* Secondary counts: Blocked, Overdue */}
                 <div className="flex items-center justify-between text-[11px] bg-accent/10 px-2 py-1 rounded">
                   <div className="flex items-center gap-1">
-                    <FiAlertCircle className={emp.blockedCount > 0 ? "text-rose-500" : "text-muted-foreground"} />
+                    <AlertCircle className={`h-3.5 w-3.5 ${emp.blockedCount > 0 ? "text-rose-500" : "text-muted-foreground"}`} />
                     <span className={emp.blockedCount > 0 ? "text-rose-600 font-bold" : "text-muted-foreground"}>
                       {emp.blockedCount} Blocked
                     </span>
                   </div>
 
                   <div className="flex items-center gap-1">
-                    <FiAlertCircle className={emp.overdueCount > 0 ? "text-rose-500" : "text-muted-foreground"} />
+                    <AlertCircle className={`h-3.5 w-3.5 ${emp.overdueCount > 0 ? "text-rose-500" : "text-muted-foreground"}`} />
                     <span className={emp.overdueCount > 0 ? "text-rose-600 font-bold" : "text-muted-foreground"}>
                       {emp.overdueCount} Overdue
                     </span>
@@ -408,7 +408,7 @@ export default function MyTeamView({ initialTeam }: Props) {
                     href={`/dashboard/work-management/team/${emp.id}`}
                     className="inline-flex items-center justify-center gap-1.5 w-full bg-accent/50 hover:bg-accent text-xs font-semibold py-2 px-4 rounded-lg transition"
                   >
-                    Open Work Profile <FiUsers className="h-3.5 w-3.5" />
+                    Open Work Profile <Users className="h-3.5 w-3.5" />
                   </Link>
                 </div>
               </div>

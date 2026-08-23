@@ -82,11 +82,11 @@ export async function getMacroProjectTelemetry() {
     const upcomingDeadlines = await prisma.milestone.findMany({
       where: { 
         status: { not: "COMPLETED" },
-        endDate: { gte: new Date() }
+        dueDate: { gte: new Date() }
       },
-      orderBy: { endDate: 'asc' },
+      orderBy: { dueDate: 'asc' },
       take: 5,
-      select: { id: true, title: true, endDate: true, Project: { select: { title: true } } }
+      select: { id: true, title: true, dueDate: true, Project: { select: { title: true } } }
     });
 
     return {

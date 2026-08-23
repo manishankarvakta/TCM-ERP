@@ -11,7 +11,7 @@ import {
 } from "@/app/actions/projects/work-management-myday.action";
 import {
   startWorkSession,
-  pauseWorkSession,
+  breakWorkSession,
   resumeWorkSession,
   endWorkSession,
   switchWorkSessionTask,
@@ -333,7 +333,7 @@ export default function MyDayView({ initialData, currentUser }: Props) {
   };
 
   const handlePauseSession = async () => {
-    const res = await pauseWorkSession();
+    const res = await breakWorkSession();
     if (res.success) {
       toast.success("Work session paused (On Break).");
       refreshMyDay();

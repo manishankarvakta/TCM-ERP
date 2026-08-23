@@ -4,20 +4,28 @@ import React, { useState, useEffect, useCallback, useTransition } from "react";
 import { useSocket } from "@/components/providers/SocketProvider";
 import { getCentralTaskCenterData } from "@/app/actions/projects/work-management-tasks.action";
 import { createTask, updateTask, deleteTask } from "@/app/actions/system/task.action";
+import { getAllMilestones } from "@/app/actions/projects/project.action";
 import {
-  FiCheckSquare,
-  FiSearch,
-  FiFilter,
-  FiPlus,
-  FiRefreshCw,
-  FiUser,
-  FiFolder,
-  FiAlertCircle,
-  FiCalendar,
-  FiTrash2,
-  FiMessageSquare,
-  FiSliders,
-} from "react-icons/fi";
+  CheckSquare,
+  Search,
+  Filter,
+  Plus,
+  RefreshCw,
+  User,
+  Folder,
+  AlertCircle,
+  Calendar,
+  Trash2,
+  MessageSquare,
+  Sliders,
+} from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
 import Link from "next/link";
 
@@ -56,7 +64,22 @@ export default function TaskCenterView({ initialData, currentUser }: Props) {
   const [taskPriority, setTaskPriority] = useState("medium");
   const [taskStatus, setTaskStatus] = useState("todo");
   const [taskDueDate, setTaskDueDate] = useState("");
+  const [taskMilestoneId, setTaskMilestoneId] = useState("");
+  const [taskParentId, setTaskParentId] = useState("");
+  const [taskEstimatedHours, setTaskEstimatedHours] = useState("");
+  const [isMoreOptionsOpen, setIsMoreOptionsOpen] = useState(false);
+  const [milestonesList, setMilestonesList] = useState<any[]>([]);
 
+  // Fetch milestones on load
+  useEffect(() => {
+    async function loadMilestones() {
+      const res = await getAllMilestones("all");
+      if (res.success && res.milestones) {
+        setMilestonesList(res.milestones);
+      }
+    }
+    loadMilestones();
+  }, []);
   const { socket, isConnected } = useSocket();
 
   // Fetch / Query Central Task Center Data
@@ -127,6 +150,9 @@ export default function TaskCenterView({ initialData, currentUser }: Props) {
         priority: taskPriority,
         status: taskStatus,
         dueDate: taskDueDate ? new Date(taskDueDate) : undefined,
+        milestoneId: taskMilestoneId || undefined,
+        parentId: taskParentId || undefined,
+        estimatedHours: taskEstimatedHours ? parseFloat(taskEstimatedHours) : undefined,
       });
 
       if (res.success) {
@@ -139,6 +165,10 @@ export default function TaskCenterView({ initialData, currentUser }: Props) {
         setTaskPriority("medium");
         setTaskStatus("todo");
         setTaskDueDate("");
+        setTaskMilestoneId("");
+        setTaskParentId("");
+        setTaskEstimatedHours("");
+        setIsMoreOptionsOpen(false);
         refreshTasks();
       } else {
         toast.error(res.error || "Failed to create task");
@@ -178,9 +208,9 @@ export default function TaskCenterView({ initialData, currentUser }: Props) {
 
   if (!data) {
     return (
-      <div className="flex h-[60vh] flex-col items-center justify-center gap-4 text-muted-foreground">
-        <FiRefreshCw className="h-8 w-8 animate-spin text-primary" />
-        <p>Loading Task Center context...</p>
+      <div className="flex h-[60vh] flex-col items-center justify-center gap-3 text-muted-foreground">
+        <RefreshCw className="h-6 w-6 animate-spin text-primary" />
+        <p className="text-xs font-semibold">Loading Task Center context...</p>
       </div>
     );
   }
@@ -192,27 +222,27 @@ export default function TaskCenterView({ initialData, currentUser }: Props) {
   return (
     <div className="space-y-6">
       {/* Header Banner */}
-      <div className="flex flex-col gap-4 border-b border-border pb-5 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-4 border-b border-border/40 pb-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-primary via-blue-500 to-indigo-500 bg-clip-text text-transparent">
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">
             Central Task Center
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            centralized project task board, checklists, assignments, and blocker tracking.
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Centralized project task board, checklists, assignments, and blocker tracking.
           </p>
         </div>
 
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-xs">
-            <span className={`inline-block h-2.5 w-2.5 rounded-full ${isConnected ? "bg-emerald-500 animate-pulse" : "bg-zinc-500"}`} />
+            <span className={`inline-block h-2 w-2 rounded-full ${isConnected ? "bg-emerald-500 animate-pulse" : "bg-zinc-500"}`} />
             <span className="text-muted-foreground">{isConnected ? "Realtime Active" : "Realtime Offline"}</span>
           </div>
 
           <button
             onClick={() => setIsCreateOpen(true)}
-            className="inline-flex items-center gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold px-4 py-2 rounded-lg shadow transition"
+            className="inline-flex items-center gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold px-4 py-2 rounded-lg shadow-xs transition"
           >
-            <FiPlus className="h-4 w-4" /> Create Task
+            <Plus className="h-4 w-4" /> Create Task
           </button>
         </div>
       </div>
@@ -245,16 +275,16 @@ export default function TaskCenterView({ initialData, currentUser }: Props) {
       </div>
 
       {/* Advanced Filters dropdown panel */}
-      <div className="rounded-xl border border-border bg-card p-4 grid gap-4 grid-cols-1 md:grid-cols-5 shadow-sm">
+      <div className="rounded-xl border border-border/60 bg-card p-3 grid gap-3 grid-cols-1 md:grid-cols-5 shadow-xs text-xs">
         {/* Search */}
         <div className="relative">
-          <FiSearch className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
           <input
             type="text"
             placeholder="Search task title..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-lg border border-border bg-background py-1.5 pl-9 pr-4 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+            className="w-full rounded-lg border border-border bg-background py-1.5 pl-9 pr-4 text-xs focus:outline-none focus:ring-1 focus:ring-primary shadow-xs transition"
           />
         </div>
 
@@ -516,9 +546,9 @@ export default function TaskCenterView({ initialData, currentUser }: Props) {
                 {isManager && (
                   <button
                     onClick={() => handleDeleteTaskClick(selectedTask.id)}
-                    className="inline-flex items-center gap-1.5 bg-rose-50 text-rose-700 hover:bg-rose-100 hover:text-rose-800 text-xs font-semibold py-1.5 px-3 rounded-lg transition"
+                    className="inline-flex items-center gap-1.5 bg-rose-50 text-rose-700 hover:bg-rose-100 hover:text-rose-800 text-xs font-semibold py-1.5 px-3 rounded-lg transition animate-pulse"
                   >
-                    <FiTrash2 /> Delete Task
+                    <Trash2 className="h-3.5 w-3.5" /> Delete Task
                   </button>
                 )}
               </div>
@@ -528,122 +558,187 @@ export default function TaskCenterView({ initialData, currentUser }: Props) {
       </div>
 
       {/* Task Creation Modal Form Popup */}
-      {isCreateOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-card border border-border rounded-xl w-full max-w-md p-6 space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold text-foreground">Create Central Task</h3>
-              <button
-                onClick={() => setIsCreateOpen(false)}
-                className="text-muted-foreground hover:text-foreground text-sm font-bold"
-              >
-                ✕
-              </button>
+      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+        <DialogContent className="sm:max-w-[480px] border border-border bg-card p-6 shadow-2xl text-xs max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold text-foreground">Create Central Task</DialogTitle>
+            <DialogDescription className="text-[11px] text-muted-foreground">
+              Define a new central task, project relation, priority, and assignees.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleCreateTaskSubmit} className="space-y-4 text-xs mt-2">
+            <div className="space-y-1">
+              <label className="font-semibold text-muted-foreground">Task Title *</label>
+              <input
+                type="text"
+                required
+                placeholder="E.g., SSL Payment Callback Setup"
+                value={taskTitle}
+                onChange={(e) => setTaskTitle(e.target.value)}
+                className="w-full rounded-lg border border-border bg-background py-2 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary shadow-xs transition"
+              />
             </div>
 
-            <form onSubmit={handleCreateTaskSubmit} className="space-y-4 text-xs">
+            <div className="space-y-1">
+              <label className="font-semibold text-muted-foreground">Description</label>
+              <textarea
+                placeholder="Task context details..."
+                value={taskDesc}
+                onChange={(e) => setTaskDesc(e.target.value)}
+                className="w-full rounded-lg border border-border bg-background py-2 px-3 text-xs h-20 focus:outline-none focus:ring-1 focus:ring-primary shadow-xs transition"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
-                <label className="font-semibold text-muted-foreground">Task Title *</label>
+                <label className="font-semibold text-muted-foreground">Priority</label>
+                <select
+                  value={taskPriority}
+                  onChange={(e) => setTaskPriority(e.target.value)}
+                  className="w-full rounded-lg border border-border bg-background py-2 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary shadow-xs transition"
+                >
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                  <option value="urgent">Urgent</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-semibold text-muted-foreground">Due Date</label>
                 <input
-                  type="text"
-                  required
-                  placeholder="E.g., SSL Payment Callback Setup"
-                  value={taskTitle}
-                  onChange={(e) => setTaskTitle(e.target.value)}
-                  className="w-full rounded-lg border border-border bg-background py-2 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                  type="date"
+                  value={taskDueDate}
+                  onChange={(e) => setTaskDueDate(e.target.value)}
+                  className="w-full rounded-lg border border-border bg-background py-2 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary shadow-xs transition"
                 />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="font-semibold text-muted-foreground">Assignee</label>
+                <select
+                  value={taskAssignee}
+                  onChange={(e) => setTaskAssignee(e.target.value)}
+                  className="w-full rounded-lg border border-border bg-background py-2 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary shadow-xs transition"
+                >
+                  <option value="">Unassigned</option>
+                  {employees.map((emp: any) => (
+                    <option key={emp.id} value={emp.userId || ""}>
+                      {emp.name}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="space-y-1">
-                <label className="font-semibold text-muted-foreground">Description</label>
-                <textarea
-                  placeholder="Task context details..."
-                  value={taskDesc}
-                  onChange={(e) => setTaskDesc(e.target.value)}
-                  className="w-full rounded-lg border border-border bg-background py-2 px-3 text-xs h-20 focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="font-semibold text-muted-foreground">Priority</label>
-                  <select
-                    value={taskPriority}
-                    onChange={(e) => setTaskPriority(e.target.value)}
-                    className="w-full rounded-lg border border-border bg-background py-2 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                  >
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                    <option value="urgent">Urgent</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="font-semibold text-muted-foreground">Due Date</label>
-                  <input
-                    type="date"
-                    value={taskDueDate}
-                    onChange={(e) => setTaskDueDate(e.target.value)}
-                    className="w-full rounded-lg border border-border bg-background py-2 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="font-semibold text-muted-foreground">Assignee</label>
-                  <select
-                    value={taskAssignee}
-                    onChange={(e) => setTaskAssignee(e.target.value)}
-                    className="w-full rounded-lg border border-border bg-background py-2 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                  >
-                    <option value="">Unassigned</option>
-                    {employees.map((emp: any) => (
-                      <option key={emp.id} value={emp.userId || ""}>
-                        {emp.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="font-semibold text-muted-foreground">Project Relation</label>
-                  <select
-                    value={taskProjId}
-                    onChange={(e) => setTaskProjId(e.target.value)}
-                    className="w-full rounded-lg border border-border bg-background py-2 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                  >
-                    <option value="">General Work (No Project)</option>
-                    {projects.map((p: any) => (
-                      <option key={p.id} value={p.id}>
-                        {p.title}
-                      </option>
+                <label className="font-semibold text-muted-foreground">Project Relation</label>
+                <select
+                  value={taskProjId}
+                  onChange={(e) => {
+                    setTaskProjId(e.target.value);
+                    setTaskMilestoneId("");
+                    setTaskParentId("");
+                  }}
+                  className="w-full rounded-lg border border-border bg-background py-2 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary shadow-xs transition"
+                >
+                  <option value="">General Work (No Project)</option>
+                  {projects.map((p: any) => (
+                    <option key={p.id} value={p.id}>
+                      {p.title}
+                    </option>
                   ))}
-                  </select>
-                </div>
+                </select>
               </div>
+            </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3">
-                <button
-                  type="button"
-                  onClick={() => setIsCreateOpen(false)}
-                  className="rounded-lg border border-border px-4 py-2 hover:bg-accent font-semibold"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isPending}
-                  className="bg-primary text-primary-foreground rounded-lg px-4 py-2 hover:bg-primary/90 font-semibold"
-                >
-                  {isPending ? "Creating..." : "Create Task"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+            {/* Collapsible More Options Panel */}
+            <div className="border-t border-border/60 pt-3">
+              <button
+                type="button"
+                onClick={() => setIsMoreOptionsOpen(!isMoreOptionsOpen)}
+                className="flex items-center justify-between w-full text-xs font-semibold text-primary hover:underline transition"
+              >
+                <span>{isMoreOptionsOpen ? "− Hide options" : "+ More options"}</span>
+              </button>
+
+              {isMoreOptionsOpen && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3 p-3 bg-accent/20 rounded-lg border border-border/40 transition-all duration-300">
+                  <div className="space-y-1">
+                    <label className="font-semibold text-muted-foreground block text-[10px]">Milestone Target</label>
+                    <select
+                      value={taskMilestoneId}
+                      onChange={(e) => setTaskMilestoneId(e.target.value)}
+                      disabled={!taskProjId}
+                      className="w-full rounded-lg border border-border bg-background py-1.5 px-3 text-[11px] focus:outline-none focus:ring-1 focus:ring-primary shadow-xs transition disabled:opacity-50"
+                    >
+                      <option value="">No Milestone</option>
+                      {milestonesList
+                        .filter((m: any) => m.projectId === taskProjId)
+                        .map((m: any) => (
+                          <option key={m.id} value={m.id}>
+                            {m.title}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="font-semibold text-muted-foreground block text-[10px]">Parent Task</label>
+                    <select
+                      value={taskParentId}
+                      onChange={(e) => setTaskParentId(e.target.value)}
+                      disabled={!taskProjId}
+                      className="w-full rounded-lg border border-border bg-background py-1.5 px-3 text-[11px] focus:outline-none focus:ring-1 focus:ring-primary shadow-xs transition disabled:opacity-50"
+                    >
+                      <option value="">No Parent Task</option>
+                      {tasks
+                        .filter((t: any) => t.projectId === taskProjId)
+                        .map((t: any) => (
+                          <option key={t.id} value={t.id}>
+                            {t.title}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1 md:col-span-2">
+                    <label className="font-semibold text-muted-foreground block text-[10px]">Estimated Hours</label>
+                    <input
+                      type="number"
+                      step="0.5"
+                      min="0"
+                      placeholder="E.g., 4.5"
+                      value={taskEstimatedHours}
+                      onChange={(e) => setTaskEstimatedHours(e.target.value)}
+                      className="w-full rounded-lg border border-border bg-background py-1.5 px-3 text-[11px] focus:outline-none focus:ring-1 focus:ring-primary shadow-xs transition"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-border/40">
+              <button
+                type="button"
+                onClick={() => setIsCreateOpen(false)}
+                className="rounded-lg border border-border px-4 py-2 hover:bg-accent font-semibold transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isPending}
+                className="bg-primary text-primary-foreground rounded-lg px-4 py-2 hover:bg-primary/90 font-semibold transition shadow-xs"
+              >
+                {isPending ? "Creating..." : "Create Task"}
+              </button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -40,7 +40,7 @@ export default function EnterpriseDashboard() {
   const hasFinancials = telemetry.financials !== null;
 
   return (
-    <div className="space-y-6 mb-12 animate-in fade-in slide-in-from-top-4 duration-700">
+    <div className="space-y-4 mb-5 animate-in fade-in slide-in-from-top-4 duration-700">
       
       {/* Enterprise Title Header */}
       <div className="flex items-center gap-3 pb-2 border-b border-border/40">

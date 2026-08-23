@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import EmployeeMyDayView from "./_components/EmployeeMyDayView";
+import EmployeeMyDayView from "../_components/EmployeeMyDayView";
 import { getEmployeeMyDayData } from "@/app/actions/projects/work-management-myday.action";
 
 export const metadata = {
