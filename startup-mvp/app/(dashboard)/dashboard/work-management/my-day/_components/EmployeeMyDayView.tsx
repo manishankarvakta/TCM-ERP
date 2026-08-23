@@ -191,7 +191,7 @@ export default function EmployeeMyDayView({ initialData, employeeId }: Props) {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8 space-y-8 animate-fade-in text-sm">
+    <div className="max-w-7xl mx-auto pt-0 pb-6 space-y-6 animate-fade-in text-sm">
       {/* Header Banner */}
       <div className="flex flex-col gap-4 border-b border-border pb-6 lg:flex-row lg:items-center lg:justify-between">
         <div>

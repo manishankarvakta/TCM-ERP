@@ -521,7 +521,7 @@ export default function MyDayView({ initialData, currentUser }: Props) {
   const completedTasksList = plannedTasks.filter((t: any) => t.status === "completed" || t.status === "done");
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8 space-y-8 animate-fade-in text-sm">
+    <div className="max-w-7xl mx-auto pt-0 pb-6 space-y-6 animate-fade-in text-sm">
       
       {/* 1. Header Section */}
       <div className="flex flex-col gap-4 border-b border-border pb-6 lg:flex-row lg:items-center lg:justify-between">

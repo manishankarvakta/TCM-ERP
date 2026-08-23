@@ -76,11 +76,9 @@ export const MENU_TEMPLATE: MenuItemData[] = [
       { href: "/dashboard/projects", label: "Dashboard", icon: "FiTarget", module: "projects", permissionKey: "projects.projects" },
       { href: "/dashboard/work-management/my-day", label: "My Day", icon: "FiCalendar", module: "projects", permissionKey: "projects.work-management-myday" },
       { href: "/dashboard/work-management/team", label: "My Team", icon: "FiUsers", module: "projects", permissionKey: "projects.work-management-team" },
-      { href: "/dashboard/work-management/tasks", label: "Task Center", icon: "FiCheckSquare", module: "projects", permissionKey: "projects.work-management-tasks" },
       { href: "/dashboard/projects/all", label: "Projects", icon: "FiFolder", module: "projects", permissionKey: "projects.all" },
-      { href: "/dashboard/projects/milestone", label: "Milestones", icon: "FiLayers", module: "projects", permissionKey: "projects.milestones" },
-      { href: "/dashboard/projects/issues", label: "Issues", icon: "FiAlertCircle", module: "projects", permissionKey: "projects.issues" },
-      { href: "/dashboard/projects/tasks", label: "My Tasks", icon: "FiUser", module: "projects", permissionKey: "projects.tasks" },
+      { href: "/dashboard/projects/issues", label: "Issues Board", icon: "FiAlertCircle", module: "projects", permissionKey: "projects.issues" },
+      { href: "/dashboard/work-management/tasks", label: "Task Center", icon: "FiCheckSquare", module: "projects", permissionKey: "projects.work-management-tasks" },
     ],
   },
   {
