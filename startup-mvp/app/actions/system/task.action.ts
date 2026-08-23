@@ -32,6 +32,7 @@ export async function createTask(input: {
   projectId?: string;
   milestoneId?: string;
   issueId?: string;
+  estimatedHours?: number;
 }) {
   try {
     const session = await auth();
@@ -109,6 +110,7 @@ export async function createTask(input: {
         parentId: input.parentId,
         isRecurring: input.isRecurring,
         recurrenceRule: input.recurrenceRule,
+        estimatedHours: input.estimatedHours,
       } as any,
     });
 
