@@ -11,7 +11,7 @@ const DHAKA_OFFSET = 6 * 60 * 60 * 1000;
 /**
  * Helper to get today's date normalized to Asia/Dhaka midnight in UTC
  */
-export function getTodayDhakaDate(): Date {
+export async function getTodayDhakaDate(): Promise<Date> {
   const now = new Date();
   const dhakaTime = new Date(now.getTime() + DHAKA_OFFSET);
   const yyyy = dhakaTime.getUTCFullYear();
@@ -31,7 +31,7 @@ export async function startWorkSession(taskId?: string, projectId?: string) {
     }
 
     const userId = session.user.id;
-    const today = getTodayDhakaDate();
+    const today = await getTodayDhakaDate();
 
     // 1. Idempotency Check: Prevent duplicate sessions for the same day
     const existingSession = await prisma.workSession.findFirst({
@@ -120,7 +120,7 @@ export async function breakWorkSession() {
     }
 
     const userId = session.user.id;
-    const today = getTodayDhakaDate();
+    const today = await getTodayDhakaDate();
 
     // 1. Fetch current session
     const ws = await prisma.workSession.findFirst({
@@ -214,7 +214,7 @@ export async function resumeWorkSession(taskId?: string, projectId?: string) {
     }
 
     const userId = session.user.id;
-    const today = getTodayDhakaDate();
+    const today = await getTodayDhakaDate();
 
     // 1. Fetch current session
     const ws = await prisma.workSession.findFirst({
@@ -307,7 +307,7 @@ export async function endWorkSession() {
     }
 
     const userId = session.user.id;
-    const today = getTodayDhakaDate();
+    const today = await getTodayDhakaDate();
 
     // 1. Fetch current session
     const ws = await prisma.workSession.findFirst({
@@ -404,7 +404,7 @@ export async function getCurrentWorkSession() {
     }
 
     const userId = session.user.id;
-    const today = getTodayDhakaDate();
+    const today = await getTodayDhakaDate();
 
     const ws = await prisma.workSession.findFirst({
       where: {
@@ -465,3 +465,59 @@ export async function getWorkSessionHistory(limit: number = 30) {
     return { success: false, error: error.message || "Failed to fetch work session history", history: [] };
   }
 }
+
+/**
+ * Switch the currently working task on the active work session
+ */
+export async function switchWorkSessionTask(taskId: string | null, projectId: string | null) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const userId = session.user.id;
+    const today = await getTodayDhakaDate();
+
+    // 1. Fetch current session
+    const ws = await prisma.workSession.findFirst({
+      where: {
+        userId,
+        date: today,
+      },
+    });
+
+    if (!ws) {
+      return { success: false, error: "No work session found for today" };
+    }
+
+    if (ws.status !== "ACTIVE") {
+      return { success: false, error: "Work session is not actively running. Start or resume work session first." };
+    }
+
+    const now = new Date();
+    await prisma.workSessionLog.create({
+      data: {
+        sessionId: ws.id,
+        actionType: "RESUME", // Log task switch as RESUME log context
+        timestamp: now,
+        taskId: taskId || null,
+        projectId: projectId || null,
+      },
+    });
+
+    broadcastWorkManagementEvent("WORK_SESSION_RESUMED", {
+      userId,
+      sessionId: ws.id,
+      taskId,
+      projectId,
+      timestamp: now.toISOString(),
+    });
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("switchWorkSessionTask error:", error);
+    return { success: false, error: error.message || "Failed to switch task context" };
+  }
+}
+

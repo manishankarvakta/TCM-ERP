@@ -16,7 +16,7 @@ export async function getWorkManagementDashboardData() {
       return { success: false, error: "Unauthorized" };
     }
 
-    const today = getTodayDhakaDate();
+    const today = await getTodayDhakaDate();
     const todayStart = new Date(today);
     const todayEnd = new Date(today.getTime() + 24 * 60 * 60 * 1000 - 1);
     const tomorrowEnd = new Date(todayEnd.getTime() + 24 * 60 * 60 * 1000);
@@ -25,7 +25,7 @@ export async function getWorkManagementDashboardData() {
     const employees = await prisma.employee.findMany({
       where: { status: "active" },
       include: {
-        User: {
+        user: {
           select: {
             id: true,
             name: true,
@@ -35,6 +35,18 @@ export async function getWorkManagementDashboardData() {
         },
       },
     });
+    // Fetch today's My Day plans for all active employees to optimize query performance
+    const allMyDayTasks = await prisma.myDayTask.findMany({
+      where: {
+        date: today,
+      },
+      include: {
+        Task: {
+          select: { id: true, status: true },
+        },
+      },
+    });
+
 
     const activeUserIds = employees.map((emp) => emp.userId).filter(Boolean) as string[];
 
@@ -42,7 +54,7 @@ export async function getWorkManagementDashboardData() {
     const activeProjects = await prisma.project.findMany({
       where: { status: "ACTIVE" },
       include: {
-        projectManager: {
+        ProjectManager: {
           select: { id: true, name: true },
         },
         Milestones: {
@@ -275,18 +287,27 @@ export async function getWorkManagementDashboardData() {
           t.status !== "done"
       ).length;
 
+      // Compute planned stats from in-memory My Day cache
+      const empMyDayTasks = allMyDayTasks.filter((md) => md.userId === emp.userId);
+      const totalPlanned = empMyDayTasks.length;
+      const completedPlanned = empMyDayTasks.filter((md) => md.Task?.status === "completed" || md.Task?.status === "done").length;
+      const blockedPlanned = empMyDayTasks.filter((md) => md.Task?.status === "blocked" || md.Task?.status === "waiting").length;
+
       return {
         id: emp.id,
         userId: emp.userId,
         name: emp.name,
         designation: emp.designation || "Team Member",
-        photo: emp.photo || emp.User?.image || null,
+        photo: emp.photo || emp.user?.image || null,
         status,
         activeDurationMs: Math.max(0, activeDurationMs),
         completedTasksCount: empCompletedCount,
         remainingTasksCount: empRemainingCount,
         currentProject: currentProjectName || null,
         currentTask: currentTaskTitle || null,
+        totalPlanned,
+        completedPlanned,
+        blockedPlanned,
       };
     });
 
@@ -304,7 +325,7 @@ export async function getWorkManagementDashboardData() {
 
     // 10. Compact Project Overview
     const projectProgress = activeProjects.map((p) => {
-      const pmName = p.projectManager?.name || "Unassigned";
+      const pmName = p.ProjectManager?.name || "Unassigned";
 
       // Milestone aggregates
       const totalMilestones = p.Milestones.length;

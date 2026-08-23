@@ -566,6 +566,24 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
         operations: ["view", "manage"],
       },
       {
+        permissionKey: "projects.work-management-myday",
+        path: "/dashboard/work-management/my-day",
+        label: "My Day",
+        operations: ["view", "manage"],
+      },
+      {
+        permissionKey: "projects.work-management-team",
+        path: "/dashboard/work-management/team",
+        label: "My Team",
+        operations: ["view", "manage"],
+      },
+      {
+        permissionKey: "projects.work-management-tasks",
+        path: "/dashboard/work-management/tasks",
+        label: "Task Center",
+        operations: ["view", "manage"],
+      },
+      {
         permissionKey: "projects.projects",
         path: "/dashboard/projects",
         label: "Dashboard",

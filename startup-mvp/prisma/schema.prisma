@@ -1075,6 +1075,7 @@ model User {
   projectsJoined                     Project[]              @relation("ProjectTeamMembers")
   WorkSessions                       WorkSession[]
   QuotationTerms                     QuotationTerms[]
+  MyDayTasks                         MyDayTask[]            @relation("MyDayUser")
 
   @@index([designationTemplateId])
   @@index([inchargeId])
@@ -1238,6 +1239,7 @@ model Task {
   Watchers  TaskWatcher[]
   BlockedBy TaskDependency[] @relation("DependentTasks")
   Blocking  TaskDependency[] @relation("BlockingTasks")
+  MyDayPlans MyDayTask[]     @relation("MyDayTask")
 
   Timesheets Timesheet[]
 
@@ -2230,4 +2232,19 @@ model WorkSessionLog {
   WorkSession WorkSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   @@index([sessionId])
+}
+
+model MyDayTask {
+  id        String   @id @default(cuid())
+  userId    String
+  date      DateTime @db.Date
+  taskId    String
+  order     Int      @default(0)
+  addedAt   DateTime @default(now())
+
+  User User @relation("MyDayUser", fields: [userId], references: [id], onDelete: Cascade)
+  Task Task @relation("MyDayTask", fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date, taskId])
+  @@index([userId, date])
 }

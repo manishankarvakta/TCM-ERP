@@ -507,10 +507,24 @@ export default function WorkManagementDashboard({ initialData, currentUser }: Pr
                   </div>
 
                   {/* Task counts */}
-                  <div className="flex items-center justify-between text-[10px] bg-accent/30 rounded px-2 py-1 mt-1 text-muted-foreground">
-                    <span>Tasks: {emp.completedTasksCount} Done</span>
-                    <span>{emp.remainingTasksCount} Pending</span>
+                  <div className="flex flex-col gap-1 text-[10px] bg-accent/30 rounded p-2 mt-1.5 text-muted-foreground">
+                    <div className="flex items-center justify-between font-semibold">
+                      <span>Today's Plan:</span>
+                      <span>{emp.totalPlanned || 0} tasks</span>
+                    </div>
+                    <div className="flex items-center justify-between text-[9px]">
+                      <span>Completed: {emp.completedPlanned || 0}</span>
+                      <span>Blocked: {emp.blockedPlanned || 0}</span>
+                    </div>
                   </div>
+
+                  {/* View My Day link button for manager */}
+                  <Link
+                    href={`/dashboard/work-management/my-day/${emp.id}`}
+                    className="w-full inline-flex items-center justify-center bg-accent hover:bg-accent/80 text-foreground text-[10px] font-bold py-1.5 px-3 rounded-lg border border-border mt-2.5 transition text-center"
+                  >
+                    View My Day
+                  </Link>
                 </div>
               );
             })}
