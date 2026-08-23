@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath as nextRevalidatePath } from "next/cache";
 import { revalidateBothPaths } from "@/lib/route-utils-server";
 import { NotificationType } from "@prisma/client";
+import { broadcastUserEvent } from "@/lib/system/realtime";
 
 type ActionResult<T = unknown> = {
   success: boolean;
@@ -115,6 +116,22 @@ export async function createNotification(data: {
 
       console.log("createNotification: Successfully created", notifications.length, "notifications");
 
+      // Broadcast realtime event
+      validUserIds.forEach((userId) => {
+        try {
+          broadcastUserEvent(userId, "NOTIFICATION_RECEIVED", {
+            title: data.title,
+            message: data.message,
+            type: notificationType,
+            entityType: data.entityType,
+            entityId: data.entityId,
+            timestamp: new Date().toISOString(),
+          });
+        } catch (e) {
+          console.error("[Notification Realtime] Failed to broadcast specific user event:", e);
+        }
+      });
+
       // Revalidate paths for all affected users
       revalidateBothPaths("");
       revalidateBothPaths("notifications");
@@ -164,6 +181,22 @@ export async function createNotification(data: {
     );
 
     console.log("createNotification: Successfully created", notifications.length, "notifications");
+
+    // Broadcast realtime event
+    allUsers.forEach((user) => {
+      try {
+        broadcastUserEvent(user.id, "NOTIFICATION_RECEIVED", {
+          title: data.title,
+          message: data.message,
+          type: notificationType,
+          entityType: data.entityType,
+          entityId: data.entityId,
+          timestamp: new Date().toISOString(),
+        });
+      } catch (e) {
+        console.error("[Notification Realtime] Failed to broadcast global user event:", e);
+      }
+    });
 
     revalidateBothPaths("");
     revalidateBothPaths("notifications");

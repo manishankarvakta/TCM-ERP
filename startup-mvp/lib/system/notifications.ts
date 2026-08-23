@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { SystemEntityType, SystemNotificationType } from "./types";
+import { broadcastUserEvent } from "./realtime";
 
 export const SystemNotificationDomain = {
   async create(data: {
@@ -12,7 +13,7 @@ export const SystemNotificationDomain = {
     createdBy?: string;
   }) {
     // Maps to Notification model in schema
-    return await (prisma as any).notification.create({
+    const notification = await (prisma as any).notification.create({
       data: {
         title: data.title,
         message: data.message,
@@ -24,6 +25,21 @@ export const SystemNotificationDomain = {
         isRead: false,
       },
     });
+
+    try {
+      broadcastUserEvent(data.recipientId, "NOTIFICATION_RECEIVED", {
+        title: data.title,
+        message: data.message,
+        type: data.type,
+        entityType: data.entityType,
+        entityId: data.entityId,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error("[Realtime Notification] Failed to broadcast to user:", error);
+    }
+
+    return notification;
   },
 
   async markAsRead(id: string) {

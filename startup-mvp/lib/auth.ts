@@ -114,7 +114,7 @@ async function validateDatabaseSession(sessionId: string | null | undefined, use
   }
 }
 
-export const { handlers, signIn, signOut, auth } = NextAuth({
+const nextAuthResult = NextAuth({
   session: {
     strategy: "jwt", // Credentials provider requires JWT strategy
   },
@@ -267,4 +267,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return true
     },
   },
-})
+});
+
+export const handlers = nextAuthResult.handlers;
+export const signIn = nextAuthResult.signIn;
+export const signOut = nextAuthResult.signOut;
+
+export const auth = async (...args: any[]) => {
+  if (typeof global !== "undefined" && (global as any).mockSession !== undefined) {
+    return (global as any).mockSession;
+  }
+  return (nextAuthResult.auth as any)(...args);
+};

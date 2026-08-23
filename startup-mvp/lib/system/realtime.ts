@@ -53,3 +53,22 @@ export function broadcastUserEvent(userId: string, event: keyof typeof RealtimeE
         console.error("[Realtime] Payload serialization error:", error);
     }
 }
+
+/**
+ * Broadcasts a work-management-wide event to the manager's command center room
+ */
+export function broadcastWorkManagementEvent(event: string, payload: any) {
+    try {
+        const message = JSON.stringify({
+            room: "work-management:dashboard",
+            event: event,
+            data: payload
+        });
+        
+        redis.publish("realtime-events", message).catch((err) => {
+            console.error("[Realtime] Failed to publish work management event to Redis:", err);
+        });
+    } catch (error) {
+        console.error("[Realtime] Work management serialization error:", error);
+    }
+}

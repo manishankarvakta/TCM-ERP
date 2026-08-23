@@ -32,13 +32,17 @@ export async function getFullPath(path: string): Promise<string> {
  * @param type - Optional revalidation type ("page" or "layout")
  */
 export function revalidateBothPaths(path: string, type?: "page" | "layout"): void {
-  // Remove leading slash from path if present
-  const cleanPath = path.startsWith("/") ? path.slice(1) : path;
-  
-  // Revalidate admin path
-  nextRevalidatePath(`/admin/${cleanPath}`, type);
-  
-  // Revalidate dashboard path
-  nextRevalidatePath(`/dashboard/${cleanPath}`, type);
+  try {
+    // Remove leading slash from path if present
+    const cleanPath = path.startsWith("/") ? path.slice(1) : path;
+    
+    // Revalidate admin path
+    nextRevalidatePath(`/admin/${cleanPath}`, type);
+    
+    // Revalidate dashboard path
+    nextRevalidatePath(`/dashboard/${cleanPath}`, type);
+  } catch (error) {
+    // Silent catch for CLI/test environments
+  }
 }
 

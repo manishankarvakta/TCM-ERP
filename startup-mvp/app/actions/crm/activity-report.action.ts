@@ -3,9 +3,11 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { revalidateBothPaths } from "@/lib/route-utils-server";
+import { createActivityRecord } from "@/lib/system/activity-ledger";
+import { broadcastUserEvent, broadcastWorkManagementEvent } from "@/lib/system/realtime";
 
 /**
- * Submit daily activity report
+ * Submit daily activity report (Legacy Action kept for backward compatibility)
  */
 export async function submitDailyReport(dateStr: string, comments?: string) {
   try {
@@ -24,9 +26,12 @@ export async function submitDailyReport(dateStr: string, comments?: string) {
 
     let report;
     if (existing) {
-      // If already approved, prevent changes unless admin
-      if (existing.status === "APPROVED" && session.user.role?.toLowerCase() !== "admin") {
-        return { success: false, error: "Approved reports cannot be resubmitted" };
+      // If already submitted or approved, prevent changes unless admin
+      if (
+        (existing.status === "APPROVED" || existing.status === "SUBMITTED") &&
+        session.user.role?.toLowerCase() !== "admin"
+      ) {
+        return { success: false, error: "Submitted or approved reports cannot be modified" };
       }
 
       report = await prisma.activityReport.update({
@@ -38,6 +43,7 @@ export async function submitDailyReport(dateStr: string, comments?: string) {
           reviewedAt: null,
           reviewedById: null,
           comments: comments || existing.comments,
+          summary: comments || existing.summary, // maintain sync with new structured summary field
         },
       });
     } else {
@@ -47,9 +53,26 @@ export async function submitDailyReport(dateStr: string, comments?: string) {
           reportDate,
           status: "SUBMITTED",
           comments: comments || "",
+          summary: comments || "",
         },
       });
     }
+
+    // Record in Activity Ledger
+    await createActivityRecord({
+      type: "DAILY_UPDATE_SUBMITTED",
+      actorId: session.user.id,
+      subject: `Submitted daily activity report for ${dateStr}`,
+      metadata: { reportId: report.id, dateStr },
+    });
+
+    // Realtime Broadcast
+    broadcastWorkManagementEvent("DAILY_UPDATE_SUBMITTED", {
+      userId: session.user.id,
+      reportId: report.id,
+      dateStr,
+      timestamp: new Date().toISOString(),
+    });
 
     revalidateBothPaths("crm/activities");
     return { success: true, report };
@@ -71,8 +94,8 @@ export async function reviewDailyReport(
     const session = await auth();
     if (!session?.user) return { success: false, error: "Unauthorized" };
 
-    if (session.user.role?.toLowerCase() !== "admin") {
-      return { success: false, error: "Permission Denied: Only Admin can review reports" };
+    if (session.user.role?.toLowerCase() !== "admin" && session.user.role?.toLowerCase() !== "manager") {
+      return { success: false, error: "Permission Denied: Only Admins or Managers can review reports" };
     }
 
     const report = await prisma.activityReport.update({
@@ -125,8 +148,8 @@ export async function getSubmittedReportsList() {
     const session = await auth();
     if (!session?.user) return { success: false, error: "Unauthorized", reports: [] };
 
-    if (session.user.role?.toLowerCase() !== "admin") {
-      return { success: false, error: "Permission Denied: Only Admin can list all reports", reports: [] };
+    if (session.user.role?.toLowerCase() !== "admin" && session.user.role?.toLowerCase() !== "manager") {
+      return { success: false, error: "Permission Denied: Only Admins or Managers can list all reports", reports: [] };
     }
 
     const reports = await prisma.activityReport.findMany({
@@ -173,15 +196,18 @@ export async function getUserActivitiesForDateRange(
       return { success: false, error: "Unauthorized", dailyData: {} };
     }
 
-    // Only allow self or admin to check reports
-    if (session.user.id !== userId && session.user.role?.toLowerCase() !== "admin") {
+    // Only allow self or admin/manager to check reports
+    if (
+      session.user.id !== userId &&
+      session.user.role?.toLowerCase() !== "admin" &&
+      session.user.role?.toLowerCase() !== "manager"
+    ) {
       return { success: false, error: "Permission Denied", dailyData: {} };
     }
 
     const fromDate = new Date(fromDateStr + "T00:00:00.000Z");
     const toDate = new Date(toDateStr + "T23:59:59.999Z");
 
-    // Fetch database range wider than local range to ensure no cutoff on timezone offsets
     const dbStart = new Date(fromDate.getTime() - 24 * 60 * 60 * 1000);
     const dbEnd = new Date(toDate.getTime() + 48 * 60 * 60 * 1000);
 
@@ -221,7 +247,6 @@ export async function getUserActivitiesForDateRange(
     // Group activities by local day
     const dailyData: Record<string, { activities: any[]; report: any | null }> = {};
 
-    // Initialize all dates in range with UTC midnight to avoid daylight saving shifts
     let curr = new Date(fromDateStr + "T00:00:00.000Z");
     const endLimit = new Date(toDateStr + "T00:00:00.000Z");
     while (curr <= endLimit) {
@@ -230,7 +255,6 @@ export async function getUserActivitiesForDateRange(
       curr.setUTCDate(curr.getUTCDate() + 1);
     }
 
-    // Date formatter for the client's timezone
     const localDateFormatter = new Intl.DateTimeFormat("en-US", {
       timeZone: clientTimezone,
       year: "numeric",
@@ -238,7 +262,6 @@ export async function getUserActivitiesForDateRange(
       day: "2-digit",
     });
 
-    // Group activities under local date string
     activities.forEach((act: any) => {
       let localDateStr = "";
       try {
@@ -248,7 +271,6 @@ export async function getUserActivitiesForDateRange(
         const day = parts.find((p) => p.type === "day")?.value;
         localDateStr = `${year}-${month}-${day}`;
       } catch (err) {
-        // Fallback to UTC
         localDateStr = act.createdAt.toISOString().split("T")[0];
       }
 
@@ -265,7 +287,6 @@ export async function getUserActivitiesForDateRange(
       }
     });
 
-    // Attach reports (stored with UTC normalized date format)
     reports.forEach((rep) => {
       const dateKey = rep.reportDate.toISOString().split("T")[0];
       if (dailyData[dateKey]) {
@@ -282,5 +303,216 @@ export async function getUserActivitiesForDateRange(
   } catch (error) {
     console.error("getUserActivitiesForDateRange error:", error);
     return { success: false, error: "Failed to fetch daily activity report", dailyData: {} };
+  }
+}
+
+/**
+ * Save daily update as a DRAFT (editable)
+ */
+export async function saveDailyUpdateDraft(
+  dateStr: string,
+  input: {
+    completed?: string;
+    pending?: string;
+    blocked?: string;
+    newWork?: string;
+    summary?: string;
+  }
+) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const userId = session.user.id;
+    const reportDate = new Date(dateStr + "T00:00:00.000Z");
+
+    const existing = await prisma.activityReport.findFirst({
+      where: {
+        userId,
+        reportDate,
+      },
+    });
+
+    let report;
+    if (existing) {
+      // Drafts can only edit if status is DRAFT (or not submitted/approved yet)
+      if (existing.status !== "DRAFT") {
+        return { success: false, error: `Cannot edit draft. Current status: ${existing.status}` };
+      }
+
+      report = await prisma.activityReport.update({
+        where: { id: existing.id },
+        data: {
+          ...input,
+          comments: input.summary || existing.comments, // sync comments legacy field
+        },
+      });
+    } else {
+      report = await prisma.activityReport.create({
+        data: {
+          userId,
+          reportDate,
+          status: "DRAFT",
+          ...input,
+          comments: input.summary || "",
+        },
+      });
+    }
+
+    revalidateBothPaths("crm/activities");
+    return { success: true, report };
+  } catch (error: any) {
+    console.error("[DailyUpdate] saveDailyUpdateDraft error:", error);
+    return { success: false, error: error.message || "Failed to save daily update draft" };
+  }
+}
+
+/**
+ * Submit daily update (locks it to SUBMITTED state permanently)
+ */
+export async function submitDailyUpdate(
+  dateStr: string,
+  input: {
+    completed: string;
+    pending: string;
+    blocked: string;
+    newWork: string;
+    summary: string;
+  }
+) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const userId = session.user.id;
+    const reportDate = new Date(dateStr + "T00:00:00.000Z");
+
+    const existing = await prisma.activityReport.findFirst({
+      where: {
+        userId,
+        reportDate,
+      },
+    });
+
+    let report;
+    if (existing) {
+      // Verify that status is DRAFT. SUBMITTED or APPROVED/REJECTED cannot be updated.
+      if (existing.status !== "DRAFT") {
+        return { success: false, error: `Report cannot be submitted. Current status: ${existing.status}` };
+      }
+
+      report = await prisma.activityReport.update({
+        where: { id: existing.id },
+        data: {
+          ...input,
+          comments: input.summary, // sync legacycomments
+          status: "SUBMITTED",
+          submittedAt: new Date(),
+          feedback: null,
+          reviewedAt: null,
+          reviewedById: null,
+        },
+      });
+    } else {
+      report = await prisma.activityReport.create({
+        data: {
+          userId,
+          reportDate,
+          status: "SUBMITTED",
+          submittedAt: new Date(),
+          ...input,
+          comments: input.summary,
+        },
+      });
+    }
+
+    // 1. Audit Ledger Hook
+    await createActivityRecord({
+      type: "DAILY_UPDATE_SUBMITTED",
+      actorId: userId,
+      subject: `Submitted daily work update for ${dateStr}`,
+      metadata: { reportId: report.id, dateStr },
+    });
+
+    // 2. Realtime Broadcast
+    broadcastUserEvent(userId, "NOTIFICATION_RECEIVED", {
+      type: "DAILY_UPDATE_SUBMITTED",
+      reportId: report.id,
+      dateStr,
+      timestamp: new Date().toISOString(),
+    });
+
+    broadcastWorkManagementEvent("DAILY_UPDATE_SUBMITTED", {
+      userId,
+      reportId: report.id,
+      dateStr,
+      timestamp: new Date().toISOString(),
+    });
+
+    revalidateBothPaths("crm/activities");
+    return { success: true, report };
+  } catch (error: any) {
+    console.error("[DailyUpdate] submitDailyUpdate error:", error);
+    return { success: false, error: error.message || "Failed to submit daily update" };
+  }
+}
+
+/**
+ * Fetches a single daily update for a specific user and date
+ */
+export async function getDailyUpdate(dateStr: string) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return { success: false, error: "Unauthorized", report: null };
+    }
+
+    const userId = session.user.id;
+    const reportDate = new Date(dateStr + "T00:00:00.000Z");
+
+    const report = await prisma.activityReport.findFirst({
+      where: {
+        userId,
+        reportDate,
+      },
+    });
+
+    return { success: true, report };
+  } catch (error: any) {
+    console.error("[DailyUpdate] getDailyUpdate error:", error);
+    return { success: false, error: error.message || "Failed to fetch daily update", report: null };
+  }
+}
+
+/**
+ * Gets historical daily updates for the logged-in user
+ */
+export async function getDailyUpdateHistory(limit: number = 30) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return { success: false, error: "Unauthorized", history: [] };
+    }
+
+    const userId = session.user.id;
+
+    const history = await prisma.activityReport.findMany({
+      where: {
+        userId,
+      },
+      orderBy: {
+        reportDate: "desc",
+      },
+      take: limit,
+    });
+
+    return { success: true, history };
+  } catch (error: any) {
+    console.error("[DailyUpdate] getDailyUpdateHistory error:", error);
+    return { success: false, error: error.message || "Failed to fetch history", history: [] };
   }
 }

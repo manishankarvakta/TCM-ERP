@@ -8,7 +8,7 @@ import { checkSystemPermission } from "@/lib/system/permissions";
 import { SystemEntityType } from "@/lib/system/types";
 import { createActivityRecord } from "@/lib/system/activity-ledger";
 import { ActivityType } from "@/lib/system/activity-types";
-import { broadcastProjectEvent, broadcastUserEvent } from "@/lib/system/realtime";
+import { broadcastProjectEvent, broadcastUserEvent, broadcastWorkManagementEvent } from "@/lib/system/realtime";
 
 /**
  * Create a new task
@@ -139,6 +139,14 @@ export async function createTask(input: {
             status: task.status 
         });
     }
+
+    broadcastWorkManagementEvent("TASK_CREATED", {
+      taskId: task.id,
+      status: task.status,
+      assigneeId: task.assigneeId,
+      projectId: task.projectId,
+      timestamp: new Date().toISOString(),
+    });
 
     revalidateBothPaths("tasks");
     if (task.projectId) {
@@ -301,6 +309,14 @@ export async function updateTask(
                     assigneeId: task.assigneeId
                 });
             }
+
+            broadcastWorkManagementEvent("TASK_UPDATED", {
+                taskId: task.id,
+                status: task.status,
+                assigneeId: task.assigneeId,
+                projectId: task.projectId,
+                timestamp: new Date().toISOString(),
+            });
         }
     }
 

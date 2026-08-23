@@ -560,6 +560,12 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
     label: "Projects",
     pages: [
       {
+        permissionKey: "projects.work-management",
+        path: "/dashboard/work-management",
+        label: "Work Management",
+        operations: ["view", "manage"],
+      },
+      {
         permissionKey: "projects.projects",
         path: "/dashboard/projects",
         label: "Dashboard",
