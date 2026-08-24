@@ -140,9 +140,9 @@ export default function ProjectWorkspace({ id, permissions = {}, userRole, userI
   const [selectedIssue, setSelectedIssue] = useState<any>(null);
   const [isPending, startTransition] = useTransition();
 
-  const fetchProject = async () => {
+  const fetchProject = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const pRes = await getProjectById(id);
       if (pRes.success) {
         setProject(pRes.project);
@@ -151,7 +151,7 @@ export default function ProjectWorkspace({ id, permissions = {}, userRole, userI
       console.error("Fetch project error:", err);
       toast.error("Resource acquisition failure");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -271,7 +271,7 @@ export default function ProjectWorkspace({ id, permissions = {}, userRole, userI
             <TabsTrigger 
                 key={tab.id}
                 value={tab.id} 
-                className="justify-start rounded-none bg-transparent border-none px-4 py-3 data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary font-semibold capitalize gap-2 hover:text-primary transition-all relative group flex items-center h-12 whitespace-nowrap"
+                className="text-xs sm:text-sm font-bold px-6 py-2.5 min-w-[110px] sm:min-w-[130px] border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary rounded-none shadow-none bg-transparent hover:text-foreground transition-all duration-300 gap-2.5 shrink-0 h-11 justify-center"
             >
                 <tab.icon className="h-4 w-4" />
                 {tab.label}
@@ -279,7 +279,7 @@ export default function ProjectWorkspace({ id, permissions = {}, userRole, userI
         ))}
     </TabsList>
     <div className="flex items-center gap-2">
-        <Button variant="ghost" size="sm" className="h-8 text-xs font-semibold hover:bg-muted active:scale-95" onClick={fetchProject}>
+        <Button variant="ghost" size="sm" className="h-8 text-xs font-semibold hover:bg-muted active:scale-95" onClick={() => fetchProject(false)}>
             <FiActivity className="mr-2 h-3.5 w-3.5 text-primary" /> Sync
         </Button>
          {hasOp("projects.projects", "edit") && (
@@ -333,19 +333,17 @@ export default function ProjectWorkspace({ id, permissions = {}, userRole, userI
                             Critical path bug management and feature synchronization hub.
                         </CardDescription>
                     </div>
+
                     {hasOp("projects.issues", "create") && (
                       <Button 
                           onClick={() => {
-                              if (project.Milestones?.length > 0) {
-                                  setSelectedIssue(null);
-                                  setSelectedMilestone(project.Milestones[0]); 
-                                  setIsIssueDialogOpen(true);
-                              } else {
-                                  toast.error("Initialize a mission sequence first.");
-                              }
+                              setSelectedIssue(null);
+                              setSelectedMilestone(project.Milestones?.[0] || null); 
+                              setIsIssueDialogOpen(true);
                           }}
+                          className="bg-violet-600 hover:bg-violet-750 text-white font-bold rounded-xl h-10 px-5 shadow-sm transition gap-1.5"
                       >
-                          <Plus className="mr-2 h-4 w-4" /> Log Issue
+                          <Plus className="h-4 w-4" /> Log Issue
                       </Button>
                     )}
                 </CardHeader>
@@ -353,7 +351,7 @@ export default function ProjectWorkspace({ id, permissions = {}, userRole, userI
                     <ProjectIssuesKanban 
                         project={project}
                         users={users}
-                        onRefresh={fetchProject}
+                        onRefresh={(silent?: boolean) => { fetchProject(silent === true); }}
                         onEditIssue={(issue: any) => {
                             setSelectedIssue(issue);
                             setSelectedMilestone(project.Milestones?.find((m: any) => m.id === issue.milestoneId));
@@ -445,40 +443,32 @@ export default function ProjectWorkspace({ id, permissions = {}, userRole, userI
           </DialogContent>
       </Dialog>
 
-      {/* Unified ClickUp-Style Issue Dialog for existing, or standard IssueForm for new */}
+      {/* Unified Issue Dialog with IssueForm for both new and edit flows */}
       {isIssueDialogOpen && (
-          selectedIssue ? (
-              <ClickUpItemModal 
-                  isOpen={isIssueDialogOpen}
-                  onClose={() => setIsIssueDialogOpen(false)}
-                  entityType="issue"
-                  initialData={selectedIssue}
-                  users={users}
-                  onRefresh={fetchProject}
-              />
-          ) : (
-              <Dialog open={isIssueDialogOpen} onOpenChange={setIsIssueDialogOpen}>
-                  <DialogContent className="sm:max-w-[600px] p-6 rounded-xl bg-background border-border/50 shadow-lg">
-                        <div className="border-b pb-4 mb-4">
-                            <DialogTitle className="text-xl font-bold">Log Issue</DialogTitle>
-                            <DialogDescription className="text-sm text-muted-foreground mt-1">
-                                Log a new technical issue mapped to this project milestone.
-                            </DialogDescription>
-                        </div>
-                        <div className="bg-card">
-                            <IssueForm 
-                                milestones={project.Milestones || []}
-                                defaultMilestoneId={selectedMilestone?.id || ""}
-                                onSuccess={() => {
-                                    setIsIssueDialogOpen(false);
-                                    fetchProject();
-                                }}
-                                onCancel={() => setIsIssueDialogOpen(false)}
-                            />
-                        </div>
-                  </DialogContent>
-              </Dialog>
-          )
+          <Dialog open={isIssueDialogOpen} onOpenChange={setIsIssueDialogOpen}>
+              <DialogContent className="sm:max-w-[600px] p-6 rounded-xl bg-background border-border/50 shadow-lg">
+                    <div className="border-b pb-4 mb-4">
+                        <DialogTitle className="text-xl font-bold">
+                            {selectedIssue ? "Edit Issue" : "Log Issue"}
+                        </DialogTitle>
+                        <DialogDescription className="text-sm text-muted-foreground mt-1">
+                            {selectedIssue ? "Modify issue details and assigned members." : "Log a new technical issue mapped to this project."}
+                        </DialogDescription>
+                    </div>
+                    <div className="bg-card">
+                        <IssueForm 
+                            milestones={project.Milestones || []}
+                            defaultMilestoneId={selectedMilestone?.id || ""}
+                            initialData={selectedIssue}
+                            onSuccess={() => {
+                                setIsIssueDialogOpen(false);
+                                fetchProject();
+                            }}
+                            onCancel={() => setIsIssueDialogOpen(false)}
+                        />
+                    </div>
+              </DialogContent>
+          </Dialog>
       )}
       {/* Tab Settings Dialog */}
       <Dialog open={isTabSettingsOpen} onOpenChange={setIsTabSettingsOpen}>

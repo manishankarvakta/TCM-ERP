@@ -11,6 +11,7 @@ import { getUserPermissions } from "@/lib/permissions";
 import PageGuard from "@/components/permissions/page-guard";
 import ProjectWorkspace from "./_components/ProjectWorkspace";
 import { ProjectSwitcher } from "./_components/ProjectSwitcher";
+import { ProjectStatusSelector } from "./_components/ProjectStatusSelector";
 import { format } from "date-fns";
 import { ArrowLeftIcon } from "lucide-react";
 import Link from "next/link";
@@ -100,13 +101,11 @@ export default async function ProjectDetailsPage({ params }: ProjectDetailsPageP
                <div className="flex items-center gap-4 flex-wrap mb-1">
                 <ProjectSwitcher 
                   currentProjectId={id} 
-                  projects={allProjects} 
+                  projects={allProjects || []} 
                   currentProjectTitle={project.title} 
                   currentProjectStatus={project.status} 
                 />
-                <Badge variant={statusMap[project.status]?.variant || ("default" as any)} className="uppercase text-[10px] tracking-wider font-bold h-fit py-1">
-                    {statusMap[project.status]?.label || project.status}
-                </Badge>
+                <ProjectStatusSelector projectId={id} currentStatus={project.status} />
                </div>
                <p className="text-muted-foreground text-xs sm:text-sm font-medium truncate pl-12 mt-1">
                  {project.Client?.name || "Internal"} • Created on {project.createdAt ? format(new Date(project.createdAt), "PPP") : "-"}
