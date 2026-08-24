@@ -119,7 +119,7 @@ export default function IssueForm({ milestones = [], defaultMilestoneId, milesto
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       <div className="space-y-4">
         <div className="grid gap-2">
-          <Label htmlFor="title" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Issue Overview</Label>
+          <Label htmlFor="title" className="text-xs font-bold text-muted-foreground ml-1">Title</Label>
           <div className="relative group">
             <FiInfo className="absolute left-4 top-3.5 h-4 w-4 text-muted-foreground group-focus-within:text-violet-500 transition-colors z-10" />
             <Input
@@ -133,7 +133,7 @@ export default function IssueForm({ milestones = [], defaultMilestoneId, milesto
         </div>
 
         <div className="grid gap-2">
-          <Label htmlFor="description" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Mission Specs</Label>
+          <Label htmlFor="description" className="text-xs font-bold text-muted-foreground ml-1">Description</Label>
           <Textarea
             id="description"
             placeholder="Detailed report of the core issue and technical constraints..."
@@ -143,7 +143,7 @@ export default function IssueForm({ milestones = [], defaultMilestoneId, milesto
         </div>
 
         <div className="grid gap-2">
-          <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Target Milestone</Label>
+          <Label className="text-xs font-bold text-muted-foreground ml-1">Milestone</Label>
           <div className="relative group">
             <FiTarget className="absolute left-4 top-3.5 h-4 w-4 text-muted-foreground group-focus-within:text-violet-500 transition-colors z-10" />
             <Select
@@ -165,7 +165,7 @@ export default function IssueForm({ milestones = [], defaultMilestoneId, milesto
 
         <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Object Type</Label>
+                <Label className="text-xs font-bold text-muted-foreground ml-1">Type</Label>
                 <div className="relative group">
                     <FiActivity className="absolute left-4 top-3.5 h-4 w-4 text-muted-foreground group-focus-within:text-violet-500 transition-colors z-10" />
                     <Select
@@ -185,7 +185,7 @@ export default function IssueForm({ milestones = [], defaultMilestoneId, milesto
                 </div>
             </div>
             <div className="grid gap-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Threat Level</Label>
+                <Label className="text-xs font-bold text-muted-foreground ml-1">Priority</Label>
                 <div className="relative group">
                     <FiAlertCircle className="absolute left-4 top-3.5 h-4 w-4 text-muted-foreground group-focus-within:text-violet-500 transition-colors z-10" />
                     <Select
@@ -208,7 +208,7 @@ export default function IssueForm({ milestones = [], defaultMilestoneId, milesto
 
         <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Entity Origin</Label>
+                <Label className="text-xs font-bold text-muted-foreground ml-1">Assignee</Label>
                 <div className="relative group">
                     <FiUser className="absolute left-4 top-3.5 h-4 w-4 text-muted-foreground group-focus-within:text-violet-500 transition-colors z-10" />
                     <Select
@@ -243,7 +243,7 @@ export default function IssueForm({ milestones = [], defaultMilestoneId, milesto
                 </div>
             </div>
             <div className="grid gap-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Mission Status</Label>
+                <Label className="text-xs font-bold text-muted-foreground ml-1">Status</Label>
                 <Select
                     onValueChange={(value) => setValue("status", value as any)}
                     defaultValue={status}
@@ -267,16 +267,16 @@ export default function IssueForm({ milestones = [], defaultMilestoneId, milesto
           type="button"
           variant="outline"
           onClick={onCancel}
-          className="flex-1 h-12 rounded-xl font-black uppercase text-[10px] tracking-widest border-border/60 hover:bg-muted transition-all"
+          className="flex-1 h-11 rounded-xl font-bold text-xs border border-border/60 text-muted-foreground hover:text-foreground hover:bg-muted/40 cursor-pointer transition-all"
         >
-          Abort
+          Cancel
         </Button>
         <Button
           type="submit"
-          className="flex-1 h-12 rounded-xl font-black uppercase text-[10px] tracking-[0.2em] bg-primary shadow-xl shadow-primary/20 transition-all active:scale-95"
+          className="flex-1 h-11 rounded-xl font-bold text-xs bg-violet-600 hover:bg-violet-750 text-white shadow-sm hover:shadow active:scale-95 cursor-pointer transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           disabled={isSubmitting}
         >
-          {isSubmitting ? "Syncing..." : initialData ? "Update Mission" : "Commit Issue"}
+          {isSubmitting ? "Syncing..." : initialData ? "Save Changes" : "Log Issue"}
         </Button>
       </div>
     </form>

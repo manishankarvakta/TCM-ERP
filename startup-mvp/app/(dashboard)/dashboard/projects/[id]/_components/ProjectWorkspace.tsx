@@ -138,6 +138,8 @@ export default function ProjectWorkspace({ id, permissions = {}, userRole, userI
   const [isIssueDialogOpen, setIsIssueDialogOpen] = useState(false);
   const [selectedMilestone, setSelectedMilestone] = useState<any>(null);
   const [selectedIssue, setSelectedIssue] = useState<any>(null);
+  const [selectedPreviewIssue, setSelectedPreviewIssue] = useState<any>(null);
+  const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   const fetchProject = async (silent = false) => {
@@ -357,6 +359,10 @@ export default function ProjectWorkspace({ id, permissions = {}, userRole, userI
                             setSelectedMilestone(project.Milestones?.find((m: any) => m.id === issue.milestoneId));
                             setIsIssueDialogOpen(true);
                         }}
+                        onViewIssue={(issue: any) => {
+                            setSelectedPreviewIssue(issue);
+                            setIsPreviewDialogOpen(true);
+                        }}
                         onDeleteIssue={handleDeleteIssue}
                         hasOp={hasOp}
                     />
@@ -469,6 +475,20 @@ export default function ProjectWorkspace({ id, permissions = {}, userRole, userI
                     </div>
               </DialogContent>
           </Dialog>
+      )}
+      {/* Unified ClickUp-Style Issue Dialog for previewing existing issues */}
+      {isPreviewDialogOpen && selectedPreviewIssue && (
+          <ClickUpItemModal 
+              isOpen={isPreviewDialogOpen}
+              onClose={() => {
+                  setIsPreviewDialogOpen(false);
+                  setSelectedPreviewIssue(null);
+              }}
+              entityType="issue"
+              initialData={selectedPreviewIssue}
+              users={users}
+              onRefresh={() => fetchProject(true)}
+          />
       )}
       {/* Tab Settings Dialog */}
       <Dialog open={isTabSettingsOpen} onOpenChange={setIsTabSettingsOpen}>

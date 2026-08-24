@@ -73,6 +73,7 @@ interface ProjectIssuesKanbanProps {
     onEditIssue: (issue: any) => void;
     onDeleteIssue: (id: string) => void;
     hasOp: (key: string, op: any) => boolean;
+    onViewIssue?: (issue: any) => void;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -223,7 +224,7 @@ function BoardCardContent({
     );
 }
 
-function BoardCard({ issue, onEdit, onDelete, hasOp }: { issue: Issue; onEdit: (i: any) => void; onDelete: (id: string) => void; hasOp: (k: string, op: any) => boolean }) {
+function BoardCard({ issue, onEdit, onDelete, onView, hasOp }: { issue: Issue; onEdit: (i: any) => void; onDelete: (id: string) => void; onView?: (i: any) => void; hasOp: (k: string, op: any) => boolean }) {
     const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: issue.id });
     const style = transform ? { transform: `translate3d(${transform.x}px,${transform.y}px,0)` } : undefined;
     
@@ -241,7 +242,8 @@ function BoardCard({ issue, onEdit, onDelete, hasOp }: { issue: Issue; onEdit: (
         <div
             ref={setNodeRef}
             style={style}
-            className="group bg-background border border-border/60 rounded-xl shadow-sm hover:shadow-md hover:border-primary/30 transition-all p-4"
+            onClick={() => onView?.(issue)}
+            className="group bg-background border border-border/60 rounded-xl shadow-sm hover:shadow-md hover:border-primary/30 cursor-pointer transition-all p-4"
         >
             <BoardCardContent 
                 issue={issue} 
@@ -255,7 +257,7 @@ function BoardCard({ issue, onEdit, onDelete, hasOp }: { issue: Issue; onEdit: (
     );
 }
 
-function BoardLane({ lane, issues, onEdit, onDelete, hasOp }: { lane: typeof LANES[0]; issues: Issue[]; onEdit: (i: any) => void; onDelete: (id: string) => void; hasOp: (k: string, op: any) => boolean }) {
+function BoardLane({ lane, issues, onEdit, onDelete, onView, hasOp }: { lane: typeof LANES[0]; issues: Issue[]; onEdit: (i: any) => void; onDelete: (id: string) => void; onView?: (i: any) => void; hasOp: (k: string, op: any) => boolean }) {
     const { setNodeRef, isOver } = useDroppable({ id: lane.id });
     return (
         <div
@@ -273,7 +275,7 @@ function BoardLane({ lane, issues, onEdit, onDelete, hasOp }: { lane: typeof LAN
             </div>
             <div className="flex flex-col gap-3 overflow-y-auto max-h-[560px] pr-0.5">
                 {issues.map(issue => (
-                    <BoardCard key={issue.id} issue={issue} onEdit={onEdit} onDelete={onDelete} hasOp={hasOp} />
+                    <BoardCard key={issue.id} issue={issue} onEdit={onEdit} onDelete={onDelete} onView={onView} hasOp={hasOp} />
                 ))}
                 {issues.length === 0 && (
                     <div className="flex-1 flex items-center justify-center py-16 text-xs text-muted-foreground/50 border-2 border-dashed border-border/40 rounded-xl">
@@ -486,7 +488,7 @@ function MilestoneRow({ milestone, onEdit, onDelete, hasOp }: { milestone: Miles
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export default function ProjectIssuesKanban({ project, onRefresh, onEditIssue, onDeleteIssue, hasOp }: ProjectIssuesKanbanProps) {
+export default function ProjectIssuesKanban({ project, onRefresh, onEditIssue, onDeleteIssue, onViewIssue, hasOp }: ProjectIssuesKanbanProps) {
     const [view, setView] = useState<"board" | "list">("board");
     const [localIssues, setLocalIssues] = useState<Issue[]>([]);
     const [activeId, setActiveId] = useState<string | null>(null);
@@ -590,6 +592,7 @@ export default function ProjectIssuesKanban({ project, onRefresh, onEditIssue, o
                                     issues={laneIssues}
                                     onEdit={onEditIssue}
                                     onDelete={onDeleteIssue}
+                                    onView={onViewIssue}
                                     hasOp={hasOp}
                                 />
                             );
