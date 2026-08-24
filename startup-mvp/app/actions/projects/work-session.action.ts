@@ -521,3 +521,111 @@ export async function switchWorkSessionTask(taskId: string | null, projectId: st
   }
 }
 
+/**
+ * Reopens a completed work session for today
+ */
+export async function reopenWorkSession() {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const userId = session.user.id;
+    const today = await getTodayDhakaDate();
+
+    // Fetch today's completed session
+    const ws = await prisma.workSession.findFirst({
+      where: {
+        userId,
+        date: today,
+        status: "COMPLETED",
+      },
+    });
+
+    if (!ws) {
+      return { success: false, error: "No completed work session found for today." };
+    }
+
+    const now = new Date();
+
+    // Reopen session inside transaction
+    const updatedSession = await prisma.$transaction(async (tx) => {
+      await tx.workSessionLog.create({
+        data: {
+          sessionId: ws.id,
+          actionType: "RESUME",
+          timestamp: now,
+        },
+      });
+
+      return await tx.workSession.update({
+        where: { id: ws.id },
+        data: {
+          status: "ACTIVE",
+          endTime: null,
+        },
+      });
+    });
+
+    // Broadcast resumption
+    broadcastWorkManagementEvent("WORK_SESSION_RESUMED", {
+      userId,
+      sessionId: ws.id,
+      timestamp: now.toISOString(),
+    });
+
+    return { success: true, session: updatedSession };
+  } catch (error: any) {
+    console.error("reopenWorkSession error:", error);
+    return { success: false, error: error.message || "Failed to reopen work session" };
+  }
+}
+
+/**
+ * Fetch historical work sessions for all active team members
+ */
+export async function getAllTeamSessionHistory(page: number = 1, limit: number = 50) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return { success: false, error: "Unauthorized", history: [] };
+    }
+
+    const skip = (page - 1) * limit;
+
+    const history = await prisma.workSession.findMany({
+      orderBy: {
+        date: "desc",
+      },
+      skip,
+      take: limit,
+      include: {
+        User: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            image: true,
+          },
+        },
+      },
+    });
+
+    // Map to plain object serialization for client components
+    const mapped = history.map((ws: any) => ({
+      ...ws,
+      date: ws.date.toISOString(),
+      startTime: ws.startTime?.toISOString() || null,
+      endTime: ws.endTime?.toISOString() || null,
+      createdAt: ws.createdAt.toISOString(),
+      updatedAt: ws.updatedAt.toISOString(),
+    }));
+
+    return { success: true, history: mapped };
+  } catch (error: any) {
+    console.error("getAllTeamSessionHistory error:", error);
+    return { success: false, error: error.message || "Failed to fetch session history", history: [] };
+  }
+}
+

@@ -185,14 +185,21 @@ export async function getMyDayData(dateStr?: string) {
 /**
  * Add a task to My Day plan for a specific date.
  */
-export async function addTaskToMyDay(taskId: string, dateStr?: string) {
+export async function addTaskToMyDay(taskId: string, dateStr?: string, targetUserId?: string) {
   try {
     const session = await auth();
     if (!session?.user?.id) {
       return { success: false, error: "Unauthorized" };
     }
 
-    const userId = session.user.id;
+    let userId = session.user.id;
+    if (targetUserId && targetUserId !== userId) {
+      const role = session.user.role?.toLowerCase();
+      if (role !== "admin" && role !== "manager") {
+        return { success: false, error: "Permission Denied: Only managers and admins can manage other users' plans." };
+      }
+      userId = targetUserId;
+    }
     const today = dateStr ? new Date(`${dateStr}T00:00:00.000Z`) : await getTodayDhakaDate();
 
     // Fetch the task to confirm access permissions
@@ -258,14 +265,21 @@ export async function addTaskToMyDay(taskId: string, dateStr?: string) {
 /**
  * Remove a task from today's My Day plan.
  */
-export async function removeTaskFromMyDay(taskId: string, dateStr?: string) {
+export async function removeTaskFromMyDay(taskId: string, dateStr?: string, targetUserId?: string) {
   try {
     const session = await auth();
     if (!session?.user?.id) {
       return { success: false, error: "Unauthorized" };
     }
 
-    const userId = session.user.id;
+    let userId = session.user.id;
+    if (targetUserId && targetUserId !== userId) {
+      const role = session.user.role?.toLowerCase();
+      if (role !== "admin" && role !== "manager") {
+        return { success: false, error: "Permission Denied: Only managers and admins can manage other users' plans." };
+      }
+      userId = targetUserId;
+    }
     const today = dateStr ? new Date(`${dateStr}T00:00:00.000Z`) : await getTodayDhakaDate();
 
     // Delete plan item

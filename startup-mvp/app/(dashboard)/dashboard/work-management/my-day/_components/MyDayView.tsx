@@ -15,10 +15,28 @@ import {
   resumeWorkSession,
   endWorkSession,
   switchWorkSessionTask,
+  reopenWorkSession,
 } from "@/app/actions/projects/work-session.action";
 import { createTask, updateTask } from "@/app/actions/system/task.action";
-import { submitDailyUpdate } from "@/app/actions/crm/activity-report.action";
+import { submitDailyUpdate, getDailyUpdateHistory } from "@/app/actions/crm/activity-report.action";
 import { getProjects, getProjectById } from "@/app/actions/projects/project.action";
+import { format } from "date-fns";
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Share2 } from "lucide-react";
 import {
   Play,
   Pause,
@@ -48,6 +66,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog";
 
 interface Props {
@@ -178,7 +197,6 @@ export default function MyDayView({ initialData, currentUser }: Props) {
   const [taskParentId, setTaskParentId] = useState("");
   const [taskEstimatedHours, setTaskEstimatedHours] = useState("");
   const [showMoreOptions, setShowMoreOptions] = useState(false);
-
   // Loaded metadata for composer
   const [projectsList, setProjectsList] = useState<any[]>([]);
   const [milestonesList, setMilestonesList] = useState<any[]>([]);
@@ -195,6 +213,10 @@ export default function MyDayView({ initialData, currentUser }: Props) {
   // Active Session Counter state
   const [secondsElapsed, setSecondsElapsed] = useState(0);
 
+  // New confirmation state and reports log
+  const [isConfirmEndOpen, setIsConfirmEndOpen] = useState(false);
+  const [reportHistory, setReportHistory] = useState<any[]>([]);
+
   const refreshMyDay = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     const res = await getMyDayData();
@@ -202,6 +224,11 @@ export default function MyDayView({ initialData, currentUser }: Props) {
       setData(res);
     } else {
       toast.error(res.error || "Failed to load My Day data");
+    }
+
+    const historyRes = await getDailyUpdateHistory(10);
+    if (historyRes.success && historyRes.history) {
+      setReportHistory(historyRes.history);
     }
     setLoading(false);
   }, []);
@@ -353,17 +380,47 @@ export default function MyDayView({ initialData, currentUser }: Props) {
   };
 
   const handleEndSession = async () => {
-    if (!window.confirm("Are you sure you want to end today's work session? This action is final.")) return;
-    const res = await endWorkSession();
-    if (res.success) {
-      toast.success("Work session completed!");
-      refreshMyDay();
-    } else {
-      toast.error(res.error || "Failed to end session");
-    }
+    setIsConfirmEndOpen(true);
   };
 
-  const handleSwitchFocusTask = async (taskId: string, projectId: string | null) => {
+  const handleEndSessionConfirm = async () => {
+    setIsConfirmEndOpen(false);
+    startTransition(async () => {
+      const res = await endWorkSession();
+      if (res.success) {
+        toast.success("Work session completed!");
+        refreshMyDay();
+      } else {
+        toast.error(res.error || "Failed to end session");
+      }
+    });
+  };
+
+  const handleReopenSession = async () => {
+    startTransition(async () => {
+      const res = await reopenWorkSession();
+      if (res.success) {
+        toast.success("Work session reopened successfully!");
+        refreshMyDay();
+      } else {
+        toast.error(res.error || "Failed to reopen work session");
+      }
+    });
+  };
+
+  const handleShareToWhatsApp = () => {
+    const formattedDate = dateStr || new Date().toLocaleDateString();
+    const whatsappText = `📢 *Daily Work Update - ${currentUser.name || currentUser.email} (${formattedDate})*\n\n` +
+      `✅ *Completed Tasks:*\n${updateCompleted || "None"}\n\n` +
+      `⏳ *Pending / Carry-over Tasks:*\n${updatePending || "None"}\n\n` +
+      `🚫 *Blocked Tasks:*\n${updateBlocked || "None"}\n\n` +
+      `📝 *Summary:*\n${updateSummary || "None"}`;
+
+    const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(whatsappText)}`;
+    window.open(url, "_blank");
+  };
+
+  const handleSwitchFocusTask = async (taskId: string, projectId?: string | null) => {
     if (!workSession) {
       await handleStartSession(taskId, projectId || undefined);
       return;
@@ -375,7 +432,7 @@ export default function MyDayView({ initialData, currentUser }: Props) {
     }
 
     if (workSession.status === "ACTIVE") {
-      const res = await switchWorkSessionTask(taskId, projectId);
+      const res = await switchWorkSessionTask(taskId, projectId || null);
       if (res.success) {
         toast.success(`Focused current work to task context.`);
         refreshMyDay();
@@ -513,7 +570,8 @@ export default function MyDayView({ initialData, currentUser }: Props) {
   const formatSecondsShort = (totalSeconds: number) => {
     const hrs = Math.floor(totalSeconds / 3600);
     const mins = Math.floor((totalSeconds % 3600) / 60);
-    return `${hrs.toString().padStart(2, "0")}h ${mins.toString().padStart(2, "0")}m`;
+    const secs = totalSeconds % 60;
+    return `${hrs.toString().padStart(2, "0")}h ${mins.toString().padStart(2, "0")}m ${secs.toString().padStart(2, "0")}s`;
   };
 
   // Filter Blocked and Completed tasks
@@ -521,14 +579,14 @@ export default function MyDayView({ initialData, currentUser }: Props) {
   const completedTasksList = plannedTasks.filter((t: any) => t.status === "completed" || t.status === "done");
 
   return (
-    <div className="max-w-7xl mx-auto pt-0 pb-6 space-y-6 animate-fade-in text-sm">
+    <div className="max-w-full w-full px-6 pt-0 pb-6 space-y-6 animate-fade-in text-sm">
       
       {/* 1. Header Section */}
       <div className="flex flex-col gap-4 border-b border-border pb-6 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">My Day</h1>
+          <h1 className="text-2xl font-black tracking-tight text-foreground bg-gradient-to-r from-foreground to-foreground/75 bg-clip-text text-transparent">Daily Focus & Session Center</h1>
           <p className="text-xs text-muted-foreground mt-1">
-            Plan, organize and track your work for today.
+            Plan, organize and track your daily priorities, session times, and accomplishments.
           </p>
         </div>
 
@@ -573,32 +631,29 @@ export default function MyDayView({ initialData, currentUser }: Props) {
           </div>
 
           {/* Session Controller buttons */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2">
             {!workSession && (
               <Button
-                size="sm"
                 onClick={() => handleStartSession()}
-                className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold transition animate-fade-in"
+                className="bg-emerald-600 hover:bg-emerald-750 text-white font-bold text-sm px-5 py-2.5 h-10 shadow-sm rounded-xl transition duration-200 animate-fade-in gap-1.5"
               >
-                <Play className="h-3.5 w-3.5" /> Start Work
+                <Play className="h-4 w-4" /> Start Work
               </Button>
             )}
 
             {workSession && workSession.status === "ACTIVE" && (
               <>
                 <Button
-                  size="sm"
                   variant="outline"
                   onClick={handlePauseSession}
-                  className="text-amber-600 border-amber-200 dark:border-amber-900 bg-amber-50/55 hover:bg-amber-50 dark:hover:bg-amber-950/20 font-semibold"
+                  className="text-amber-600 border-amber-200 dark:border-amber-900 bg-amber-50/55 hover:bg-amber-50 dark:hover:bg-amber-950/20 font-bold text-sm px-5 py-2.5 h-10 shadow-xs rounded-xl gap-1.5"
                 >
-                  <Pause className="h-3.5 w-3.5" /> Break
+                  <Pause className="h-4 w-4" /> Break
                 </Button>
                 <Button
-                  size="sm"
                   variant="destructive"
                   onClick={handleEndSession}
-                  className="font-semibold"
+                  className="font-bold text-sm px-5 py-2.5 h-10 shadow-sm rounded-xl gap-1.5"
                 >
                   End Session
                 </Button>
@@ -608,30 +663,36 @@ export default function MyDayView({ initialData, currentUser }: Props) {
             {workSession && workSession.status === "BREAK" && (
               <>
                 <Button
-                  size="sm"
                   onClick={() => handleResumeSession()}
-                  className="bg-emerald-600 hover:bg-emerald-505 text-white font-semibold"
+                  className="bg-emerald-600 hover:bg-emerald-750 text-white font-bold text-sm px-5 py-2.5 h-10 shadow-sm rounded-xl gap-1.5"
                 >
-                  <Play className="h-3.5 w-3.5" /> Resume
+                  <Play className="h-4 w-4" /> Resume
                 </Button>
                 <Button
-                  size="sm"
                   variant="destructive"
                   onClick={handleEndSession}
-                  className="font-semibold"
+                  className="font-bold text-sm px-5 py-2.5 h-10 shadow-sm rounded-xl gap-1.5"
                 >
                   End Session
                 </Button>
               </>
             )}
+
+            {workSession && workSession.status === "COMPLETED" && (
+              <Button
+                onClick={handleReopenSession}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm px-5 py-2.5 h-10 shadow-sm rounded-xl transition duration-200 animate-fade-in gap-1.5"
+              >
+                <Play className="h-4 w-4" /> Reopen Session
+              </Button>
+            )}
           </div>
 
           <Button
-            size="sm"
             onClick={() => setIsCreateOpen(true)}
-            className="bg-primary text-primary-foreground font-semibold"
+            className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm px-5 py-2.5 h-10 shadow-sm rounded-xl transition duration-200 gap-1.5"
           >
-            <Plus className="h-3.5 w-3.5" /> Create Task
+            <Plus className="h-4 w-4" /> Create Task
           </Button>
         </div>
       </div>
@@ -648,10 +709,10 @@ export default function MyDayView({ initialData, currentUser }: Props) {
             key={i}
             className={`bg-card border border-border ${stat.border} border-l-2 rounded-xl p-3.5 flex flex-col justify-between shadow-xs transition hover:border-slate-300 dark:hover:border-zinc-700`}
           >
-            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
               {stat.label}
             </span>
-            <span className={`text-xl font-bold mt-1 ${stat.text}`}>
+            <span className={`text-2xl font-black mt-1 ${stat.text}`}>
               {stat.count}
             </span>
           </div>
@@ -666,38 +727,36 @@ export default function MyDayView({ initialData, currentUser }: Props) {
               <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${currentTask ? "bg-blue-400" : "bg-zinc-400"}`} />
               <span className={`relative inline-flex rounded-full h-2 w-2 ${currentTask ? "bg-blue-500" : "bg-zinc-500"}`} />
             </span>
-            <span className="text-[10px] text-blue-600 dark:text-blue-400 uppercase font-bold tracking-wider">
+            <span className="text-xs text-blue-600 dark:text-blue-400 uppercase font-bold tracking-wider">
               Currently Working Focus Item
             </span>
           </div>
-          <h2 className="text-sm font-semibold text-foreground">
+          <h2 className="text-base font-bold text-foreground">
             {currentTask ? currentTask.title : "No focus active. Click 'Focus' in the task list below to track time on a specific task."}
           </h2>
           {currentTask && currentTask.projectName && (
-            <p className="text-[11px] text-muted-foreground">
-              Project: <span className="font-semibold text-foreground">{currentTask.projectName}</span>
+            <p className="text-xs text-muted-foreground">
+              Project: <span className="font-bold text-foreground">{currentTask.projectName}</span>
             </p>
           )}
         </div>
 
         {currentTask && (
-          <div className="flex items-center gap-2 shrink-0 self-start sm:self-center">
+          <div className="flex items-center gap-2.5 shrink-0 self-start sm:self-center">
             <Button
-              size="sm"
               variant="outline"
               onClick={() => handleTaskStatusUpdate(currentTask.id, "completed")}
-              className="text-emerald-600 border-emerald-200 dark:border-emerald-900 bg-emerald-50/40 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 font-semibold"
+              className="text-emerald-600 border-emerald-200 dark:border-emerald-900 bg-emerald-50/40 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 font-bold text-xs h-9 px-4 rounded-xl gap-1.5"
             >
-              <CheckCircle2 className="h-3.5 w-3.5" /> Mark Complete
+              <CheckCircle2 className="h-4 w-4" /> Mark Complete
             </Button>
             {workSession && workSession.status === "ACTIVE" && (
               <Button
-                size="sm"
                 variant="outline"
                 onClick={handlePauseSession}
-                className="text-amber-600 border-amber-200 dark:border-amber-900 bg-amber-50/40 hover:bg-amber-50 dark:hover:bg-amber-950/20 font-semibold"
+                className="text-amber-600 border-amber-200 dark:border-amber-900 bg-amber-50/40 hover:bg-amber-50 dark:hover:bg-amber-950/20 font-bold text-xs h-9 px-4 rounded-xl gap-1.5"
               >
-                <Pause className="h-3.5 w-3.5" /> Pause focus
+                <Pause className="h-4 w-4" /> Pause focus
               </Button>
             )}
           </div>
@@ -711,18 +770,17 @@ export default function MyDayView({ initialData, currentUser }: Props) {
         <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between border-b border-border pb-3">
             <div>
-              <h3 className="text-sm font-bold text-foreground uppercase tracking-wider">Today's Plan</h3>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Your planned focus tasks for today.</p>
+              <h3 className="text-base font-black text-foreground uppercase tracking-wider">Today's Plan</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">Your planned focus tasks for today.</p>
             </div>
             
             <div className="flex items-center gap-2">
               <Button
-                size="sm"
                 variant="outline"
                 onClick={() => setIsAddOpen(true)}
-                className="h-8 text-[11px] font-semibold border-border bg-card text-foreground"
+                className="h-9 text-xs font-bold px-4 border-border bg-card text-foreground rounded-xl shadow-xs gap-1.5"
               >
-                <Plus className="h-3 w-3 mr-1" /> Add Task
+                <Plus className="h-3.5 w-3.5" /> Add Task
               </Button>
             </div>
           </div>
@@ -730,12 +788,12 @@ export default function MyDayView({ initialData, currentUser }: Props) {
           <div className="space-y-2.5">
             {plannedTasks.length === 0 ? (
               <div className="border border-dashed border-border rounded-xl p-8 text-center bg-card text-muted-foreground flex flex-col items-center gap-2 justify-center shadow-xs">
-                <CheckSquare className="h-6 w-6 text-muted-foreground/60 stroke-[1.5]" />
-                <p className="text-xs font-medium">No tasks planned for today.</p>
-                <p className="text-[10px] text-muted-foreground max-w-xs leading-normal">
+                <CheckSquare className="h-7 w-7 text-muted-foreground/60 stroke-[1.5]" />
+                <p className="text-sm font-bold text-foreground">No tasks planned for today.</p>
+                <p className="text-xs text-muted-foreground max-w-xs leading-normal">
                   Add an existing task or create a new one to establish today's focus list.
                 </p>
-                <Button size="sm" onClick={() => setIsAddOpen(true)} className="mt-2 text-[11px] h-7 px-3">
+                <Button onClick={() => setIsAddOpen(true)} className="mt-2 text-xs h-8 px-4 rounded-lg font-semibold">
                   Select Tasks
                 </Button>
               </div>
@@ -748,13 +806,13 @@ export default function MyDayView({ initialData, currentUser }: Props) {
                 return (
                   <div
                     key={t.id}
-                    className={`group py-2.5 px-3 border border-border rounded-xl bg-card flex items-center justify-between gap-3 transition-all duration-150 hover:bg-muted/30 hover:border-slate-300 dark:hover:border-zinc-700 ${
+                    className={`group py-3.5 px-4 border border-border rounded-2xl bg-card flex items-center justify-between gap-4 transition-all duration-150 hover:bg-muted/30 hover:border-slate-300 dark:hover:border-zinc-700 ${
                       isCurrent ? "border-blue-500/30 ring-1 ring-blue-500/20" : ""
                     }`}
                   >
                     
                     {/* Shift Priority controllers & Index */}
-                    <div className="flex items-center gap-1.5 shrink-0">
+                    <div className="flex items-center gap-2 shrink-0">
                       <div className="flex flex-col">
                         <button
                           disabled={index === 0}
@@ -762,7 +820,7 @@ export default function MyDayView({ initialData, currentUser }: Props) {
                           className="p-0.5 rounded hover:bg-muted text-muted-foreground disabled:opacity-20 transition"
                           title="Move Up"
                         >
-                          <ArrowUp className="h-3 w-3" />
+                          <ArrowUp className="h-3.5 w-3.5" />
                         </button>
                         <button
                           disabled={index === plannedTasks.length - 1}
@@ -770,10 +828,10 @@ export default function MyDayView({ initialData, currentUser }: Props) {
                           className="p-0.5 rounded hover:bg-muted text-muted-foreground disabled:opacity-20 transition"
                           title="Move Down"
                         >
-                          <ArrowDown className="h-3 w-3" />
+                          <ArrowDown className="h-3.5 w-3.5" />
                         </button>
                       </div>
-                      <span className="text-[10px] font-mono font-bold text-muted-foreground w-4 text-center">
+                      <span className="text-xs font-mono font-bold text-muted-foreground w-4 text-center">
                         {String(index + 1).padStart(2, "0")}
                       </span>
                     </div>
@@ -781,27 +839,27 @@ export default function MyDayView({ initialData, currentUser }: Props) {
                     {/* Task Title & Project Tags */}
                     <div className="flex-1 min-w-0 space-y-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className={`font-semibold text-xs text-foreground truncate block max-w-sm ${t.status === "completed" || t.status === "done" ? "line-through text-muted-foreground" : ""}`}>
+                        <span className={`font-bold text-sm text-foreground truncate block max-w-sm ${t.status === "completed" || t.status === "done" ? "line-through text-muted-foreground" : ""}`}>
                           {t.title}
                         </span>
                         {t.projectName && (
-                          <span className="shrink-0 bg-secondary text-secondary-foreground border border-border px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider">
+                          <span className="shrink-0 bg-secondary text-secondary-foreground border border-border px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">
                             {t.projectName}
                           </span>
                         )}
                       </div>
 
                       {/* Priorities & Due Info */}
-                      <div className="flex flex-wrap items-center gap-3 text-[10px] text-muted-foreground font-semibold">
-                        <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg border ${priorityInfo.bg}`}>
+                      <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground font-semibold">
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg border ${priorityInfo.bg}`}>
                           <span className={`h-1.5 w-1.5 rounded-full ${priorityInfo.dot}`} />
                           {priorityInfo.label}
                         </span>
 
                         {t.dueDate && (
                           <span className="flex items-center gap-1.5">
-                            <Calendar className="h-3 w-3" />
-                            <span className={new Date(t.dueDate) < new Date() && t.status !== "completed" ? "text-rose-500 font-bold" : "font-medium"}>
+                            <Calendar className="h-3.5 w-3.5" />
+                            <span className={new Date(t.dueDate) < new Date() && t.status !== "completed" ? "text-rose-500 font-bold" : "font-semibold"}>
                               Due: {t.dueDate}
                             </span>
                           </span>
@@ -813,33 +871,33 @@ export default function MyDayView({ initialData, currentUser }: Props) {
                     <div className="flex items-center gap-2.5 shrink-0">
                       
                       {/* Custom dropdown styled picker */}
-                      <div className="relative">
-                        <select
-                          value={t.status}
-                          onChange={(e) => handleTaskStatusUpdate(t.id, e.target.value)}
-                          className={`appearance-none bg-card border ${statusInfo.border} ${statusInfo.text} text-[10px] font-bold rounded-lg pl-6 pr-6 py-1 focus:outline-none focus:ring-1 focus:ring-primary/40 select-none cursor-pointer`}
-                        >
-                          <option value="new">New</option>
-                          <option value="todo">Todo</option>
-                          <option value="in_progress">In Progress</option>
-                          <option value="review">Review</option>
-                          <option value="completed">Completed</option>
-                          <option value="blocked">Blocked</option>
-                        </select>
-                        <span className={`absolute left-2.5 top-1/2 -translate-y-1/2 h-1.5 w-1.5 rounded-full ${statusInfo.dot}`} />
-                        <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground pointer-events-none" />
-                      </div>
+                      <Select value={t.status} onValueChange={(val) => handleTaskStatusUpdate(t.id, val)}>
+                        <SelectTrigger className={`w-[125px] bg-card border ${statusInfo.border} ${statusInfo.text} text-xs font-bold rounded-xl h-9 select-none justify-between`}>
+                          <div className="flex items-center gap-2 truncate">
+                            <span className={`h-2 w-2 rounded-full shrink-0 ${statusInfo.dot}`} />
+                            <SelectValue />
+                          </div>
+                        </SelectTrigger>
+                        <SelectContent className="text-xs font-bold">
+                          <SelectItem value="new" className="text-xs font-bold">New</SelectItem>
+                          <SelectItem value="todo" className="text-xs font-bold">Todo</SelectItem>
+                          <SelectItem value="in_progress" className="text-xs font-bold">In Progress</SelectItem>
+                          <SelectItem value="review" className="text-xs font-bold">Review</SelectItem>
+                          <SelectItem value="completed" className="text-xs font-bold">Completed</SelectItem>
+                          <SelectItem value="blocked" className="text-xs font-bold">Blocked</SelectItem>
+                        </SelectContent>
+                      </Select>
 
                       {/* Quick Focus Button */}
                       {workSession && workSession.status === "ACTIVE" && (
                         isCurrent ? (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/20 border border-blue-200/50 dark:border-blue-900/30 px-2 py-1 rounded-lg">
+                          <span className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/20 border border-blue-200/50 dark:border-blue-900/30 px-3 py-1.5 rounded-xl">
                             <span className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse" /> Active Focus
                           </span>
                         ) : (
                           <button
                             onClick={() => handleSwitchFocusTask(t.id, t.projectId)}
-                            className="inline-flex items-center gap-1 hover:bg-muted text-[10px] font-bold py-1 px-2 rounded-lg border border-border bg-card text-foreground transition"
+                            className="inline-flex items-center gap-1.5 hover:bg-muted text-xs font-bold py-1.5 px-3 rounded-xl border border-border bg-card text-foreground transition"
                           >
                             <Play className="h-3 w-3 text-emerald-500" /> Focus
                           </button>
@@ -870,26 +928,25 @@ export default function MyDayView({ initialData, currentUser }: Props) {
           {newWorkToday.length > 0 && (
             <div className="bg-card border border-border rounded-xl p-4 space-y-3 shadow-xs transition hover:border-slate-300 dark:hover:border-zinc-700">
               <div className="flex items-center justify-between border-b border-border pb-2">
-                <h3 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5">
-                  <PlusCircle className="text-blue-500 h-3.5 w-3.5" /> New Work Arrived
+                <h3 className="text-sm font-black text-foreground uppercase tracking-wider flex items-center gap-1.5">
+                  <PlusCircle className="text-blue-500 h-4 w-4" /> New Work Arrived
                 </h3>
-                <span className="bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-400 text-[8px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider">
+                <span className="bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-400 text-[9px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">
                   🆕 New Today
                 </span>
               </div>
 
-              <div className="divide-y divide-border text-xs">
+              <div className="divide-y divide-border text-sm">
                 {newWorkToday.map((t: any) => (
-                  <div key={t.id} className="py-2.5 first:pt-0 last:pb-0 flex items-center justify-between gap-3">
+                  <div key={t.id} className="py-3 first:pt-0 last:pb-0 flex items-center justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="font-semibold text-foreground truncate">{t.title}</p>
-                      <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">{t.projectName}</p>
+                      <p className="font-bold text-foreground truncate">{t.title}</p>
+                      <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">{t.projectName}</p>
                     </div>
                     <Button
-                      size="sm"
                       variant="outline"
                       onClick={() => handleAddToPlan(t.id)}
-                      className="h-7 text-[10px] font-semibold px-2 py-0"
+                      className="h-8 text-xs font-bold px-3 py-0 rounded-xl"
                     >
                       Add to Plan
                     </Button>
@@ -901,25 +958,25 @@ export default function MyDayView({ initialData, currentUser }: Props) {
 
           {/* Blocked / Needs Attention */}
           <div className="bg-card border border-border rounded-xl p-4 space-y-3 shadow-xs transition hover:border-slate-300 dark:hover:border-zinc-700">
-            <h3 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5 border-b border-border pb-2">
-              <AlertTriangle className="text-rose-500 h-3.5 w-3.5" /> Needs Attention
+            <h3 className="text-sm font-black text-foreground uppercase tracking-wider flex items-center gap-1.5 border-b border-border pb-2">
+              <AlertTriangle className="text-rose-500 h-4 w-4" /> Needs Attention
             </h3>
             
             {blockedTasksList.length === 0 ? (
-              <p className="text-[11px] text-muted-foreground italic text-center py-2">
+              <p className="text-xs text-muted-foreground italic text-center py-2">
                 You're clear. No blocked tasks.
               </p>
             ) : (
               <div className="space-y-3">
                 {blockedTasksList.map((t: any) => (
-                  <div key={t.id} className="border border-border/80 rounded-lg p-2.5 bg-rose-50/5 dark:bg-rose-950/5 space-y-1">
-                    <div className="flex items-center gap-1.5">
+                  <div key={t.id} className="border border-border/80 rounded-xl p-3 bg-rose-50/5 dark:bg-rose-950/5 space-y-1">
+                    <div className="flex items-center gap-2">
                       <span className="h-1.5 w-1.5 rounded-full bg-rose-500 shrink-0" />
-                      <span className="font-bold text-xs text-foreground truncate block max-w-[180px]">
+                      <span className="font-bold text-sm text-foreground truncate block max-w-[180px]">
                         {t.title}
                       </span>
                     </div>
-                    <p className="text-[10px] text-muted-foreground font-medium pl-3">
+                    <p className="text-xs text-muted-foreground font-medium pl-3.5">
                       Status: Blocked / Waiting on dependency.
                     </p>
                   </div>
@@ -929,25 +986,25 @@ export default function MyDayView({ initialData, currentUser }: Props) {
           </div>
 
           {/* Completed Today list */}
-          <div className="bg-card border border-border rounded-xl p-4 space-y-3 shadow-xs transition hover:border-slate-350 dark:hover:border-zinc-700">
-            <h3 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5 border-b border-border pb-2">
-              <CheckCircle2 className="text-emerald-500 h-3.5 w-3.5" /> Completed Today
+          <div className="bg-card border border-border rounded-xl p-4 space-y-3 shadow-xs transition hover:border-slate-355 dark:hover:border-zinc-700">
+            <h3 className="text-sm font-black text-foreground uppercase tracking-wider flex items-center gap-1.5 border-b border-border pb-2">
+              <CheckCircle2 className="text-emerald-500 h-4 w-4" /> Completed Today
             </h3>
 
             {completedTasksList.length === 0 ? (
-              <p className="text-[11px] text-muted-foreground italic text-center py-2">
+              <p className="text-xs text-muted-foreground italic text-center py-2">
                 No tasks completed yet today.
               </p>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-2.5">
                 {completedTasksList.map((t: any) => (
-                  <div key={t.id} className="flex items-start gap-2 py-1.5 first:pt-0 last:pb-0">
-                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                  <div key={t.id} className="flex items-start gap-2.5 py-1.5 first:pt-0 last:pb-0">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
                     <div className="min-w-0">
-                      <p className="font-semibold text-xs text-foreground line-through decoration-muted-foreground/60 truncate">
+                      <p className="font-bold text-sm text-foreground line-through decoration-muted-foreground/60 truncate">
                         {t.title}
                       </p>
-                      <p className="text-[9px] text-muted-foreground uppercase font-bold tracking-wider">{t.projectName}</p>
+                      <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">{t.projectName}</p>
                     </div>
                   </div>
                 ))}
@@ -957,16 +1014,16 @@ export default function MyDayView({ initialData, currentUser }: Props) {
 
           {/* Daily Activity Update Form CTA */}
           {workSession && (
-            <div className="bg-card border border-border rounded-xl p-4 space-y-3 shadow-xs transition hover:border-slate-350 dark:hover:border-zinc-700">
-              <h4 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5">
-                <FileText className="text-primary h-3.5 w-3.5" /> End of Day Update
+            <div className="bg-card border border-border rounded-xl p-4 space-y-3 shadow-xs transition hover:border-slate-355 dark:hover:border-zinc-700">
+              <h4 className="text-sm font-black text-foreground uppercase tracking-wider flex items-center gap-1.5">
+                <FileText className="text-primary h-4 w-4" /> End of Day Update
               </h4>
-              <p className="text-[11px] text-muted-foreground leading-relaxed">
+              <p className="text-xs text-muted-foreground leading-relaxed">
                 Ready to wrap up? Prepare your daily work summary to submit for admin review.
               </p>
               <Button
                 onClick={handlePrefillDailyReport}
-                className="w-full bg-primary text-primary-foreground font-semibold text-xs py-2"
+                className="w-full bg-violet-600 hover:bg-violet-700 text-white font-bold text-sm py-2.5 px-4 shadow-sm rounded-xl transition duration-200"
               >
                 Generate Daily Report
               </Button>
@@ -986,22 +1043,21 @@ export default function MyDayView({ initialData, currentUser }: Props) {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="max-h-[300px] overflow-y-auto divide-y divide-border text-xs pr-1">
+          <div className="max-h-[300px] overflow-y-auto divide-y divide-border text-sm pr-1">
             {availableToPlan.length === 0 ? (
               <p className="p-8 text-center text-muted-foreground italic">No assigned tasks left to plan.</p>
             ) : (
               availableToPlan.map((t: any) => (
-                <div key={t.id} className="py-3 first:pt-0 last:pb-0 flex items-center justify-between gap-3">
+                <div key={t.id} className="py-3.5 first:pt-0 last:pb-0 flex items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="font-bold text-foreground truncate">{t.title}</p>
-                    <p className="text-[10px] text-muted-foreground">
-                      {t.projectName} • Priority: <span className="capitalize">{t.priority}</span>
+                    <p className="font-bold text-foreground truncate text-sm">{t.title}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {t.projectName} • Priority: <span className="capitalize font-bold text-foreground">{t.priority}</span>
                     </p>
                   </div>
                   <Button
                     onClick={() => handleAddToPlan(t.id)}
-                    size="sm"
-                    className="text-[11px] h-7 px-3 font-semibold"
+                    className="text-xs h-8 px-4 font-bold rounded-xl"
                   >
                     Add to My Day
                   </Button>
@@ -1052,32 +1108,34 @@ export default function MyDayView({ initialData, currentUser }: Props) {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="font-semibold text-muted-foreground">Project Relation</label>
-                <select
-                  value={taskProjId}
-                  onChange={(e) => setTaskProjId(e.target.value)}
-                  className="w-full rounded-lg border border-input bg-background py-2 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary shadow-xs transition"
-                >
-                  <option value="">General Work (No Project)</option>
-                  {projectsList.map((p: any) => (
-                    <option key={p.id} value={p.id}>
-                      {p.title}
-                    </option>
-                  ))}
-                </select>
+                <Select value={taskProjId} onValueChange={(val) => setTaskProjId(val === "none" ? "" : val)}>
+                  <SelectTrigger className="w-full bg-background border border-input rounded-lg h-9 text-xs justify-between">
+                    <SelectValue placeholder="Select project" />
+                  </SelectTrigger>
+                  <SelectContent className="text-xs">
+                    <SelectItem value="none">General Work (No Project)</SelectItem>
+                    {projectsList.map((p: any) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-1">
                 <label className="font-semibold text-muted-foreground">Priority</label>
-                <select
-                  value={taskPriority}
-                  onChange={(e) => setTaskPriority(e.target.value)}
-                  className="w-full rounded-lg border border-input bg-background py-2 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary shadow-xs transition"
-                >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                  <option value="urgent">Urgent</option>
-                </select>
+                <Select value={taskPriority} onValueChange={setTaskPriority}>
+                  <SelectTrigger className="w-full bg-background border border-input rounded-lg h-9 text-xs justify-between">
+                    <SelectValue placeholder="Select priority" />
+                  </SelectTrigger>
+                  <SelectContent className="text-xs">
+                    <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="urgent">Urgent</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
@@ -1120,19 +1178,19 @@ export default function MyDayView({ initialData, currentUser }: Props) {
                       <label className="font-semibold text-muted-foreground flex items-center gap-1">
                         <Milestone className="h-3 w-3" /> Milestone
                       </label>
-                      <select
-                        disabled={!taskProjId}
-                        value={taskMilestoneId}
-                        onChange={(e) => setTaskMilestoneId(e.target.value)}
-                        className="w-full rounded-lg border border-input bg-background py-2 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary shadow-xs transition disabled:opacity-50 disabled:bg-muted/10"
-                      >
-                        <option value="">None (Select Project first)</option>
-                        {milestonesList.map((m: any) => (
-                          <option key={m.id} value={m.id}>
-                            {m.title}
-                          </option>
-                        ))}
-                      </select>
+                      <Select value={taskMilestoneId} onValueChange={(val) => setTaskMilestoneId(val === "none" ? "" : val)} disabled={!taskProjId}>
+                        <SelectTrigger className="w-full bg-background border border-input rounded-lg h-9 text-xs justify-between disabled:opacity-50">
+                          <SelectValue placeholder="Select milestone" />
+                        </SelectTrigger>
+                        <SelectContent className="text-xs">
+                          <SelectItem value="none">None</SelectItem>
+                          {milestonesList.map((m: any) => (
+                            <SelectItem key={m.id} value={m.id}>
+                              {m.title}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
 
                     <div className="space-y-1">
@@ -1154,18 +1212,19 @@ export default function MyDayView({ initialData, currentUser }: Props) {
                     <label className="font-semibold text-muted-foreground flex items-center gap-1">
                       <Tag className="h-3 w-3" /> Parent Task
                     </label>
-                    <select
-                      value={taskParentId}
-                      onChange={(e) => setTaskParentId(e.target.value)}
-                      className="w-full rounded-lg border border-input bg-background py-2 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary shadow-xs transition"
-                    >
-                      <option value="">None (Standalone Task)</option>
-                      {plannedTasks.map((pt: any) => (
-                        <option key={pt.id} value={pt.id}>
-                          {pt.title}
-                        </option>
-                      ))}
-                    </select>
+                    <Select value={taskParentId} onValueChange={(val) => setTaskParentId(val === "none" ? "" : val)}>
+                      <SelectTrigger className="w-full bg-background border border-input rounded-lg h-9 text-xs justify-between">
+                        <SelectValue placeholder="Select parent task" />
+                      </SelectTrigger>
+                      <SelectContent className="text-xs">
+                        <SelectItem value="none">None (Standalone Task)</SelectItem>
+                        {plannedTasks.map((pt: any) => (
+                          <SelectItem key={pt.id} value={pt.id}>
+                            {pt.title}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   <div className="pt-1.5 text-[10px] text-muted-foreground flex items-center gap-1">
@@ -1256,6 +1315,13 @@ export default function MyDayView({ initialData, currentUser }: Props) {
                 Cancel
               </Button>
               <Button
+                type="button"
+                onClick={handleShareToWhatsApp}
+                className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold h-8 gap-1.5"
+              >
+                <Share2 className="h-3.5 w-3.5" /> Share on WhatsApp
+              </Button>
+              <Button
                 type="submit"
                 disabled={isPending}
                 className="bg-primary text-primary-foreground font-semibold h-8"
@@ -1266,6 +1332,86 @@ export default function MyDayView({ initialData, currentUser }: Props) {
           </form>
         </DialogContent>
       </Dialog>
+      {/* dialog 4: End session confirmation modal */}
+      <Dialog open={isConfirmEndOpen} onOpenChange={setIsConfirmEndOpen}>
+        <DialogContent className="sm:max-w-md bg-card border border-border">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold text-destructive flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5" /> End Work Session
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Are you sure you want to end today's active work session? This will finalize your active time and record your clock-out time.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="pt-2 text-xs text-muted-foreground">
+            <p>Once ended, you cannot log any more active hours today unless you reopen the session.</p>
+          </div>
+          <DialogFooter className="flex items-center justify-end gap-2.5 pt-3 border-t border-border">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsConfirmEndOpen(false)}
+              className="font-semibold h-8"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleEndSessionConfirm}
+              className="font-semibold h-8 animate-pulse"
+            >
+              End Session
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 4. Daily Reports Log History */}
+      <div className="space-y-4 pt-8 border-t border-border">
+        <div>
+          <h3 className="text-base font-black text-foreground uppercase tracking-wider">Submitted Daily Updates History</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">Your recently submitted daily activity updates.</p>
+        </div>
+        <div className="border border-border/60 bg-card rounded-2xl overflow-hidden shadow-xs">
+          <Table className="w-full text-xs">
+            <TableHeader className="bg-muted/40 font-bold uppercase tracking-wider text-xs text-muted-foreground">
+              <TableRow className="border-b hover:bg-transparent">
+                <TableHead className="p-4 pl-5">Report Date</TableHead>
+                <TableHead className="p-4">Completed Tasks</TableHead>
+                <TableHead className="p-4">Pending Tasks</TableHead>
+                <TableHead className="p-4">Blocked Tasks</TableHead>
+                <TableHead className="p-4">Summary Comments</TableHead>
+                <TableHead className="p-4 pr-5 text-right">Submitted At</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody className="divide-y divide-border/40 font-medium text-xs">
+              {reportHistory.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="p-10 text-center text-muted-foreground italic">
+                    No submitted reports found.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                reportHistory.map((rep) => (
+                  <TableRow key={rep.id} className="hover:bg-muted/10 transition-colors">
+                    <TableCell className="p-4 pl-5 font-bold text-foreground shrink-0 whitespace-nowrap">
+                      {format(new Date(rep.reportDate), "MMM d, yyyy")}
+                    </TableCell>
+                    <TableCell className="p-4 max-w-[150px] truncate text-muted-foreground/90">{rep.completed || "-"}</TableCell>
+                    <TableCell className="p-4 max-w-[150px] truncate text-muted-foreground/90">{rep.pending || "-"}</TableCell>
+                    <TableCell className="p-4 max-w-[150px] truncate text-muted-foreground/90">{rep.blocked || "-"}</TableCell>
+                    <TableCell className="p-4 max-w-[200px] truncate text-foreground font-bold">{rep.summary || rep.comments || "-"}</TableCell>
+                    <TableCell className="p-4 pr-5 text-right font-mono text-xs text-muted-foreground whitespace-nowrap">
+                      {format(new Date(rep.submittedAt), "MMM d, hh:mm a")}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
       
     </div>
   );
