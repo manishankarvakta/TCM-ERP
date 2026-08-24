@@ -103,10 +103,20 @@ export async function getOutstandingSales(clientId: string) {
       }
     }
 
-    return { success: true, sales: outstanding };
+    const totalInvoiceDue = Number(outstanding.reduce((sum, s) => sum + s.remainingDue, 0).toFixed(2));
+    const netARBalance = await computeClientNetARBalanceInternal(clientId);
+    const openingDue = Math.max(0, Number((netARBalance - totalInvoiceDue).toFixed(2)));
+
+    return { 
+      success: true, 
+      sales: outstanding,
+      netARBalance,
+      totalInvoiceDue,
+      openingDue,
+    };
   } catch (error) {
     console.error("getOutstandingSales error:", error);
-    return { success: false, error: "Failed to fetch outstanding sales", sales: [] };
+    return { success: false, error: "Failed to fetch outstanding sales", sales: [], netARBalance: 0, totalInvoiceDue: 0, openingDue: 0 };
   }
 }
 
@@ -130,14 +140,28 @@ export async function collectCustomerDue(payload: DueCollectionPayload) {
 
     const { clientId, cashAmount, cashAccountId, cardAmount, cardAccountId, mfsAmount, mfsAccountId, allocations } = payload;
     const totalCollected = Number((cashAmount + cardAmount + mfsAmount).toFixed(2));
-    const totalAllocated = Number(allocations.reduce((sum, item) => sum + item.amountToPay, 0).toFixed(2));
+    const totalAllocated = Number((allocations || []).reduce((sum, item) => sum + item.amountToPay, 0).toFixed(2));
 
     if (totalCollected <= 0) {
       return { success: false, error: "Payment amount must be greater than zero." };
     }
 
-    if (Math.abs(totalCollected - totalAllocated) > 0.01) {
-      return { success: false, error: "Total paid amount does not match the sum of invoice allocations." };
+    // Over-receipt check against total net AR balance
+    const arRes = await getClientNetARBalance(clientId);
+    const netARBalance = arRes.success ? arRes.netDue : 0;
+
+    if (totalCollected > netARBalance + 0.01) {
+      return { 
+        success: false, 
+        error: `Over-receipt detected. Current outstanding balance for this client is ৳${netARBalance.toFixed(2)}. You are attempting to collect ৳${totalCollected.toFixed(2)}.` 
+      };
+    }
+
+    if (totalAllocated > totalCollected + 0.01) {
+      return { 
+        success: false, 
+        error: `Allocated payment amount (৳${totalAllocated.toFixed(2)}) cannot exceed total paid amount (৳${totalCollected.toFixed(2)}).` 
+      };
     }
 
     const clientObj = await prisma.client.findUnique({
@@ -302,6 +326,51 @@ export async function collectCustomerDue(payload: DueCollectionPayload) {
   }
 }
 
+export async function computeClientNetARBalanceInternal(clientId: string) {
+  const client = await prisma.client.findUnique({
+    where: { id: clientId },
+    select: {
+      id: true,
+      openingBalance: true,
+      chartOfAccountId: true,
+    },
+  });
+
+  if (!client) return 0;
+
+  const coaId = client.chartOfAccountId;
+
+  const balanceResult = await prisma.journalEntryLine.aggregate({
+    where: {
+      OR: [
+        ...(coaId ? [{ chartOfAccountId: coaId }] : []),
+        { clientId: client.id },
+      ],
+    },
+    _sum: { debitAmount: true, creditAmount: true },
+  });
+
+  const totalDebit = Number(balanceResult._sum.debitAmount || 0);
+  const totalCredit = Number(balanceResult._sum.creditAmount || 0);
+  let due = totalDebit - totalCredit;
+
+  const hasOpeningJournal = await prisma.journalEntryLine.findFirst({
+    where: {
+      OR: [
+        ...(coaId ? [{ chartOfAccountId: coaId }] : []),
+        { clientId: client.id },
+      ],
+      description: { contains: "opening balance", mode: "insensitive" },
+    },
+  });
+
+  if (Number(client.openingBalance || 0) > 0 && !hasOpeningJournal) {
+    due += Number(client.openingBalance || 0);
+  }
+
+  return Number(due.toFixed(2));
+}
+
 export async function getClientNetARBalance(clientId: string) {
   try {
     const session = await auth();
@@ -309,52 +378,11 @@ export async function getClientNetARBalance(clientId: string) {
       return { success: false, error: "Unauthorized", netDue: 0 };
     }
 
-    const client = await prisma.client.findUnique({
-      where: { id: clientId },
-      select: {
-        id: true,
-        openingBalance: true,
-        chartOfAccountId: true,
-      },
-    });
-
-    if (!client) {
-      return { success: false, error: "Client not found", netDue: 0 };
-    }
-
-    const coaId = client.chartOfAccountId;
-
-    const balanceResult = await prisma.journalEntryLine.aggregate({
-      where: {
-        OR: [
-          ...(coaId ? [{ chartOfAccountId: coaId }] : []),
-          { clientId: client.id },
-        ],
-      },
-      _sum: { debitAmount: true, creditAmount: true },
-    });
-
-    const totalDebit = Number(balanceResult._sum.debitAmount || 0);
-    const totalCredit = Number(balanceResult._sum.creditAmount || 0);
-    let due = totalDebit - totalCredit;
-
-    const hasOpeningJournal = await prisma.journalEntryLine.findFirst({
-      where: {
-        OR: [
-          ...(coaId ? [{ chartOfAccountId: coaId }] : []),
-          { clientId: client.id },
-        ],
-        description: { contains: "opening balance", mode: "insensitive" },
-      },
-    });
-
-    if (Number(client.openingBalance || 0) > 0 && !hasOpeningJournal) {
-      due += Number(client.openingBalance || 0);
-    }
+    const netDue = await computeClientNetARBalanceInternal(clientId);
 
     return {
       success: true,
-      netDue: Number(due.toFixed(2)),
+      netDue,
     };
   } catch (error) {
     console.error("getClientNetARBalance error:", error);

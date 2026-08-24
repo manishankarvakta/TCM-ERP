@@ -232,6 +232,8 @@ export async function getClientsForSale() {
         company: true,
         clientCode: true,
         clientType: true,
+        openingBalance: true,
+        chartOfAccountId: true,
         membershipNumber: true,
         membershipTier: true,
         membershipStatus: true,
@@ -243,10 +245,81 @@ export async function getClientsForSale() {
       },
     });
 
+    const coaIds = clients.map(c => c.chartOfAccountId).filter(Boolean) as string[];
+    const clientIds = clients.map(c => c.id);
+
+    const [journalAgg, openingJournals] = await Promise.all([
+      prisma.journalEntryLine.groupBy({
+        by: ["chartOfAccountId", "clientId"],
+        where: {
+          OR: [
+            { chartOfAccountId: { in: coaIds } },
+            { clientId: { in: clientIds } }
+          ]
+        },
+        _sum: { debitAmount: true, creditAmount: true },
+      }),
+      prisma.journalEntryLine.findMany({
+        where: {
+          OR: [
+            { chartOfAccountId: { in: coaIds } },
+            { clientId: { in: clientIds } }
+          ],
+          description: { contains: "opening balance", mode: "insensitive" }
+        },
+        select: { chartOfAccountId: true, clientId: true }
+      })
+    ]);
+
+    const journalMap = new Map<string, { debit: number; credit: number }>();
+    for (const item of journalAgg) {
+      const key = item.chartOfAccountId || item.clientId;
+      if (key) {
+        const current = journalMap.get(key) || { debit: 0, credit: 0 };
+        journalMap.set(key, {
+          debit: current.debit + Number(item._sum.debitAmount || 0),
+          credit: current.credit + Number(item._sum.creditAmount || 0),
+        });
+      }
+    }
+
+    const openingJournalSet = new Set<string>();
+    for (const j of openingJournals) {
+      if (j.chartOfAccountId) openingJournalSet.add(j.chartOfAccountId);
+      if (j.clientId) openingJournalSet.add(j.clientId);
+    }
+
+    const clientsWithDues = clients.map(c => {
+      const coaId = c.chartOfAccountId;
+      let netDue = 0;
+      
+      if (coaId && journalMap.has(coaId)) {
+        const entry = journalMap.get(coaId)!;
+        netDue += (entry.debit - entry.credit);
+      } else if (journalMap.has(c.id)) {
+        const entry = journalMap.get(c.id)!;
+        netDue += (entry.debit - entry.credit);
+      }
+
+      const hasOpening = (coaId && openingJournalSet.has(coaId)) || openingJournalSet.has(c.id);
+
+      if (Number(c.openingBalance || 0) > 0 && !hasOpening) {
+        netDue += Number(c.openingBalance || 0);
+      }
+
+      return {
+        ...c,
+        netDue: Math.max(0, Number(netDue.toFixed(2)))
+      };
+    });
+
     // Make sure Walkway Customer is at the top or at least exists
-    const clientList = clients.filter(c => c.id !== defaultClient?.id);
+    const clientList = clientsWithDues.filter(c => c.id !== defaultClient?.id);
     if (defaultClient) {
-      clientList.unshift(defaultClient as any);
+      clientList.unshift({
+        ...(defaultClient as any),
+        netDue: 0
+      });
     }
 
     return { success: true, clients: clientList };

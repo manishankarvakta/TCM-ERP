@@ -184,7 +184,12 @@ export default function POSComponent({ items, clients: initialClients, warehouse
       .map(c => {
         const descParts = [];
         if (c.clientType === 'wholesale') descParts.push("WS");
+        if (c.clientCode) descParts.push(c.clientCode);
         if (c.phone) descParts.push(c.phone);
+        const dueAmount = Number((c as any).netDue || 0);
+        if (dueAmount > 0) {
+          descParts.push(`Due: ৳${dueAmount.toLocaleString("en-BD", { minimumFractionDigits: 2 })}`);
+        }
         return {
           value: c.id,
           label: c.name || c.email || "Unnamed Customer",
@@ -212,6 +217,8 @@ export default function POSComponent({ items, clients: initialClients, warehouse
   const [isPayDueModalOpen, setIsPayDueModalOpen] = useState(false);
   const [payDueClientId, setPayDueClientId] = useState("");
   const [outstandingSales, setOutstandingSales] = useState<any[]>([]);
+  const [clientNetARBalance, setClientNetARBalance] = useState<number>(0);
+  const [clientOpeningDue, setClientOpeningDue] = useState<number>(0);
   const [dueCashAmount, setDueCashAmount] = useState<number>(0);
   const [dueCashAccountId, setDueCashAccountId] = useState<string>("");
   const [dueCardAmount, setDueCardAmount] = useState<number>(0);
@@ -320,20 +327,31 @@ export default function POSComponent({ items, clients: initialClients, warehouse
   useEffect(() => {
     if (payDueClientId) {
       getOutstandingSales(payDueClientId).then(res => {
-        if (res.success && res.sales) {
-          setOutstandingSales(res.sales);
+        if (res.success) {
+          setOutstandingSales(res.sales || []);
+          setClientNetARBalance((res as any).netARBalance || 0);
+          setClientOpeningDue((res as any).openingDue || 0);
           const initial: Record<string, number> = {};
-          res.sales.forEach(sale => {
+          (res.sales || []).forEach((sale: any) => {
             initial[sale.id] = 0;
           });
           setInvoiceAllocations(initial);
         } else {
           setOutstandingSales([]);
+          setClientNetARBalance(0);
+          setClientOpeningDue(0);
           setInvoiceAllocations({});
         }
+      }).catch(() => {
+        setOutstandingSales([]);
+        setClientNetARBalance(0);
+        setClientOpeningDue(0);
+        setInvoiceAllocations({});
       });
     } else {
       setOutstandingSales([]);
+      setClientNetARBalance(0);
+      setClientOpeningDue(0);
       setInvoiceAllocations({});
     }
   }, [payDueClientId]);
@@ -1976,8 +1994,8 @@ export default function POSComponent({ items, clients: initialClients, warehouse
   const handleSubmitDuePayment = async () => {
     if (!payDueClientId) return;
 
-    const totalCollected = dueCashAmount + dueCardAmount + dueMfsAmount;
-    const totalAllocated = Object.values(invoiceAllocations).reduce((sum, amt) => sum + amt, 0);
+    const totalCollected = Number((dueCashAmount + dueCardAmount + dueMfsAmount).toFixed(2));
+    const totalAllocated = Number(Object.values(invoiceAllocations).reduce((sum, amt) => sum + amt, 0).toFixed(2));
 
     if (totalCollected <= 0) {
       toast({
@@ -1988,10 +2006,19 @@ export default function POSComponent({ items, clients: initialClients, warehouse
       return;
     }
 
-    if (Math.abs(totalCollected - totalAllocated) > 0.01) {
+    if (totalCollected > clientNetARBalance + 0.01) {
       toast({
         title: "Validation Error",
-        description: `Total collected amount (৳${totalCollected.toFixed(2)}) must equal the sum of invoice allocations (৳${totalAllocated.toFixed(2)}).`,
+        description: `Over-receipt error: Total collected amount (৳${totalCollected.toFixed(2)}) cannot exceed customer's total net AR balance (৳${clientNetARBalance.toFixed(2)}).`,
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (totalAllocated > totalCollected + 0.01) {
+      toast({
+        title: "Validation Error",
+        description: `Allocated payment amount (৳${totalAllocated.toFixed(2)}) cannot exceed total paid amount (৳${totalCollected.toFixed(2)}).`,
         variant: "destructive"
       });
       return;
@@ -2003,15 +2030,6 @@ export default function POSComponent({ items, clients: initialClients, warehouse
         saleId,
         amountToPay: amt,
       }));
-
-    if (activeAllocations.length === 0) {
-      toast({
-        title: "Validation Error",
-        description: "No invoice has been allocated for payment.",
-        variant: "destructive"
-      });
-      return;
-    }
 
     setIsSubmittingDuePayment(true);
     try {
@@ -3629,7 +3647,14 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                     .map((c) => {
                       const descParts = [];
                       if (c.clientType === 'wholesale') descParts.push("WS");
+                      if (c.clientCode) descParts.push(c.clientCode);
                       if (c.phone) descParts.push(c.phone);
+                      const dueAmount = Number((c as any).netDue || 0);
+                      if (dueAmount > 0) {
+                        descParts.push(`Due: ৳${dueAmount.toLocaleString("en-BD", { minimumFractionDigits: 2 })}`);
+                      } else {
+                        descParts.push(`Due: ৳0.00`);
+                      }
                       return {
                         value: c.id,
                         label: c.name || c.email || "Unnamed Customer",
@@ -3642,14 +3667,34 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                     setLumpSumAmount(0);
                   }}
                   placeholder="Select Customer..."
-                  searchPlaceholder="Search customer..."
+                  searchPlaceholder="Search customer by name, client code, or phone..."
                   className="w-full h-10 text-xs bg-background border-border"
                 />
               </div>
 
+              {payDueClientId && (
+                <div className="bg-muted/40 border border-border rounded-xl p-3.5 space-y-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground block">Customer Account Due Summary</span>
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="p-2 bg-background rounded-lg border border-border">
+                      <span className="text-[10px] text-muted-foreground block font-semibold">Total Outstanding Due</span>
+                      <span className="text-sm font-black text-destructive">৳{clientNetARBalance.toFixed(2)}</span>
+                    </div>
+                    <div className="p-2 bg-background rounded-lg border border-border">
+                      <span className="text-[10px] text-muted-foreground block font-semibold">Sales Invoices Due</span>
+                      <span className="text-sm font-bold text-foreground">৳{outstandingSales.reduce((sum, s) => sum + s.remainingDue, 0).toFixed(2)}</span>
+                    </div>
+                    <div className="p-2 bg-background rounded-lg border border-border">
+                      <span className="text-[10px] text-muted-foreground block font-semibold">Opening / Account Due</span>
+                      <span className="text-sm font-bold text-primary">৳{clientOpeningDue.toFixed(2)}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {payDueClientId && outstandingSales.length > 0 && (
                 <div className="space-y-2">
-                  <span className="text-xs font-bold uppercase text-muted-foreground block">Outstanding Invoices</span>
+                  <span className="text-xs font-bold uppercase text-muted-foreground block">Outstanding Sales Invoices</span>
                   <div className="border border-border rounded-xl overflow-hidden bg-background">
                     <table className="w-full text-xs text-left">
                       <thead className="bg-muted/50 text-muted-foreground border-b border-border">
@@ -3698,7 +3743,14 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                 </div>
               )}
 
-              {payDueClientId && outstandingSales.length === 0 && (
+              {payDueClientId && outstandingSales.length === 0 && clientNetARBalance > 0 && (
+                <div className="p-4 bg-primary/10 border border-primary/20 rounded-xl text-primary text-xs font-medium space-y-1">
+                  <p className="font-bold text-sm">General Account Due Collection</p>
+                  <p>This customer has no active sales invoices, but has an Outstanding Account Due balance of <strong>৳{clientNetARBalance.toFixed(2)}</strong>. You can enter the payment amount under <strong>Collection Payment Splits</strong> on the right to collect payment directly against their account balance.</p>
+                </div>
+              )}
+
+              {payDueClientId && outstandingSales.length === 0 && clientNetARBalance <= 0 && (
                 <div className="text-center py-12 border border-dashed rounded-xl text-muted-foreground text-sm font-medium">
                   No outstanding dues found for this customer.
                 </div>
@@ -3719,14 +3771,14 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                       onChange={(e) => setLumpSumAmount(Number(e.target.value) || 0)}
                       placeholder="Enter total amount to collect..."
                       className="h-10 text-sm bg-background font-semibold"
-                      disabled={!payDueClientId || outstandingSales.length === 0}
+                      disabled={!payDueClientId || clientNetARBalance <= 0}
                     />
                   </div>
                   <Button
                     type="button"
                     onClick={handleAutoAllocateFIFO}
-                    disabled={!payDueClientId || outstandingSales.length === 0}
-                    className={`bg-primary text-primary-foreground h-10 px-4 shrink-0 font-bold ${(!payDueClientId || outstandingSales.length === 0) ? "" : "animate-pulse hover:animate-none"}`}
+                    disabled={!payDueClientId || clientNetARBalance <= 0}
+                    className={`bg-primary text-primary-foreground h-10 px-4 shrink-0 font-bold ${(!payDueClientId || clientNetARBalance <= 0) ? "" : "animate-pulse hover:animate-none"}`}
                   >
                     Auto-Allocate
                   </Button>
@@ -3741,7 +3793,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                 <div className="flex items-center justify-between gap-3 min-w-0">
                   <label className="text-xs font-semibold text-foreground w-[50px] shrink-0">Cash:</label>
                   <div className="grid grid-cols-[1fr_110px] gap-2 flex-1 min-w-0">
-                    <Select value={dueCashAccountId} onValueChange={(val) => setDueCashAccountId(val)} disabled={!payDueClientId || outstandingSales.length === 0}>
+                    <Select value={dueCashAccountId} onValueChange={(val) => setDueCashAccountId(val)} disabled={!payDueClientId || clientNetARBalance <= 0}>
                       <SelectTrigger className="h-9 text-xs bg-background border-border w-full truncate">
                         <SelectValue placeholder="Select Cash" />
                       </SelectTrigger>
@@ -3763,7 +3815,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                         onChange={(e) => setDueCashAmount(Number(e.target.value) || 0)}
                         className="h-9 text-xs font-medium pl-6 bg-background text-right w-full"
                         placeholder="0"
-                        disabled={!payDueClientId || outstandingSales.length === 0}
+                        disabled={!payDueClientId || clientNetARBalance <= 0}
                       />
                     </div>
                   </div>
@@ -3773,7 +3825,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                 <div className="flex items-center justify-between gap-3 min-w-0">
                   <label className="text-xs font-semibold text-foreground w-[50px] shrink-0">Card:</label>
                   <div className="grid grid-cols-[1fr_110px] gap-2 flex-1 min-w-0">
-                    <Select value={dueCardAccountId} onValueChange={(val) => setDueCardAccountId(val)} disabled={!payDueClientId || outstandingSales.length === 0}>
+                    <Select value={dueCardAccountId} onValueChange={(val) => setDueCardAccountId(val)} disabled={!payDueClientId || clientNetARBalance <= 0}>
                       <SelectTrigger className="h-9 text-xs bg-background border-border w-full truncate">
                         <SelectValue placeholder="Select Card Account" />
                       </SelectTrigger>
@@ -3795,7 +3847,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                         onChange={(e) => setDueCardAmount(Number(e.target.value) || 0)}
                         className="h-9 text-xs font-medium pl-6 bg-background text-right w-full"
                         placeholder="0"
-                        disabled={!payDueClientId || outstandingSales.length === 0}
+                        disabled={!payDueClientId || clientNetARBalance <= 0}
                       />
                     </div>
                   </div>
@@ -3805,7 +3857,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                 <div className="flex items-center justify-between gap-3 min-w-0">
                   <label className="text-xs font-semibold text-foreground w-[50px] shrink-0">MFS:</label>
                   <div className="grid grid-cols-[1fr_110px] gap-2 flex-1 min-w-0">
-                    <Select value={dueMfsAccountId} onValueChange={(val) => setDueMfsAccountId(val)} disabled={!payDueClientId || outstandingSales.length === 0}>
+                    <Select value={dueMfsAccountId} onValueChange={(val) => setDueMfsAccountId(val)} disabled={!payDueClientId || clientNetARBalance <= 0}>
                       <SelectTrigger className="h-9 text-xs bg-background border-border w-full truncate">
                         <SelectValue placeholder="Select Wallet Account" />
                       </SelectTrigger>
@@ -3827,7 +3879,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                         onChange={(e) => setDueMfsAmount(Number(e.target.value) || 0)}
                         className="h-9 text-xs font-medium pl-6 bg-background text-right w-full"
                         placeholder="0"
-                        disabled={!payDueClientId || outstandingSales.length === 0}
+                        disabled={!payDueClientId || clientNetARBalance <= 0}
                       />
                     </div>
                   </div>
@@ -3859,11 +3911,11 @@ export default function POSComponent({ items, clients: initialClients, warehouse
             >
               Cancel
             </Button>
-            {payDueClientId && outstandingSales.length > 0 && (
+            {payDueClientId && clientNetARBalance > 0 && (
               <Button
                 type="button"
                 onClick={handleSubmitDuePayment}
-                disabled={isSubmittingDuePayment || totalCollected <= 0 || Math.abs(totalCollected - totalAllocated) > 0.01}
+                disabled={isSubmittingDuePayment || totalCollected <= 0 || totalCollected > clientNetARBalance + 0.01 || totalAllocated > totalCollected + 0.01}
                 className="bg-[#0f8c5a] text-white hover:bg-[#0f8c5a]/90 font-bold"
               >
                 {isSubmittingDuePayment ? "Processing..." : "Collect Due"}
