@@ -54,11 +54,11 @@ export default function EnterpriseDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         
         {/* Module 1: Task Velocity (Donut Chart) */}
-        <Card className="shadow-sm border-border/50">
+        <Card className="shadow-sm border border-border/50 hover:shadow-md hover:border-violet-500/30 transition-all duration-300 hover:-translate-y-0.5 bg-gradient-to-br from-background to-muted/20">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold text-muted-foreground flex items-center justify-between">
               Global Task Velocity
-              <CheckCircle2 className="w-4 h-4" />
+              <CheckCircle2 className="w-4 h-4 text-violet-500" />
             </CardTitle>
           </CardHeader>
           <CardContent className="flex items-center">
@@ -88,10 +88,10 @@ export default function EnterpriseDashboard() {
                    <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Total Tasks</p>
                </div>
                <div className="flex gap-4">
-                  <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-600">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600">
                       <div className="w-2 h-2 rounded-full bg-emerald-500" /> {telemetry.tasks.COMPLETED} Done
                   </div>
-                  <div className="flex items-center gap-1.5 text-xs font-medium text-blue-600">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-blue-600">
                       <div className="w-2 h-2 rounded-full bg-blue-500" /> {telemetry.tasks.IN_PROGRESS} Active
                   </div>
                </div>
@@ -100,11 +100,11 @@ export default function EnterpriseDashboard() {
         </Card>
 
         {/* Module 2: Upcoming Milestones */}
-        <Card className="shadow-sm border-border/50">
+        <Card className="shadow-sm border border-border/50 hover:shadow-md hover:border-rose-500/30 transition-all duration-300 hover:-translate-y-0.5 bg-gradient-to-br from-background to-muted/20">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold text-muted-foreground flex items-center justify-between">
               Critical Path Deadlines
-              <Clock className="w-4 h-4" />
+              <Clock className="w-4 h-4 text-rose-500" />
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -115,10 +115,10 @@ export default function EnterpriseDashboard() {
                     {telemetry.upcomingDeadlines.map((m: any) => (
                         <div key={m.id} className="flex justify-between items-center text-sm">
                             <div className="min-w-0 flex-1">
-                                <p className="font-semibold truncate">{m.title}</p>
+                                <p className="font-bold truncate">{m.title}</p>
                                 <p className="text-xs text-muted-foreground truncate">{m.Project.title}</p>
                             </div>
-                            <Badge variant="outline" className="shrink-0 ml-2 border-rose-200 bg-rose-50 text-rose-700">
+                            <Badge variant="outline" className="shrink-0 ml-2 border-rose-200 bg-rose-50 text-rose-700 font-bold rounded-lg">
                                 {new Date(m.endDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                             </Badge>
                         </div>
@@ -130,26 +130,26 @@ export default function EnterpriseDashboard() {
 
         {/* Module 3: Executive Financials (Conditional RBAC) */}
         {hasFinancials ? (
-            <Card className="shadow-sm border-border/50 bg-gradient-to-br from-background to-primary/5">
+            <Card className="shadow-sm border border-border/50 hover:shadow-md hover:border-emerald-500/30 transition-all duration-300 hover:-translate-y-0.5 bg-gradient-to-br from-background to-primary/5">
                 <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-semibold text-muted-foreground flex items-center justify-between">
                     Global Portfolio Health
-                    <Activity className="w-4 h-4" />
+                    <Activity className="w-4 h-4 text-emerald-500" />
                 </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-5 mt-2">
                     {telemetry.financials.slice(0, 3).map((f: any) => (
                         <div key={f.id} className="space-y-1.5">
                             <div className="flex justify-between items-center text-xs font-semibold">
-                                <span className="truncate pr-4">{f.title}</span>
-                                <span className={f.isProfitable ? "text-emerald-600" : "text-destructive"}>
+                                <span className="truncate pr-4 font-bold text-foreground">{f.title}</span>
+                                <span className={f.isProfitable ? "text-emerald-600 font-bold" : "text-destructive font-bold"}>
                                     {Math.round(f.marginPercentage)}% Margin
                                 </span>
                             </div>
                             <Progress 
                                 value={Math.min(f.burnRatePercentage, 100)} 
                                 className="h-1.5 bg-muted/50" 
-                                indicatorColor={f.burnRatePercentage > 100 ? "bg-destructive" : f.burnRatePercentage > 80 ? "bg-amber-500" : "bg-emerald-500"} 
+                                indicatorClassName={f.burnRatePercentage > 100 ? "bg-destructive" : f.burnRatePercentage > 80 ? "bg-amber-500" : "bg-emerald-500"} 
                             />
                         </div>
                     ))}
@@ -159,10 +159,10 @@ export default function EnterpriseDashboard() {
                 </CardContent>
             </Card>
         ) : (
-            <Card className="shadow-sm border-border/50 flex flex-col items-center justify-center text-center p-6 bg-muted/10">
-                <Briefcase className="w-8 h-8 text-muted-foreground/30 mb-2" />
-                <p className="text-sm font-semibold text-muted-foreground">Financial Telemetry Locked</p>
-                <p className="text-xs text-muted-foreground/70 mt-1 max-w-[200px]">Requires 'projects.financials.read' clearance to view global burn rates.</p>
+            <Card className="shadow-sm border border-border/50 flex flex-col items-center justify-center text-center p-6 bg-muted/10 transition-all duration-300 hover:-translate-y-0.5 hover:bg-muted/15">
+                <Briefcase className="w-8 h-8 text-muted-foreground/30 mb-2 animate-pulse" />
+                <p className="text-sm font-bold text-muted-foreground">Financial Telemetry Locked</p>
+                <p className="text-xs text-muted-foreground/70 mt-1 max-w-[200px] leading-relaxed">Requires 'projects.financials.read' clearance to view global burn rates.</p>
             </Card>
         )}
 

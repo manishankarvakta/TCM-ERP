@@ -635,7 +635,7 @@ export default function MyDayView({ initialData, currentUser }: Props) {
             {!workSession && (
               <Button
                 onClick={() => handleStartSession()}
-                className="bg-emerald-600 hover:bg-emerald-750 text-white font-bold text-sm px-5 py-2.5 h-10 shadow-sm rounded-xl transition duration-200 animate-fade-in gap-1.5"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm px-5 py-2.5 h-10 shadow-sm rounded-xl transition duration-200 animate-fade-in gap-1.5 cursor-pointer"
               >
                 <Play className="h-4 w-4" /> Start Work
               </Button>
@@ -646,14 +646,14 @@ export default function MyDayView({ initialData, currentUser }: Props) {
                 <Button
                   variant="outline"
                   onClick={handlePauseSession}
-                  className="text-amber-600 border-amber-200 dark:border-amber-900 bg-amber-50/55 hover:bg-amber-50 dark:hover:bg-amber-950/20 font-bold text-sm px-5 py-2.5 h-10 shadow-xs rounded-xl gap-1.5"
+                  className="text-amber-600 border border-amber-200 dark:border-amber-900 bg-amber-50/55 hover:text-amber-700 hover:bg-amber-100/50 font-bold text-sm px-5 py-2.5 h-10 shadow-xs rounded-xl gap-1.5 cursor-pointer transition-all"
                 >
                   <Pause className="h-4 w-4" /> Break
                 </Button>
                 <Button
                   variant="destructive"
                   onClick={handleEndSession}
-                  className="font-bold text-sm px-5 py-2.5 h-10 shadow-sm rounded-xl gap-1.5"
+                  className="font-bold text-sm px-5 py-2.5 h-10 shadow-sm rounded-xl gap-1.5 cursor-pointer"
                 >
                   End Session
                 </Button>
@@ -664,14 +664,14 @@ export default function MyDayView({ initialData, currentUser }: Props) {
               <>
                 <Button
                   onClick={() => handleResumeSession()}
-                  className="bg-emerald-600 hover:bg-emerald-750 text-white font-bold text-sm px-5 py-2.5 h-10 shadow-sm rounded-xl gap-1.5"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm px-5 py-2.5 h-10 shadow-sm rounded-xl gap-1.5 cursor-pointer"
                 >
                   <Play className="h-4 w-4" /> Resume
                 </Button>
                 <Button
                   variant="destructive"
                   onClick={handleEndSession}
-                  className="font-bold text-sm px-5 py-2.5 h-10 shadow-sm rounded-xl gap-1.5"
+                  className="font-bold text-sm px-5 py-2.5 h-10 shadow-sm rounded-xl gap-1.5 cursor-pointer"
                 >
                   End Session
                 </Button>
@@ -681,7 +681,7 @@ export default function MyDayView({ initialData, currentUser }: Props) {
             {workSession && workSession.status === "COMPLETED" && (
               <Button
                 onClick={handleReopenSession}
-                className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm px-5 py-2.5 h-10 shadow-sm rounded-xl transition duration-200 animate-fade-in gap-1.5"
+                className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm px-5 py-2.5 h-10 shadow-sm rounded-xl transition duration-200 animate-fade-in gap-1.5 cursor-pointer"
               >
                 <Play className="h-4 w-4" /> Reopen Session
               </Button>
@@ -690,7 +690,7 @@ export default function MyDayView({ initialData, currentUser }: Props) {
 
           <Button
             onClick={() => setIsCreateOpen(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm px-5 py-2.5 h-10 shadow-sm rounded-xl transition duration-200 gap-1.5"
+            className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm px-5 py-2.5 h-10 shadow-sm rounded-xl transition duration-200 gap-1.5 cursor-pointer"
           >
             <Plus className="h-4 w-4" /> Create Task
           </Button>
@@ -746,7 +746,7 @@ export default function MyDayView({ initialData, currentUser }: Props) {
             <Button
               variant="outline"
               onClick={() => handleTaskStatusUpdate(currentTask.id, "completed")}
-              className="text-emerald-600 border-emerald-200 dark:border-emerald-900 bg-emerald-50/40 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 font-bold text-xs h-9 px-4 rounded-xl gap-1.5"
+              className="text-emerald-600 border border-emerald-200 dark:border-emerald-900 bg-emerald-50/40 hover:text-emerald-700 hover:bg-emerald-100/50 font-bold text-xs h-9 px-4 rounded-xl gap-1.5 cursor-pointer transition-all"
             >
               <CheckCircle2 className="h-4 w-4" /> Mark Complete
             </Button>
@@ -754,7 +754,7 @@ export default function MyDayView({ initialData, currentUser }: Props) {
               <Button
                 variant="outline"
                 onClick={handlePauseSession}
-                className="text-amber-600 border-amber-200 dark:border-amber-900 bg-amber-50/40 hover:bg-amber-50 dark:hover:bg-amber-950/20 font-bold text-xs h-9 px-4 rounded-xl gap-1.5"
+                className="text-amber-600 border border-amber-200 dark:border-amber-900 bg-amber-50/40 hover:text-amber-700 hover:bg-amber-100/50 font-bold text-xs h-9 px-4 rounded-xl gap-1.5 cursor-pointer transition-all"
               >
                 <Pause className="h-4 w-4" /> Pause focus
               </Button>
@@ -778,7 +778,7 @@ export default function MyDayView({ initialData, currentUser }: Props) {
               <Button
                 variant="outline"
                 onClick={() => setIsAddOpen(true)}
-                className="h-9 text-xs font-bold px-4 border-border bg-card text-foreground rounded-xl shadow-xs gap-1.5"
+                className="h-9 text-xs font-bold px-4 border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-xl shadow-xs gap-1.5 cursor-pointer transition-all"
               >
                 <Plus className="h-3.5 w-3.5" /> Add Task
               </Button>
@@ -793,7 +793,7 @@ export default function MyDayView({ initialData, currentUser }: Props) {
                 <p className="text-xs text-muted-foreground max-w-xs leading-normal">
                   Add an existing task or create a new one to establish today's focus list.
                 </p>
-                <Button onClick={() => setIsAddOpen(true)} className="mt-2 text-xs h-8 px-4 rounded-lg font-semibold">
+                <Button onClick={() => setIsAddOpen(true)} className="mt-2 text-xs h-8 px-4 rounded-lg font-semibold cursor-pointer">
                   Select Tasks
                 </Button>
               </div>
@@ -817,7 +817,7 @@ export default function MyDayView({ initialData, currentUser }: Props) {
                         <button
                           disabled={index === 0}
                           onClick={() => handleShiftPriorityOrder(index, "up")}
-                          className="p-0.5 rounded hover:bg-muted text-muted-foreground disabled:opacity-20 transition"
+                          className="p-0.5 rounded hover:bg-muted text-muted-foreground disabled:opacity-20 transition cursor-pointer disabled:cursor-not-allowed"
                           title="Move Up"
                         >
                           <ArrowUp className="h-3.5 w-3.5" />
@@ -825,7 +825,7 @@ export default function MyDayView({ initialData, currentUser }: Props) {
                         <button
                           disabled={index === plannedTasks.length - 1}
                           onClick={() => handleShiftPriorityOrder(index, "down")}
-                          className="p-0.5 rounded hover:bg-muted text-muted-foreground disabled:opacity-20 transition"
+                          className="p-0.5 rounded hover:bg-muted text-muted-foreground disabled:opacity-20 transition cursor-pointer disabled:cursor-not-allowed"
                           title="Move Down"
                         >
                           <ArrowDown className="h-3.5 w-3.5" />
@@ -897,7 +897,7 @@ export default function MyDayView({ initialData, currentUser }: Props) {
                         ) : (
                           <button
                             onClick={() => handleSwitchFocusTask(t.id, t.projectId)}
-                            className="inline-flex items-center gap-1.5 hover:bg-muted text-xs font-bold py-1.5 px-3 rounded-xl border border-border bg-card text-foreground transition"
+                            className="inline-flex items-center gap-1.5 hover:bg-muted text-xs font-bold py-1.5 px-3 rounded-xl border border-border bg-card text-foreground transition cursor-pointer"
                           >
                             <Play className="h-3 w-3 text-emerald-500" /> Focus
                           </button>
@@ -907,7 +907,7 @@ export default function MyDayView({ initialData, currentUser }: Props) {
                       {/* Remove Button */}
                       <button
                         onClick={() => handleRemoveFromPlan(t.id)}
-                        className="p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/25 text-muted-foreground hover:text-rose-500 transition opacity-0 group-hover:opacity-100"
+                        className="p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/25 text-muted-foreground hover:text-rose-500 transition opacity-0 group-hover:opacity-100 cursor-pointer"
                         title="Remove from My Day"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -946,7 +946,7 @@ export default function MyDayView({ initialData, currentUser }: Props) {
                     <Button
                       variant="outline"
                       onClick={() => handleAddToPlan(t.id)}
-                      className="h-8 text-xs font-bold px-3 py-0 rounded-xl"
+                      className="h-8 text-xs font-bold px-3 py-0 rounded-xl cursor-pointer"
                     >
                       Add to Plan
                     </Button>
@@ -1023,7 +1023,7 @@ export default function MyDayView({ initialData, currentUser }: Props) {
               </p>
               <Button
                 onClick={handlePrefillDailyReport}
-                className="w-full bg-violet-600 hover:bg-violet-700 text-white font-bold text-sm py-2.5 px-4 shadow-sm rounded-xl transition duration-200"
+                className="w-full bg-violet-600 hover:bg-violet-700 text-white font-bold text-sm py-2.5 px-4 shadow-sm rounded-xl transition duration-200 cursor-pointer"
               >
                 Generate Daily Report
               </Button>
@@ -1057,7 +1057,7 @@ export default function MyDayView({ initialData, currentUser }: Props) {
                   </div>
                   <Button
                     onClick={() => handleAddToPlan(t.id)}
-                    className="text-xs h-8 px-4 font-bold rounded-xl"
+                    className="text-xs h-8 px-4 font-bold rounded-xl cursor-pointer"
                   >
                     Add to My Day
                   </Button>
@@ -1241,14 +1241,14 @@ export default function MyDayView({ initialData, currentUser }: Props) {
                 type="button"
                 variant="outline"
                 onClick={() => setIsCreateOpen(false)}
-                className="font-semibold h-8"
+                className="font-semibold h-8 border border-border/60 text-muted-foreground hover:text-foreground hover:bg-muted/40 cursor-pointer transition-all"
               >
                 Cancel
               </Button>
               <Button
                 type="submit"
                 disabled={isPending}
-                className="bg-primary text-primary-foreground font-semibold h-8"
+                className="bg-primary text-primary-foreground font-semibold h-8 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isPending ? "Creating..." : "Create & Plan"}
               </Button>
@@ -1310,21 +1310,21 @@ export default function MyDayView({ initialData, currentUser }: Props) {
                 type="button"
                 variant="outline"
                 onClick={() => setIsUpdateOpen(false)}
-                className="font-semibold h-8"
+                className="font-semibold h-8 border border-border/60 text-muted-foreground hover:text-foreground hover:bg-muted/40 cursor-pointer transition-all"
               >
                 Cancel
               </Button>
               <Button
                 type="button"
                 onClick={handleShareToWhatsApp}
-                className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold h-8 gap-1.5"
+                className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold h-8 gap-1.5 cursor-pointer"
               >
                 <Share2 className="h-3.5 w-3.5" /> Share on WhatsApp
               </Button>
               <Button
                 type="submit"
                 disabled={isPending}
-                className="bg-primary text-primary-foreground font-semibold h-8"
+                className="bg-primary text-primary-foreground font-semibold h-8 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isPending ? "Submitting..." : "Submit Report"}
               </Button>
@@ -1351,7 +1351,7 @@ export default function MyDayView({ initialData, currentUser }: Props) {
               type="button"
               variant="outline"
               onClick={() => setIsConfirmEndOpen(false)}
-              className="font-semibold h-8"
+              className="font-semibold h-8 border border-border/60 text-muted-foreground hover:text-foreground hover:bg-muted/40 cursor-pointer transition-all"
             >
               Cancel
             </Button>
@@ -1359,7 +1359,7 @@ export default function MyDayView({ initialData, currentUser }: Props) {
               type="button"
               variant="destructive"
               onClick={handleEndSessionConfirm}
-              className="font-semibold h-8 animate-pulse"
+              className="font-semibold h-8 cursor-pointer"
             >
               End Session
             </Button>

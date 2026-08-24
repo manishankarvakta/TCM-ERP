@@ -140,14 +140,14 @@ export default function ProjectManagerAll({ initialProjects, initialPagination, 
         </div>
       </div>
 
-      <div className="bg-muted/20 p-4 rounded-lg border border-dashed space-y-4">
+      <div className="bg-card border border-border/60 shadow-2xs p-4 rounded-xl space-y-4">
         <div className="flex flex-col sm:flex-row items-center gap-4">
             <div className="relative w-full max-w-sm">
             <FiSearch className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
                 type="search"
                 placeholder="Search projects..."
-                className="pl-8 bg-background"
+                className="pl-8 bg-background focus-visible:ring-violet-500"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
             />
@@ -156,7 +156,7 @@ export default function ProjectManagerAll({ initialProjects, initialPagination, 
             <div className="flex items-center gap-2 ml-auto">
                 <span className="text-sm font-medium text-muted-foreground">Status:</span>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-[140px] bg-background">
+                    <SelectTrigger className="w-[140px] bg-background focus:ring-violet-500">
                         <SelectValue placeholder="Status" />
                     </SelectTrigger>
                     <SelectContent>
@@ -171,7 +171,7 @@ export default function ProjectManagerAll({ initialProjects, initialPagination, 
             </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-center gap-4 pt-2 border-t border-dashed border-muted">
+        <div className="flex flex-col sm:flex-row items-center gap-4 pt-2 border-t border-dashed border-muted/50">
             <div className="flex items-center gap-2">
                 <span className="text-sm font-medium text-muted-foreground">Date:</span>
                 <div className="flex items-center gap-2">
@@ -179,14 +179,14 @@ export default function ProjectManagerAll({ initialProjects, initialPagination, 
                         type="date" 
                         value={dateFrom || ""} 
                         onChange={(e) => setDateFrom(e.target.value || undefined)}
-                        className="w-[140px] h-9 bg-background py-1"
+                        className="w-[140px] h-9 bg-background py-1 focus-visible:ring-violet-500"
                     />
                     <span className="text-muted-foreground text-xs">to</span>
                     <Input 
                         type="date" 
                         value={dateTo || ""} 
                         onChange={(e) => setDateTo(e.target.value || undefined)}
-                        className="w-[140px] h-9 bg-background py-1"
+                        className="w-[140px] h-9 bg-background py-1 focus-visible:ring-violet-500"
                     />
                     {(dateFrom || dateTo) && (
                         <Button 
@@ -204,7 +204,7 @@ export default function ProjectManagerAll({ initialProjects, initialPagination, 
             <div className="flex items-center gap-2 ml-auto">
                 <span className="text-sm font-medium text-muted-foreground">Sort:</span>
                 <Select value={sortBy} onValueChange={setSortBy}>
-                    <SelectTrigger className="w-[130px] bg-background">
+                    <SelectTrigger className="w-[130px] bg-background focus:ring-violet-500">
                     <SelectValue placeholder="Sort by" />
                     </SelectTrigger>
                     <SelectContent>
@@ -214,7 +214,7 @@ export default function ProjectManagerAll({ initialProjects, initialPagination, 
                 </Select>
                 
                 <Select value={sortOrder} onValueChange={(v) => setSortOrder(v as "asc" | "desc")}>
-                    <SelectTrigger className="w-[110px] bg-background">
+                    <SelectTrigger className="w-[110px] bg-background focus:ring-violet-500">
                     <SelectValue placeholder="Order" />
                     </SelectTrigger>
                     <SelectContent>
@@ -222,6 +222,22 @@ export default function ProjectManagerAll({ initialProjects, initialPagination, 
                     <SelectItem value="asc">Oldest</SelectItem>
                     </SelectContent>
                 </Select>
+
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                        setSearch("");
+                        setStatusFilter("all");
+                        setDateFrom(undefined);
+                        setDateTo(undefined);
+                        setSortBy("createdAt");
+                        setSortOrder("desc");
+                    }}
+                    className="h-9 px-3 gap-1 cursor-pointer hover:bg-muted text-xs font-semibold"
+                >
+                    Reset Filters
+                </Button>
             </div>
         </div>
       </div>
@@ -243,6 +259,8 @@ export default function ProjectManagerAll({ initialProjects, initialPagination, 
               projects={projects}
               onEdit={(project) => { setEditingProject(project); setIsSheetOpen(true); }}
               onRefresh={() => fetchProjectsData(pagination.page)}
+              page={pagination.page}
+              limit={pagination.limit}
             />
           )}
           {view === "grid" && (

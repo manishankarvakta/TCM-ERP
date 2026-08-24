@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
+import { X } from "lucide-react";
 
 interface Props {
   initialTeam: any[];
@@ -27,8 +29,15 @@ export default function MyTeamView({ initialTeam }: Props) {
 
   // Filters state
   const [statusFilter, setStatusFilter] = useState("all");
+  const [deptFilter, setDeptFilter] = useState("all");
   const [workloadFilter, setWorkloadFilter] = useState("all");
   const [updateFilter, setUpdateFilter] = useState("all");
+
+  // Dynamically calculate departments from active team
+  const departmentsList = useMemo(() => {
+    const depts = new Set(team.map((emp) => emp.department).filter(Boolean));
+    return Array.from(depts);
+  }, [team]);
 
   const { socket, isConnected } = useSocket();
 
@@ -107,6 +116,11 @@ export default function MyTeamView({ initialTeam }: Props) {
         return false;
       }
 
+      // Department filter
+      if (deptFilter !== "all" && emp.department !== deptFilter) {
+        return false;
+      }
+
       // Workload filter
       if (workloadFilter !== "all") {
         if (workloadFilter === "overloaded" && emp.workloadRatio <= 80) return false;
@@ -125,7 +139,6 @@ export default function MyTeamView({ initialTeam }: Props) {
     });
 
     // 2. Sort by Manager Attention Score (highest first)
-    // Overdue/Blocked task = 10 pts, High workload (>80) = 5 pts, Missing Update = 5 pts
     return result.sort((a, b) => {
       const getScore = (emp: any) => {
         let score = 0;
@@ -140,19 +153,22 @@ export default function MyTeamView({ initialTeam }: Props) {
       const scoreB = getScore(b);
 
       if (scoreA !== scoreB) {
-        return scoreB - scoreA; // descending order of score
+        return scoreB - scoreA;
       }
-      return a.name.localeCompare(b.name); // alphabetical fallback
+      return a.name.localeCompare(b.name);
     });
-  }, [team, searchQuery, statusFilter, workloadFilter, updateFilter]);
+  }, [team, searchQuery, statusFilter, deptFilter, workloadFilter, updateFilter]);
 
   return (
     <div className="space-y-4">
       {/* Header */}
       <div className="flex flex-col gap-4 border-b border-border/40 pb-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            My Team Directory
+          <h1 className="text-2xl font-black tracking-tight text-foreground flex items-center gap-2">
+            Workforce Command Center
+            <Badge variant="secondary" className="bg-violet-100 text-violet-850 dark:bg-violet-950 dark:text-violet-400 font-extrabold px-2.5 py-0.5 rounded-full text-xs">
+              {processedTeam.length} Active
+            </Badge>
           </h1>
           <p className="text-xs text-muted-foreground mt-0.5">
             Operational status, workloads, and task completions of all active team members.
@@ -177,26 +193,26 @@ export default function MyTeamView({ initialTeam }: Props) {
       </div>
 
       {/* Filters & Search Grid */}
-      <div className="rounded-xl border border-border/60 bg-card p-3 grid gap-4 grid-cols-1 md:grid-cols-4 shadow-xs text-xs">
+      <div className="rounded-xl border border-border/60 bg-card p-3 grid gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 shadow-xs text-xs">
         {/* Search */}
         <div className="relative">
           <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
           <input
             type="text"
-            placeholder="Search name, position, dept..."
+            placeholder="Search name, position..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-lg border border-border bg-background py-1.5 pl-9 pr-4 text-xs focus:outline-none focus:ring-1 focus:ring-primary shadow-xs transition"
+            className="w-full rounded-lg border border-border bg-background py-1.5 pl-9 pr-4 text-xs focus:outline-none focus:ring-1 focus:ring-violet-500 shadow-xs transition"
           />
         </div>
 
         {/* Status filter */}
         <div className="flex items-center gap-2">
-          <label className="text-xs font-semibold text-muted-foreground uppercase min-w-[50px]">Status:</label>
+          <label className="text-[10px] font-bold text-muted-foreground uppercase shrink-0">Status:</label>
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="flex-1 rounded-lg border border-border bg-background py-1.5 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+            className="w-full rounded-lg border border-border bg-background py-1.5 px-2 text-xs focus:outline-none focus:ring-1 focus:ring-violet-500"
           >
             <option value="all">All States</option>
             <option value="working">Working</option>
@@ -206,15 +222,30 @@ export default function MyTeamView({ initialTeam }: Props) {
           </select>
         </div>
 
+        {/* Department Filter */}
+        <div className="flex items-center gap-2">
+          <label className="text-[10px] font-bold text-muted-foreground uppercase shrink-0">Dept:</label>
+          <select
+            value={deptFilter}
+            onChange={(e) => setDeptFilter(e.target.value)}
+            className="w-full rounded-lg border border-border bg-background py-1.5 px-2 text-xs focus:outline-none focus:ring-1 focus:ring-violet-500"
+          >
+            <option value="all">All Depts</option>
+            {departmentsList.map((d: string) => (
+              <option key={d} value={d}>{d}</option>
+            ))}
+          </select>
+        </div>
+
         {/* Workload filter */}
         <div className="flex items-center gap-2">
-          <label className="text-xs font-semibold text-muted-foreground uppercase min-w-[65px]">Workload:</label>
+          <label className="text-[10px] font-bold text-muted-foreground uppercase shrink-0">Load:</label>
           <select
             value={workloadFilter}
             onChange={(e) => setWorkloadFilter(e.target.value)}
-            className="flex-1 rounded-lg border border-border bg-background py-1.5 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+            className="w-full rounded-lg border border-border bg-background py-1.5 px-2 text-xs focus:outline-none focus:ring-1 focus:ring-violet-500"
           >
-            <option value="all">All Load Levels</option>
+            <option value="all">All Loads</option>
             <option value="overloaded">Overloaded (&gt;80%)</option>
             <option value="healthy">Healthy (50%-80%)</option>
             <option value="underutilized">Underutilized (&lt;50%)</option>
@@ -223,197 +254,214 @@ export default function MyTeamView({ initialTeam }: Props) {
 
         {/* Updates filter */}
         <div className="flex items-center gap-2">
-          <label className="text-xs font-semibold text-muted-foreground uppercase min-w-[70px]">Daily Report:</label>
+          <label className="text-[10px] font-bold text-muted-foreground uppercase shrink-0">Report:</label>
           <select
             value={updateFilter}
             onChange={(e) => setUpdateFilter(e.target.value)}
-            className="flex-1 rounded-lg border border-border bg-background py-1.5 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+            className="w-full rounded-lg border border-border bg-background py-1.5 px-2 text-xs focus:outline-none focus:ring-1 focus:ring-violet-500"
           >
-            <option value="all">All Submission States</option>
+            <option value="all">All Reports</option>
             <option value="submitted">Submitted</option>
             <option value="missing">Missing Today</option>
           </select>
         </div>
+
+        {/* Clear filters action */}
+        <button
+          onClick={() => {
+            setSearchQuery("");
+            setStatusFilter("all");
+            setDeptFilter("all");
+            setWorkloadFilter("all");
+            setUpdateFilter("all");
+          }}
+          className="flex items-center justify-center gap-1.5 w-full bg-secondary hover:bg-secondary/80 border border-border text-foreground font-semibold rounded-lg py-1.5 text-xs transition cursor-pointer"
+        >
+          <X className="h-3.5 w-3.5" /> Clear Filters
+        </button>
       </div>
 
-      {/* Team Cards Grid */}
+      {/* Team Directory Table */}
       {processedTeam.length === 0 ? (
         <div className="rounded-xl border border-border bg-card p-12 text-center text-sm text-muted-foreground shadow-sm">
           No team members match the search filters.
         </div>
       ) : (
-        <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-          {processedTeam.map((emp: any) => {
-            const hasOverdueOrBlocked = emp.overdueCount > 0 || emp.blockedCount > 0;
-            return (
-              <div
-                key={emp.id}
-                className={`rounded-xl border bg-card p-5 space-y-4 shadow-sm hover:shadow-md transition relative overflow-hidden ${
-                  hasOverdueOrBlocked ? "border-rose-200" : "border-border"
-                }`}
-              >
-                {/* Header Profile Info */}
-                <div className="flex items-start justify-between min-w-0">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="h-12 w-12 rounded-full bg-muted overflow-hidden flex items-center justify-center font-bold text-base text-foreground">
-                      {emp.photo ? (
-                        <img src={emp.photo} alt={emp.name} className="h-full w-full object-cover" />
-                      ) : (
-                        emp.name.split(" ").map((n: string) => n[0]).join("")
-                      )}
-                    </div>
-
-                    <div className="min-w-0">
-                      <Link
-                        href={`/dashboard/work-management/team/${emp.id}`}
-                        className="font-bold text-base text-foreground hover:underline truncate block"
-                      >
-                        {emp.name}
-                      </Link>
-                      <p className="text-xs text-muted-foreground truncate">{emp.designation}</p>
-                      <p className="text-[10px] text-muted-foreground truncate uppercase font-semibold mt-0.5">
-                        {emp.department}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Attention badge */}
-                  {hasOverdueOrBlocked && (
-                    <span className="bg-rose-100 text-rose-800 text-[9px] font-extrabold px-1.5 py-0.5 rounded-full uppercase tracking-wider animate-pulse">
-                      Needs Attention
-                    </span>
-                  )}
-                </div>
-
-                {/* State & Duration display */}
-                <div className="flex items-center justify-between bg-accent/20 rounded-lg p-2.5">
-                  <div className="flex items-center gap-1.5">
-                    <span
-                      className={`h-2.5 w-2.5 rounded-full ${
-                        emp.status === "WORKING"
-                          ? "bg-emerald-500 animate-pulse"
-                          : emp.status === "ON BREAK"
-                          ? "bg-amber-500"
-                          : emp.status === "COMPLETED"
-                          ? "bg-blue-500"
-                          : "bg-zinc-400"
-                      }`}
-                    />
-                    <span className="text-xs font-bold capitalize">
-                      {emp.status === "WORKING"
-                        ? "Working"
-                        : emp.status === "ON BREAK"
-                        ? "On Break"
-                        : emp.status === "COMPLETED"
-                        ? "Completed"
-                        : "Not Started"}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-1 text-xs font-mono text-muted-foreground">
-                    <Clock className="h-3.5 w-3.5" />
-                    <span>{formatDurationSimple(emp.activeTimeMs)}</span>
-                  </div>
-                </div>
-
-                {/* Tasks Stats Grid */}
-                <div className="grid grid-cols-2 gap-3.5 text-xs border-t border-border pt-3">
-                  <div className="space-y-1.5">
-                    <div className="text-muted-foreground flex items-center justify-between">
-                      <span>Projects Assigned</span>
-                      <span className="font-semibold text-foreground">{emp.projectsCount}</span>
-                    </div>
-                    <div className="text-muted-foreground flex items-center justify-between">
-                      <span>Today's Tasks</span>
-                      <span className="font-semibold text-foreground">{emp.tasksCount}</span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5 pl-3.5 border-l border-border/60">
-                    <div className="text-muted-foreground flex items-center justify-between">
-                      <span className="flex items-center gap-1">
-                        <CheckCircle className="h-3.5 w-3.5 text-emerald-500" /> Completed
-                      </span>
-                      <span className="font-semibold text-emerald-600">{emp.completedCount}</span>
-                    </div>
-                    <div className="text-muted-foreground flex items-center justify-between">
-                      <span className="flex items-center gap-1">
-                        <PlayCircle className="h-3.5 w-3.5 text-blue-500" /> In Progress
-                      </span>
-                      <span className="font-semibold text-blue-600">{emp.inProgressCount}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Secondary counts: Blocked, Overdue */}
-                <div className="flex items-center justify-between text-[11px] bg-accent/10 px-2 py-1 rounded">
-                  <div className="flex items-center gap-1">
-                    <AlertCircle className={`h-3.5 w-3.5 ${emp.blockedCount > 0 ? "text-rose-500" : "text-muted-foreground"}`} />
-                    <span className={emp.blockedCount > 0 ? "text-rose-600 font-bold" : "text-muted-foreground"}>
-                      {emp.blockedCount} Blocked
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-1">
-                    <AlertCircle className={`h-3.5 w-3.5 ${emp.overdueCount > 0 ? "text-rose-500" : "text-muted-foreground"}`} />
-                    <span className={emp.overdueCount > 0 ? "text-rose-600 font-bold" : "text-muted-foreground"}>
-                      {emp.overdueCount} Overdue
-                    </span>
-                  </div>
-                </div>
-
-                {/* Workload Progress */}
-                <div className="space-y-1 border-t border-border pt-3">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">Workload Ratio</span>
-                    <span
-                      className={`font-semibold ${
-                        emp.workloadRatio > 80
-                          ? "text-rose-600"
-                          : emp.workloadRatio < 50
-                          ? "text-yellow-600"
-                          : "text-emerald-600"
+        <div className="bg-card border border-border/60 rounded-2xl overflow-hidden shadow-xs">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="bg-muted/40 border-b border-border/60 text-muted-foreground font-bold uppercase tracking-wider text-xs">
+                  <th className="p-4 pl-6 text-center w-12">SL</th>
+                  <th className="p-4">Team Member</th>
+                  <th className="p-4 w-36">Status</th>
+                  <th className="p-4 w-36">Active Time</th>
+                  <th className="p-4 w-44">Tasks Status</th>
+                  <th className="p-4 w-44">Workload Ratio</th>
+                  <th className="p-4 w-36">Daily Update</th>
+                  <th className="p-4 w-32 pr-6 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/65">
+                {processedTeam.map((emp: any, idx: number) => {
+                  const hasOverdueOrBlocked = emp.overdueCount > 0 || emp.blockedCount > 0;
+                  return (
+                    <tr
+                      key={emp.id}
+                      className={`hover:bg-muted/20 transition-colors ${
+                        hasOverdueOrBlocked ? "bg-rose-50/10 dark:bg-rose-950/5" : ""
                       }`}
                     >
-                      {emp.workloadRatio}% ({emp.workloadRatio > 80 ? "Overloaded" : emp.workloadRatio < 50 ? "Underutilized" : "Healthy"})
-                    </span>
-                  </div>
-                  <div className="h-2 w-full bg-zinc-100 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full transition-all duration-300 ${
-                        emp.workloadRatio > 80
-                          ? "bg-rose-500"
-                          : emp.workloadRatio < 50
-                          ? "bg-amber-500"
-                          : "bg-emerald-500"
-                      }`}
-                      style={{ width: `${Math.min(emp.workloadRatio, 100)}%` }}
-                    />
-                  </div>
-                </div>
+                      {/* Serial Number */}
+                      <td className="p-4 pl-6 text-center font-mono text-xs text-muted-foreground font-bold">
+                        {String(idx + 1).padStart(2, "0")}
+                      </td>
 
-                {/* Daily Update Submission Flag */}
-                <div className="flex items-center justify-between text-[11px] pt-1 text-muted-foreground">
-                  <span>Daily Update:</span>
-                  {emp.hasSubmittedUpdate ? (
-                    <span className="text-emerald-600 font-bold">✓ Submitted</span>
-                  ) : (
-                    <span className="text-rose-600 font-bold">⚠️ Not Submitted</span>
-                  )}
-                </div>
+                      {/* Member Info */}
+                      <td className="p-4">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-full bg-muted overflow-hidden flex items-center justify-center font-bold text-xs text-foreground shrink-0 border border-border/80 shadow-xs">
+                            {emp.photo ? (
+                              <img src={emp.photo} alt={emp.name} className="h-full w-full object-cover" />
+                            ) : (
+                              emp.name.split(" ").map((n: string) => n[0]).join("")
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <Link
+                                href={`/dashboard/work-management/team/${emp.id}`}
+                                className="font-extrabold text-sm text-foreground hover:underline truncate"
+                              >
+                                {emp.name}
+                              </Link>
+                              {hasOverdueOrBlocked && (
+                                <span className="bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-400 text-[8px] font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wider scale-90 shrink-0">
+                                  Alert
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground truncate mt-0.5 uppercase tracking-wide font-bold">
+                              {emp.designation} • {emp.department}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
 
-                {/* Action CTA link */}
-                <div className="border-t border-border pt-3.5 text-center">
-                  <Link
-                    href={`/dashboard/work-management/team/${emp.id}`}
-                    className="inline-flex items-center justify-center gap-1.5 w-full bg-accent/50 hover:bg-accent text-xs font-semibold py-2 px-4 rounded-lg transition"
-                  >
-                    Open Work Profile <Users className="h-3.5 w-3.5" />
-                  </Link>
-                </div>
-              </div>
-            );
-          })}
+                      {/* Status */}
+                      <td className="p-4">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-bold bg-background shadow-2xs">
+                          <span
+                            className={`h-1.5 w-1.5 rounded-full ${
+                              emp.status === "WORKING"
+                                ? "bg-emerald-500 animate-pulse"
+                                : emp.status === "ON BREAK"
+                                ? "bg-amber-500"
+                                : emp.status === "COMPLETED"
+                                ? "bg-blue-500"
+                                : "bg-zinc-400"
+                            }`}
+                          />
+                          <span>
+                            {emp.status === "WORKING"
+                              ? "Working"
+                              : emp.status === "ON BREAK"
+                              ? "On Break"
+                              : emp.status === "COMPLETED"
+                              ? "Completed"
+                              : "Not Started"}
+                          </span>
+                        </span>
+                      </td>
+
+                      {/* Active Time */}
+                      <td className="p-4">
+                        <span className="font-mono font-bold text-sm text-foreground flex items-center gap-1">
+                          <Clock className="h-4 w-4 text-muted-foreground" />
+                          {formatDurationSimple(emp.activeTimeMs)}
+                        </span>
+                      </td>
+
+                      {/* Tasks status summary */}
+                      <td className="p-4">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+                            <span>{emp.completedCount}/{emp.tasksCount} Tasks Done</span>
+                          </div>
+                          <div className="flex gap-2 text-[10px] font-bold">
+                            {emp.blockedCount > 0 && (
+                              <span className="text-rose-600 dark:text-rose-400">⚠️ {emp.blockedCount} Blocked</span>
+                            )}
+                            {emp.overdueCount > 0 && (
+                              <span className="text-amber-600 dark:text-amber-400">🕒 {emp.overdueCount} Overdue</span>
+                            )}
+                            {emp.blockedCount === 0 && emp.overdueCount === 0 && (
+                              <span className="text-emerald-600">✓ All Clear</span>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Workload Progress */}
+                      <td className="p-4">
+                        <div className="space-y-1 max-w-[120px]">
+                          <div className="flex items-center justify-between text-xs font-bold">
+                            <span className={
+                              emp.workloadRatio > 80
+                                ? "text-rose-600"
+                                : emp.workloadRatio < 50
+                                ? "text-yellow-600"
+                                : "text-emerald-600"
+                            }>
+                              {emp.workloadRatio}%
+                            </span>
+                            <span className="text-[10px] text-muted-foreground font-semibold">
+                              {emp.workloadRatio > 80 ? "Heavy" : emp.workloadRatio < 50 ? "Low" : "Normal"}
+                            </span>
+                          </div>
+                          <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                            <div
+                              className={`h-full transition-all duration-300 ${
+                                emp.workloadRatio > 80
+                                  ? "bg-rose-500"
+                                  : emp.workloadRatio < 50
+                                  ? "bg-amber-500"
+                                  : "bg-emerald-500"
+                              }`}
+                              style={{ width: `${Math.min(emp.workloadRatio, 100)}%` }}
+                            />
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Daily Update */}
+                      <td className="p-4">
+                        {emp.hasSubmittedUpdate ? (
+                          <span className="text-emerald-600 font-extrabold text-xs uppercase tracking-wider bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-250 dark:border-emerald-900 px-2 py-0.5 rounded-md">
+                            Submitted
+                          </span>
+                        ) : (
+                          <span className="text-rose-600 font-extrabold text-xs uppercase tracking-wider bg-rose-50 dark:bg-rose-950/20 border border-rose-250 dark:border-rose-900 px-2 py-0.5 rounded-md">
+                            Missing
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Action monitor link */}
+                      <td className="p-4 pr-6 text-right">
+                        <Link
+                          href={`/dashboard/work-management/team/${emp.id}`}
+                          className="inline-flex items-center gap-1.5 bg-violet-600 hover:bg-violet-750 text-white font-bold text-xs px-3.5 py-2 rounded-lg shadow-xs transition duration-200 cursor-pointer"
+                        >
+                          Monitor <Users className="h-3.5 w-3.5" />
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>
