@@ -402,8 +402,8 @@ export async function getTPNById(id: string) {
         createdByUser: { select: { name: true, email: true } },
         items: {
           include: {
-            item: { select: { name: true, code: true, costPrice: true } },
-            variant: { select: { sku: true, size: true, color: true, costPrice: true } },
+            item: { select: { name: true, code: true, costPrice: true, salesPrice: true } },
+            variant: { select: { sku: true, size: true, color: true, costPrice: true, salesPrice: true } },
           }
         },
       },
@@ -416,14 +416,19 @@ export async function getTPNById(id: string) {
     const items = tpn.items.map(item => {
       const rate = Number(item.variant?.costPrice || item.item.costPrice || 0);
       const amount = Number(item.quantity) * rate;
+      const salesRate = Number(item.variant?.salesPrice || item.item.salesPrice || 0);
+      const salesAmount = Number(item.quantity) * salesRate;
       return {
         ...item,
         unitRate: rate,
         amount: amount,
+        salesRate: salesRate,
+        salesAmount: salesAmount,
       };
     });
 
     const grandTotal = items.reduce((sum, item) => sum + item.amount, 0);
+    const grandSalesTotal = items.reduce((sum, item) => sum + item.salesAmount, 0);
 
     return {
       success: true,
@@ -431,6 +436,7 @@ export async function getTPNById(id: string) {
         ...tpn,
         items,
         grandTotal,
+        grandSalesTotal,
       }
     };
   } catch (error) {
