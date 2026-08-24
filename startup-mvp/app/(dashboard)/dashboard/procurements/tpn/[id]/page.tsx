@@ -4,6 +4,8 @@ import { getTPNById } from "../_actions/tpn.action";
 import TpnDetails from "../_components/tpn-details";
 import PageGuard from "@/components/permissions/page-guard";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
+import { hasPermission } from "@/lib/permissions";
 
 interface PageProps {
   params: Promise<{
@@ -13,11 +15,21 @@ interface PageProps {
 
 export default async function TpnDetailPage({ params }: PageProps) {
   const { id } = await params;
-  const [result, org] = await Promise.all([
+  const session = await auth();
+  const userId = session?.user?.id;
+
+  const [result, org, dbUser, canApprove, canEdit, canMoveToTrash] = await Promise.all([
     getTPNById(id),
     prisma.organization.findFirst({
       where: { status: "active" }
-    })
+    }),
+    userId ? prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, role: true, defaultWarehouseId: true }
+    }) : null,
+    userId ? hasPermission(userId, "procurements.tpn", "approve") : Promise.resolve(false),
+    userId ? hasPermission(userId, "procurements.tpn", "edit") : Promise.resolve(false),
+    userId ? hasPermission(userId, "procurements.tpn", "move-to-trash") : Promise.resolve(false),
   ]);
 
   if (!result.success || !result.data) {
@@ -64,7 +76,16 @@ export default async function TpnDetailPage({ params }: PageProps) {
   return (
     <PageGuard permissionKey="procurements.tpn" requiredOperation="view">
       <div className="flex-1 space-y-4">
-        <TpnDetails tpn={result.data} organization={finalOrg} />
+        <TpnDetails
+          tpn={result.data}
+          organization={finalOrg}
+          user={dbUser}
+          permissions={{
+            approve: canApprove,
+            edit: canEdit,
+            moveToTrash: canMoveToTrash,
+          }}
+        />
       </div>
     </PageGuard>
   );

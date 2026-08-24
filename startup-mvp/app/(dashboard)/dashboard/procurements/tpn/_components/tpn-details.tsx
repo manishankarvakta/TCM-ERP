@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState, useTransition } from "react";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,11 +13,23 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Printer } from "lucide-react";
+import { ArrowLeft, Printer, Truck, CheckSquare, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { numberToWords } from "@/lib/utils/number-to-words";
 import { Separator } from "@/components/ui/separator";
 import JsBarcode from "jsbarcode";
+import { shipTPN, receiveTPN } from "../_actions/tpn.action";
+import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 function TpnBarcode({ value }: { value: string }) {
   const svgRef = useRef<SVGSVGElement>(null);
@@ -49,15 +61,42 @@ interface TpnDetailsProps {
     phone?: string | null;
     email?: string | null;
   } | null;
+  user?: {
+    id?: string;
+    role?: string;
+    defaultWarehouseId?: string | null;
+  } | null;
+  permissions?: {
+    approve?: boolean;
+    edit?: boolean;
+    moveToTrash?: boolean;
+  };
 }
 
-export default function TpnDetails({ tpn, organization }: TpnDetailsProps) {
+export default function TpnDetails({ tpn, organization, user, permissions }: TpnDetailsProps) {
   const router = useRouter();
+  const { toast } = useToast();
+  const [isPending, startTransition] = useTransition();
   const [printMode, setPrintMode] = React.useState<"tpn" | "challan">("tpn");
   const [valueMode, setValueMode] = React.useState<"cost" | "sales">("cost");
 
+  // Action Dialog states
+  const [showShipDialog, setShowShipDialog] = useState(false);
+  const [showReceiveDialog, setShowReceiveDialog] = useState(false);
+
   const totalQuantity = tpn.items.reduce((sum: number, item: any) => sum + Number(item.quantity || 0), 0);
   const activeGrandTotal = valueMode === "sales" ? (tpn.grandSalesTotal || 0) : (tpn.grandTotal || 0);
+
+  const isAdmin = user?.role === "admin" || user?.role === "superadmin";
+
+  // Action authorizations based on Status, Operation permissions & Warehouse match
+  const canApprove = permissions?.approve ?? true;
+
+  const isSourceWarehouseMatch = isAdmin || !user?.defaultWarehouseId || user?.defaultWarehouseId === tpn.sourceWarehouseId;
+  const isDestinationWarehouseMatch = isAdmin || !user?.defaultWarehouseId || user?.defaultWarehouseId === tpn.destinationWarehouseId;
+
+  const canShip = tpn.status === "DRAFT" && canApprove && isSourceWarehouseMatch;
+  const canReceive = tpn.status === "SHIPPED" && canApprove && isDestinationWarehouseMatch;
 
   const formatCurrency = (amount: number) => {
     return `৳${amount.toLocaleString("en-BD", {
@@ -72,6 +111,46 @@ export default function TpnDetails({ tpn, organization }: TpnDetailsProps) {
     setTimeout(() => {
       window.print();
     }, 50);
+  };
+
+  const handleExecuteShip = async () => {
+    startTransition(async () => {
+      const result = await shipTPN(tpn.id);
+      if (result.success) {
+        toast({
+          title: "Success",
+          description: `TPN ${tpn.tpnNumber} shipped successfully. Stock deducted from ${tpn.sourceWarehouse.name}.`,
+        });
+        setShowShipDialog(false);
+        router.refresh();
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to ship TPN",
+          variant: "destructive",
+        });
+      }
+    });
+  };
+
+  const handleExecuteReceive = async () => {
+    startTransition(async () => {
+      const result = await receiveTPN(tpn.id);
+      if (result.success) {
+        toast({
+          title: "Success",
+          description: `TPN ${tpn.tpnNumber} received successfully. Stock added to ${tpn.destinationWarehouse.name}.`,
+        });
+        setShowReceiveDialog(false);
+        router.refresh();
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to receive TPN",
+          variant: "destructive",
+        });
+      }
+    });
   };
 
   return (
@@ -160,15 +239,49 @@ export default function TpnDetails({ tpn, organization }: TpnDetailsProps) {
       </div>
 
       {/* Header */}
-      <div className="flex items-center justify-between print:hidden">
+      <div className="flex flex-wrap items-center justify-between gap-4 print:hidden">
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon" onClick={() => router.back()}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <h1 className="text-2xl font-bold tracking-tight">Transfer Note {tpn.tpnNumber}</h1>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-bold tracking-tight">Transfer Note {tpn.tpnNumber}</h1>
+              <Badge variant={
+                tpn.status === "RECEIVED" ? "default" : 
+                tpn.status === "SHIPPED" ? "secondary" : 
+                tpn.status === "CANCELLED" ? "destructive" : "outline"
+              }>
+                {tpn.status}
+              </Badge>
+            </div>
+          </div>
         </div>
-        <div className="flex items-center gap-2 print:hidden">
-           <div className="flex items-center border rounded-md p-1 bg-muted/40 mr-2 text-xs">
+        <div className="flex flex-wrap items-center gap-2 print:hidden">
+           {/* Action Buttons: Ship & Receive based on warehouse & operation permissions */}
+           {canShip && (
+             <Button
+               onClick={() => setShowShipDialog(true)}
+               disabled={isPending}
+               className="bg-orange-600 hover:bg-orange-700 text-white"
+             >
+               {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Truck className="mr-2 h-4 w-4" />}
+               Ship Transfer
+             </Button>
+           )}
+
+           {canReceive && (
+             <Button
+               onClick={() => setShowReceiveDialog(true)}
+               disabled={isPending}
+               className="bg-green-600 hover:bg-green-700 text-white"
+             >
+               {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckSquare className="mr-2 h-4 w-4" />}
+               Receive Transfer
+             </Button>
+           )}
+
+           <div className="flex items-center border rounded-md p-1 bg-muted/40 text-xs">
              <button
                onClick={() => setValueMode("cost")}
                className={`px-2.5 py-1 rounded font-medium transition-colors ${valueMode === "cost" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
@@ -182,6 +295,7 @@ export default function TpnDetails({ tpn, organization }: TpnDetailsProps) {
                Sales Value
              </button>
            </div>
+
            <Button variant="outline" onClick={() => handlePrint("tpn", valueMode)}>
               <Printer className="mr-2 h-4 w-4" /> Print TPN ({valueMode === "sales" ? "Sales" : "Cost"})
            </Button>
@@ -400,6 +514,66 @@ export default function TpnDetails({ tpn, organization }: TpnDetailsProps) {
       <div className="hidden print:block mt-6 text-center text-[10px] text-slate-400 pt-2 border-t border-slate-100">
         <p>Generated by Ferrari Fashion ERP on {format(new Date(), "PPpp")}</p>
       </div>
+
+      {/* Ship Confirmation Dialog */}
+      <AlertDialog open={showShipDialog} onOpenChange={setShowShipDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-orange-600">
+              <Truck className="h-5 w-5" /> Ship Transfer Note {tpn.tpnNumber}?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2 pt-2">
+              <span>
+                Are you sure you want to mark this transfer note as <strong>SHIPPED</strong>?
+              </span>
+              <span className="block text-slate-700 font-medium">
+                This action will deduct inventory stock for all listed items from <strong>{tpn.sourceWarehouse.name}</strong>.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleExecuteShip}
+              disabled={isPending}
+              className="bg-orange-600 hover:bg-orange-700 text-white"
+            >
+              {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Confirm Ship
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Receive Confirmation Dialog */}
+      <AlertDialog open={showReceiveDialog} onOpenChange={setShowReceiveDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-green-600">
+              <CheckSquare className="h-5 w-5" /> Receive Transfer Note {tpn.tpnNumber}?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2 pt-2">
+              <span>
+                Are you sure you want to mark this transfer note as <strong>RECEIVED</strong>?
+              </span>
+              <span className="block text-slate-700 font-medium">
+                This action will add inventory stock for all listed items into <strong>{tpn.destinationWarehouse.name}</strong>.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleExecuteReceive}
+              disabled={isPending}
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Confirm Receive
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
