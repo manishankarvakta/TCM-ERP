@@ -63,6 +63,7 @@ export default function SystemEventForm({
     handleSubmit,
     control,
     reset,
+    setValue,
     formState: { errors },
   } = useForm<EventFormData>({
     resolver: zodResolver(eventSchema),
@@ -70,11 +71,11 @@ export default function SystemEventForm({
       title: initialData?.title || initialData?.subject || "",
       eventType: (initialData?.eventType || initialData?.metadata?.eventType || "MEETING").toString().toUpperCase(),
       startDate: (initialData?.startTime || initialData?.dueDate)
-        ? format(new Date(initialData.startTime || initialData.dueDate), "yyyy-MM-dd'T'HH:mm")
-        : format(new Date(), "yyyy-MM-dd'T'HH:mm"),
+        ? format(new Date(initialData.startTime || initialData.dueDate), "yyyy-MM-dd")
+        : format(new Date(), "yyyy-MM-dd"),
       endDate: (initialData?.endTime || initialData?.completedAt)
-        ? format(new Date(initialData.endTime || initialData.completedAt), "yyyy-MM-dd'T'HH:mm")
-        : format(new Date(Date.now() + 3600000), "yyyy-MM-dd'T'HH:mm"),
+        ? format(new Date(initialData.endTime || initialData.completedAt), "yyyy-MM-dd")
+        : format(new Date(), "yyyy-MM-dd"),
       allDay: initialData?.allDay || initialData?.metadata?.allDay || false,
       attendees: initialData?.attendees || initialData?.metadata?.attendees || [],
       location: initialData?.location || initialData?.metadata?.location || "",
@@ -99,11 +100,11 @@ export default function SystemEventForm({
         title: initialData.title || initialData.subject || "",
         eventType: normalizedType,
         startDate: (initialData.startTime || initialData.dueDate)
-          ? format(new Date(initialData.startTime || initialData.dueDate), "yyyy-MM-dd'T'HH:mm")
-          : format(new Date(), "yyyy-MM-dd'T'HH:mm"),
+          ? format(new Date(initialData.startTime || initialData.dueDate), "yyyy-MM-dd")
+          : format(new Date(), "yyyy-MM-dd"),
         endDate: (initialData.endTime || initialData.completedAt)
-          ? format(new Date(initialData.endTime || initialData.completedAt), "yyyy-MM-dd'T'HH:mm")
-          : format(new Date(Date.now() + 3600000), "yyyy-MM-dd'T'HH:mm"),
+          ? format(new Date(initialData.endTime || initialData.completedAt), "yyyy-MM-dd")
+          : format(new Date(), "yyyy-MM-dd"),
         allDay: initialData.allDay || initialData.metadata?.allDay || false,
         attendees: initialData.attendees || initialData.metadata?.attendees || [],
         location: initialData.location || initialData.metadata?.location || "",
@@ -126,8 +127,8 @@ export default function SystemEventForm({
       try {
         const payload = {
           ...data,
-          startDate: new Date(data.startDate),
-          endDate: new Date(data.endDate),
+          startDate: new Date(data.startDate + "T00:00:00"),
+          endDate: new Date(data.endDate + "T23:59:59"),
         };
 
         if (initialData?.id) {
@@ -230,70 +231,35 @@ export default function SystemEventForm({
         />
       </div>
 
-      {/* 4. Time & All Day */}
+      {/* 4. Event Date */}
       <div className="space-y-1">
         <div className="flex items-center justify-between">
             <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            Time & Duration
+            Event Date
             </Label>
-            <div className="flex items-center gap-2">
-                <Label htmlFor="all-day" className="text-xs font-medium text-muted-foreground">
-                All Day
-                </Label>
-                <Controller
-                name="allDay"
-                control={control}
-                render={({ field }) => (
-                    <Switch
-                    id="all-day"
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                    disabled={isPending}
-                    className="scale-75 origin-right"
-                    />
-                )}
-                />
-            </div>
         </div>
         <div className="rounded-lg border bg-muted/20 p-3 transition-all hover:bg-muted/30 hover:border-border">
-          <div className="grid grid-cols-2 gap-2 items-start">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 mb-1">
-                <FiClock className="h-3.5 w-3.5 text-primary" />
-                <Label htmlFor="startDate" className="text-xs font-medium text-muted-foreground">
-                  Starts
-                </Label>
-              </div>
-              <Input
-                id="startDate"
-                type="datetime-local"
-                {...register("startDate")}
-                disabled={isPending}
-                className="bg-background"
-              />
-              {errors.startDate && (
-                <p className="text-xs text-destructive">{errors.startDate.message}</p>
-              )}
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 mb-1">
+              <FiCalendar className="h-3.5 w-3.5 text-primary" />
+              <Label htmlFor="startDate" className="text-xs font-medium text-muted-foreground">
+                Date
+              </Label>
             </div>
-
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 mb-1">
-                <FiClock className="h-3.5 w-3.5 text-muted-foreground" />
-                <Label htmlFor="endDate" className="text-xs font-medium text-muted-foreground">
-                  Ends
-                </Label>
-              </div>
-              <Input
-                id="endDate"
-                type="datetime-local"
-                {...register("endDate")}
-                disabled={isPending}
-                className="bg-background"
-              />
-              {errors.endDate && (
-                <p className="text-xs text-destructive">{errors.endDate.message}</p>
-              )}
-            </div>
+            <Input
+              id="startDate"
+              type="date"
+              {...register("startDate", {
+                onChange: (e) => {
+                  setValue("endDate", e.target.value);
+                }
+              })}
+              disabled={isPending}
+              className="bg-background"
+            />
+            {errors.startDate && (
+              <p className="text-xs text-destructive">{errors.startDate.message}</p>
+            )}
           </div>
         </div>
       </div>
