@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { getProjectById } from "@/app/actions/projects/project.action";
+import { getProjectById, getProjects } from "@/app/actions/projects/project.action";
 import { getTasks } from "@/app/actions/system/task.action";
 import { getNotes } from "@/app/actions/system/note.action";
 import { getDocs } from "@/app/actions/system/doc.action";
@@ -10,6 +10,7 @@ import { getActiveUsers } from "@/app/actions/user.action";
 import { getUserPermissions } from "@/lib/permissions";
 import PageGuard from "@/components/permissions/page-guard";
 import ProjectWorkspace from "./_components/ProjectWorkspace";
+import { ProjectSwitcher } from "./_components/ProjectSwitcher";
 import { format } from "date-fns";
 import { ArrowLeftIcon } from "lucide-react";
 import Link from "next/link";
@@ -45,7 +46,8 @@ export default async function ProjectDetailsPage({ params }: ProjectDetailsPageP
     docResult,
     eventResult,
     timelineResult,
-    userResult
+    userResult,
+    allProjectsResult
   ] = await Promise.all([
     getUserPermissions(session.user.id),
     getProjectById(id),
@@ -55,6 +57,7 @@ export default async function ProjectDetailsPage({ params }: ProjectDetailsPageP
     getSystemEvents("project", id, 20),
     getSystemTimeline("project", id, 50),
     getActiveUsers(),
+    getProjects(1, 100)
   ]);
 
   if (!projectResult.success || !projectResult.project) {
@@ -75,6 +78,7 @@ export default async function ProjectDetailsPage({ params }: ProjectDetailsPageP
   const users = userResult.success ? userResult.users : [];
   const timelineResultData = timelineResult as any;
   const timelineEvents = (timelineResultData?.events || []) as any[];
+  const allProjects = allProjectsResult.success ? allProjectsResult.projects : [];
 
   // Sort timeline events
   const allActivities = [...timelineEvents].sort((a, b) => 
@@ -93,13 +97,18 @@ export default async function ProjectDetailsPage({ params }: ProjectDetailsPageP
                 </Link>
             </Button>
             <div className="min-w-0">
-               <div className="flex items-center gap-2 flex-wrap mb-1">
-                <h1 className="text-xl sm:text-2xl font-bold tracking-tight truncate max-w-[200px] sm:max-w-[400px]">{project.title}</h1>
-                <Badge variant={statusMap[project.status]?.variant || ("default" as any)} className="uppercase text-[10px] tracking-wider font-bold">
+               <div className="flex items-center gap-4 flex-wrap mb-1">
+                <ProjectSwitcher 
+                  currentProjectId={id} 
+                  projects={allProjects} 
+                  currentProjectTitle={project.title} 
+                  currentProjectStatus={project.status} 
+                />
+                <Badge variant={statusMap[project.status]?.variant || ("default" as any)} className="uppercase text-[10px] tracking-wider font-bold h-fit py-1">
                     {statusMap[project.status]?.label || project.status}
                 </Badge>
                </div>
-               <p className="text-muted-foreground text-xs sm:text-sm font-medium truncate">
+               <p className="text-muted-foreground text-xs sm:text-sm font-medium truncate pl-12 mt-1">
                  {project.Client?.name || "Internal"} • Created on {project.createdAt ? format(new Date(project.createdAt), "PPP") : "-"}
                </p>
             </div>
