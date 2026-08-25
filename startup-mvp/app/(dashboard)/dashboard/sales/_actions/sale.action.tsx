@@ -509,6 +509,7 @@ export async function getItemsForSale() {
                 name: true
             }
         },
+        costPrice: true,
         salesPrice: true,
         wholesalePrice: true,
         wholesaleDiscountAmount: true,
@@ -565,6 +566,7 @@ export async function getItemsForSale() {
         itemDescription: item.description || "",
         unit: item.unit?.symbol || "unit",
         category: item.category?.name || null,
+        costPrice: item.costPrice ? Number(item.costPrice) : 0,
         unitPrice: item.salesPrice ? Number(item.salesPrice) : 0,
         wholesalePrice: item.wholesalePrice ? Number(item.wholesalePrice) : 0,
         wholesaleDiscountAmount: item.wholesaleDiscountAmount ? Number(item.wholesaleDiscountAmount) : 0,

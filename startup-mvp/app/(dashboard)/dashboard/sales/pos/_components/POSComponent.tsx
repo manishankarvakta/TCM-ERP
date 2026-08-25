@@ -14,6 +14,9 @@ import { toast as sonnerToast } from "sonner";
 import { createClient } from "@/app/(dashboard)/dashboard/clients/_actions/client.action";
 import { getMembershipSettingsAction } from "@/app/(dashboard)/dashboard/settings/_actions/membership-settings.action";
 import { getMembershipTiers } from "@/app/(dashboard)/dashboard/settings/_actions/membership-tier.action";
+import POSBottomToolbar from "./POSBottomToolbar";
+import POSScreenStandard from "./POSScreenStandard";
+import POSScreenModern from "./POSScreenModern";
 import { ItemType } from "@prisma/client";
 import {
   Select,
@@ -146,7 +149,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
   const [discountAmount, setDiscountAmount] = useState<number>(0);
   const [discountType, setDiscountType] = useState<"FLAT" | "PERCENTAGE">("FLAT");
   const [discountValue, setDiscountValue] = useState<number>(0);
-  const [taxPercent, setTaxPercent] = useState<number>(0);
+  const [taxPercent, setTaxPercent] = useState<number>(posSettings?.defaultTaxRate || 0);
   const [isReturnMode, setIsReturnMode] = useState<boolean>(false);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [heldCarts, setHeldCarts] = useState<{ id: string, cart: CartItem[], clientId: string, amount: number }[]>([]);
@@ -474,6 +477,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
   };
 
   const getItemDiscount = (item: CartItem | Item, variantId?: string) => {
+    if (posSettings?.allowItemDiscount === false) return undefined;
     const vId = variantId || (item as CartItem).variantId;
     if (vId) {
       const variantDiscount = clientDiscounts.find(
@@ -800,11 +804,54 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     return 0;
   }, [matchedMembershipTier, subTotal]);
 
-  const effectiveDiscountAmount = (appliedPromo ? discountAmount : manualDiscountAmount) + membershipDiscountAmount;
+  const effectiveDiscountAmount = (appliedPromo || discountAmount > 0 ? discountAmount : manualDiscountAmount) + membershipDiscountAmount;
 
-  const tax = itemVatTotal + (subTotal - effectiveDiscountAmount) * (taxPercent / 100);
+  const tax = (posSettings?.allowTax ?? true) ? (itemVatTotal + (subTotal - effectiveDiscountAmount) * (taxPercent / 100)) : 0;
   const grandTotal = subTotal + tax - effectiveDiscountAmount;
-  const dueAmount = grandTotal - paidAmount;
+  const roundedGrandTotal = Math.round(grandTotal);
+  const dueAmount = roundedGrandTotal - paidAmount;
+
+  // Check Discount Limit Rules
+  const discountLimitError = React.useMemo(() => {
+    if (!posSettings?.enableDiscountLimits || (!discountAmount && !discountValue && !manualDiscountAmount)) {
+      return null;
+    }
+
+    const currentDiscountAmt = effectiveDiscountAmount || discountAmount || manualDiscountAmount || 0;
+    if (currentDiscountAmt <= 0) return null;
+
+    const isBelowCostRule = posSettings?.discountRuleMode === "below_cost" || posSettings?.preventBelowCostPrice;
+    const isMaxPercentRule = posSettings?.discountRuleMode === "max_percent" || posSettings?.enableMaxDiscountPercent;
+
+    if (isBelowCostRule) {
+      const totalCost = cart.reduce((acc, item) => {
+        const itemCost = Number((item as any).costPrice || (item as any).purchasePrice || (item as any).variant?.costPrice || (item as any).variant?.purchasePrice || 0);
+        return acc + (itemCost * (item.cartQuantity || 1));
+      }, 0);
+
+      const netSalePrice = subTotal - currentDiscountAmt;
+      if (totalCost > 0 && netSalePrice < totalCost) {
+        return `Discount drops total sale price (৳${netSalePrice.toFixed(2)}) below stock cost value (৳${totalCost.toFixed(2)})`;
+      }
+    }
+
+    if (isMaxPercentRule) {
+      const maxAllowedPercent = Number(posSettings?.maxDiscountPercentage || 0);
+      let calculatedPercent = 0;
+
+      if (discountType === "PERCENTAGE") {
+        calculatedPercent = Number(discountValue || 0);
+      } else {
+        calculatedPercent = subTotal > 0 ? (currentDiscountAmt / subTotal) * 100 : 0;
+      }
+
+      if (maxAllowedPercent > 0 && calculatedPercent > maxAllowedPercent) {
+        return `Discount (${calculatedPercent.toFixed(1)}%) exceeds maximum allowed limit of ${maxAllowedPercent}%`;
+      }
+    }
+
+    return null;
+  }, [posSettings, discountAmount, discountValue, manualDiscountAmount, discountType, effectiveDiscountAmount, subTotal, cart]);
 
   const handleAddToCart = (item: Item) => {
     if (item.variants && item.variants.length > 0) {
@@ -1608,6 +1655,10 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     setDiscountType("FLAT");
     setTaxPercent(0);
     setPaidAmount(0);
+    setCashAmount(0);
+    setCardAmount(0);
+    setMfsAmount(0);
+    setIsDueSale(false);
     setSuccessMsg('');
     setCompletedSaleNumber('');
     setCompletedSaleId('');
@@ -1639,6 +1690,14 @@ export default function POSComponent({ items, clients: initialClients, warehouse
   };
 
   const handleApplyPromo = async () => {
+    if (posSettings?.allowCoupon === false) {
+      toast({
+        title: "Coupon Disabled",
+        description: "Coupon feature is disabled in POS settings.",
+        variant: "destructive"
+      });
+      return;
+    }
     const code = promoCode.trim().toUpperCase();
     if (!code) return;
 
@@ -1753,10 +1812,26 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     setIsConfirmModalOpen(true);
   };
 
-  const handleConfirmOrder = async () => {
+  const handleConfirmOrder = async (overrides?: {
+    cashAmount?: number;
+    cardAmount?: number;
+    mfsAmount?: number;
+    cashAccountId?: string;
+    cardAccountId?: string;
+    mfsAccountId?: string;
+    isDueSale?: boolean;
+  }) => {
+    const effectiveCashAmount = overrides?.cashAmount ?? cashAmount;
+    const effectiveCardAmount = overrides?.cardAmount ?? cardAmount;
+    const effectiveMfsAmount = overrides?.mfsAmount ?? mfsAmount;
+    const effectiveCashAccountId = overrides?.cashAccountId ?? cashAccountId;
+    const effectiveCardAccountId = overrides?.cardAccountId ?? cardAccountId;
+    const effectiveMfsAccountId = overrides?.mfsAccountId ?? mfsAccountId;
+    const effectiveIsDueSale = overrides?.isDueSale ?? isDueSale;
+
     // Due sale customer checks
     const walkwayCustomer = clients.find(c => c.name?.toLowerCase() === "walkway customer");
-    if (isDueSale && (!selectedClientId || selectedClientId === walkwayCustomer?.id)) {
+    if (effectiveIsDueSale && (!selectedClientId || selectedClientId === walkwayCustomer?.id)) {
       toast({
         title: "Validation Error",
         description: "Due Sales are not allowed for Walkway Customer. Please select a registered customer.",
@@ -1765,21 +1840,30 @@ export default function POSComponent({ items, clients: initialClients, warehouse
       return;
     }
 
-    // Payment validation
-    const totalPaid = cashAmount + cardAmount + mfsAmount;
-    if (!isDueSale && totalPaid < grandTotal) {
+    if (discountLimitError) {
       toast({
-        title: "Validation Error",
-        description: `Full payment of ৳${grandTotal.toFixed(2)} is required unless 'Due Sale' is enabled. Current paid amount is ৳${totalPaid.toFixed(2)}.`,
+        title: "Discount Limit Rule Violated",
+        description: discountLimitError,
         variant: "destructive"
       });
       return;
     }
 
-    if (isDueSale && totalPaid > grandTotal) {
+    // Payment validation
+    const totalPaid = effectiveCashAmount + effectiveCardAmount + effectiveMfsAmount;
+    if (!effectiveIsDueSale && totalPaid < roundedGrandTotal) {
       toast({
         title: "Validation Error",
-        description: `Paid amount (৳${totalPaid.toFixed(2)}) cannot exceed the Grand Total (৳${grandTotal.toFixed(2)}) for a Due Sale.`,
+        description: `Full payment of ৳${roundedGrandTotal.toFixed(2)} is required unless 'Due Sale' is enabled. Current paid amount is ৳${totalPaid.toFixed(2)}.`,
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (effectiveIsDueSale && totalPaid > roundedGrandTotal) {
+      toast({
+        title: "Validation Error",
+        description: `Paid amount (৳${totalPaid.toFixed(2)}) cannot exceed the Grand Total (৳${roundedGrandTotal.toFixed(2)}) for a Due Sale.`,
         variant: "destructive"
       });
       return;
@@ -1796,7 +1880,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
         amount: item.unitPrice * item.cartQuantity,
       }));
 
-      const primaryPaymentMethod = cashAmount > 0 ? cashAccountId : (cardAmount > 0 ? cardAccountId : (mfsAmount > 0 ? mfsAccountId : "SPLIT"));
+      const primaryPaymentMethod = effectiveCashAmount > 0 ? effectiveCashAccountId : (effectiveCardAmount > 0 ? effectiveCardAccountId : (effectiveMfsAmount > 0 ? effectiveMfsAccountId : "SPLIT"));
 
       if (isExchangeMode) {
         const returnItems = cart
@@ -1826,12 +1910,12 @@ export default function POSComponent({ items, clients: initialClients, warehouse
           returnItems,
           newItems,
           paymentDetails: {
-            cashAmount: cashAmount,
-            cashAccountId: cashAccountId || undefined,
-            cardAmount: cardAmount,
-            cardAccountId: cardAccountId || undefined,
-            mfsAmount: mfsAmount,
-            mfsAccountId: mfsAccountId || undefined,
+            cashAmount: effectiveCashAmount,
+            cashAccountId: effectiveCashAccountId || undefined,
+            cardAmount: effectiveCardAmount,
+            cardAccountId: effectiveCardAccountId || undefined,
+            mfsAmount: effectiveMfsAmount,
+            mfsAccountId: effectiveMfsAccountId || undefined,
           },
         });
 
@@ -1876,12 +1960,12 @@ export default function POSComponent({ items, clients: initialClients, warehouse
         paymentMethod: primaryPaymentMethod,
         salesAssistantId: salesAssistantId,
         paymentDetails: {
-          cashAmount: cashAmount,
-          cashAccountId: cashAccountId || null,
-          cardAmount: cardAmount,
-          cardAccountId: cardAccountId || null,
-          mfsAmount: mfsAmount,
-          mfsAccountId: mfsAccountId || null,
+          cashAmount: effectiveCashAmount,
+          cashAccountId: effectiveCashAccountId || null,
+          cardAmount: effectiveCardAmount,
+          cardAccountId: effectiveCardAccountId || null,
+          mfsAmount: effectiveMfsAmount,
+          mfsAccountId: effectiveMfsAccountId || null,
         }
       });
 
@@ -1890,7 +1974,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
         const saleId = (res.sale as any)?.id || '';
         setCompletedSaleNumber(saleNum);
         setCompletedSaleId(saleId || '');
-        setChangeAmount(paidAmount - grandTotal);
+        setChangeAmount(totalPaid - roundedGrandTotal);
         toast({
           title: "Success",
           description: `Order ${saleNum} processed successfully!`,
@@ -1913,11 +1997,10 @@ export default function POSComponent({ items, clients: initialClients, warehouse
           variant: "destructive"
         });
       }
-    } catch (err) {
-      console.error(err);
+    } catch (error: any) {
       toast({
-        title: "Unexpected Error",
-        description: "An unexpected error occurred while processing the transaction.",
+        title: "Error",
+        description: error.message || "Failed to create sale.",
         variant: "destructive"
       });
     } finally {
@@ -2198,402 +2281,255 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     selectedItemForVariants
   ]);
 
+  const activeScreenType = searchParams.get("screen") || posSettings?.posScreenType || "standard";
+  const isNegativeSaleAllowed = posSettings?.allowNegativeSale ?? false;
+  const computedTaxAmount = (posSettings?.allowTax ?? true) ? ((subTotal - discountAmount) * (taxPercent / 100)) : 0;
+
+  const getItemLineUnitPrice = (item: any) => {
+    return item.unitPrice || 0;
+  };
+
+  const handleDirectPaymentCheckout = async ({
+    cashAmount: directCashAmount,
+    cardAmount: directCardAmount,
+    mfsAmount: directMfsAmount,
+    cashAccountId: directCashAccountId,
+    cardAccountId: directCardAccountId,
+    mfsAccountId: directMfsAccountId,
+    isDueBill: directIsDueBill,
+  }: {
+    cashAmount: number;
+    cardAmount: number;
+    mfsAmount: number;
+    cashAccountId?: string;
+    cardAccountId?: string;
+    mfsAccountId?: string;
+    isDueBill?: boolean;
+  }) => {
+    if (cart.length === 0) {
+      toast({
+        title: "Warning",
+        description: "Your cart is empty. Add items before processing.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const effectiveClientId = selectedClientId || walkwayCustomerId;
+    if (!effectiveClientId) {
+      toast({
+        title: "Warning",
+        description: "Customer selection is required.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!selectedWarehouseId) {
+      toast({
+        title: "Warning",
+        description: "Warehouse selection is required.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setCashAmount(directCashAmount);
+    setCardAmount(directCardAmount);
+    setMfsAmount(directMfsAmount);
+    if (directCashAccountId) setCashAccountId(directCashAccountId);
+    if (directCardAccountId) setCardAccountId(directCardAccountId);
+    if (directMfsAccountId) setMfsAccountId(directMfsAccountId);
+    await handleConfirmOrder({
+      cashAmount: directCashAmount,
+      cardAmount: directCardAmount,
+      mfsAmount: directMfsAmount,
+      cashAccountId: directCashAccountId || cashAccountId,
+      cardAccountId: directCardAccountId || cardAccountId,
+      mfsAccountId: directMfsAccountId || mfsAccountId,
+      isDueSale: directIsDueBill ?? isDueSale,
+    });
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex bg-background">
-      <div className="flex-1 flex flex-col p-6 overflow-hidden bg-background relative">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-6">
-            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-              Product Catalog
-              <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
-                orderType === "RETAIL"
-                  ? "bg-blue-500/10 text-blue-600"
-                  : "bg-orange-500/10 text-orange-600"
-              }`}>
-                {orderType === "RETAIL" ? (<span className="flex items-center gap-1"><FaShoppingBag /> Retail</span>) : (<span className="flex items-center gap-1"><FaIndustry /> Wholesale</span>)}
-              </span>
-            </h1>
-            <div className="flex items-center gap-2">
-              <Select value={selectedWarehouseId} onValueChange={setSelectedWarehouseId} disabled={currentUser?.role?.toLowerCase() !== "admin"}>
-                <SelectTrigger className="w-[180px] bg-muted border-none text-foreground font-medium h-10 shadow-none focus:ring-0 focus:ring-offset-0">
-                  <SelectValue placeholder="Select warehouse" />
-                </SelectTrigger>
-                <SelectContent>
-                  {warehouses.map((w) => (
-                    <SelectItem key={w.id} value={w.id}>
-                      {w.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="relative w-80">
-              <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input 
-                ref={searchInputRef}
-                placeholder="Search products... (Esc)" 
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 bg-muted border-none text-foreground h-10"
-              />
-            </div>
-            <Button 
-              variant="outline" 
-              className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground transition-colors h-10"
-              onClick={() => router.push('/dashboard/sales')}
-            >
-              <FaTimes className="w-4 h-4 mr-2" /> Exit POS
-            </Button>
-          </div>
-        </div>
-
-        <div className="flex gap-4 mb-6 border-b border-border pb-4 overflow-x-auto whitespace-nowrap no-scrollbar">
-          <button 
-            className={`px-4 py-2 text-sm font-medium transition-colors ${filterType === "ALL" ? "border-b-2 border-primary text-primary" : "text-muted-foreground hover:text-foreground"}`}
-            onClick={() => setFilterType("ALL")}
-          >
-            All Items
-          </button>
-          {categories.map((cat) => (
-            <button 
-              key={cat}
-              className={`px-4 py-2 text-sm font-medium transition-colors ${filterType === cat ? "border-b-2 border-primary text-primary" : "text-muted-foreground hover:text-foreground"}`}
-              onClick={() => setFilterType(cat)}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex-1 overflow-y-auto pr-2 pb-20">
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-            {filteredItems.map((item) => {
-              const displayPrice = orderType === "WHOLESALE" ? (item.wholesalePrice || item.unitPrice) : item.unitPrice;
-              const discount = getItemDiscount(item);
-              let finalPrice = displayPrice;
-              if (discount) {
-                if (discount.discountType === "PERCENTAGE") {
-                  finalPrice = displayPrice * Math.max(0, 1 - (discount.discountValue / 100));
-                } else if (discount.discountType === "FLAT") {
-                  finalPrice = Math.max(0, displayPrice - discount.discountValue);
+    <>
+      {activeScreenType === "modern" ? (
+        <POSScreenModern
+          items={items}
+          filteredItems={filteredItems}
+          warehouses={warehouses}
+          selectedWarehouseId={selectedWarehouseId}
+          setSelectedWarehouseId={setSelectedWarehouseId}
+          currentUser={currentUser}
+          orderType={orderType}
+          isWholesaleAllowed={isWholesaleAllowed}
+          updateOrderMode={updateOrderMode}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          searchInputRef={searchInputRef}
+          onExitPOS={() => router.push("/dashboard/sales")}
+          clients={clients}
+          clientOptions={clientOptions}
+          selectedClientId={selectedClientId}
+          changeCustomerAndSyncMode={changeCustomerAndSyncMode}
+          onOpenAddCustomer={() => setIsAddCustomerOpen(true)}
+          promoCode={promoCode}
+          setPromoCode={setPromoCode}
+          appliedPromo={appliedPromo}
+          handleApplyPromo={handleApplyPromo}
+          handleRemovePromo={handleRemovePromo}
+          cart={cart}
+          getItemDiscount={getItemDiscount}
+          getItemLineUnitPrice={getItemLineUnitPrice}
+          handleAddToCart={handleAddToCart}
+          handleUpdateQuantity={handleUpdateQuantity}
+          handleCustomQuantitySet={handleCustomQuantitySet}
+          handleRemoveItem={handleRemoveItem}
+          isNegativeSaleAllowed={isNegativeSaleAllowed}
+          paymentAccounts={paymentAccounts}
+          itemCount={cart.reduce((acc, i) => acc + (i.cartQuantity || 1), 0)}
+          subTotal={subTotal}
+          discountAmount={discountAmount}
+          setDiscountAmount={setDiscountAmount}
+          taxAmount={computedTaxAmount}
+          taxPercent={taxPercent}
+          grandTotal={grandTotal}
+          onConfirmDirectPayment={handleDirectPaymentCheckout}
+          isExchangeMode={isExchangeMode}
+          heldCartsCount={heldCarts.length}
+          hasLastSale={hasLastSale}
+          completedSaleNumber={completedSaleNumber}
+          onReturnClick={() => {
+            setActionSaleNumber("");
+            if (selectedClientId) setReturnCustomerId(selectedClientId);
+            setIsReturnModalOpen(true);
+          }}
+          onExchangeClick={() => {
+            if (isExchangeMode) {
+              setIsExchangeMode(false);
+              setCart((prev) => prev.filter((i) => !i.isReturnItem));
+              sonnerToast.info(
+                "Exchange Mode Deactivated: Switched to standard POS sale.",
+                {
+                  position: "bottom-right",
                 }
-              }
-              const hasDiscount = finalPrice !== displayPrice;
-              const itemStock = item.variants && item.variants.length > 0
-                ? item.variants.reduce((acc, v) => acc + (v.stocks?.find(s => s.warehouseId === selectedWarehouseId)?.quantity || 0), 0)
-                : (item.stocks?.find(s => s.warehouseId === selectedWarehouseId)?.quantity || 0);
-              
-              return (
-              <div key={item.id} className="bg-card text-card-foreground rounded-xl border border-border p-4 hover:shadow-md transition-shadow flex flex-col justify-between h-full">
-                <div>
-                   <div className="aspect-square bg-muted rounded-lg mb-3 flex items-center justify-center text-muted-foreground overflow-hidden relative">
-                      {item.imageUrl ? (
-                        <img src={item.imageUrl} alt={item.description} className="object-cover w-full h-full" />
-                      ) : (
-                        <span className="text-xs">{item.code}</span>
-                      )}
-                   </div>
-                   <div className="mb-2">
-                      <h3 className="font-bold text-sm text-foreground line-clamp-1">{item.name}</h3>
-                      <p className="text-[11px] text-muted-foreground font-mono">{item.code}</p>
-                   </div>
-                   <div className="flex items-center gap-1.5 mb-3 flex-wrap">
-                      <span className="text-sm font-bold text-primary">৳{finalPrice.toFixed(2)}</span>
-                      {hasDiscount && (
-                        <>
-                          <span className="text-xs text-muted-foreground line-through font-normal">৳{displayPrice.toFixed(2)}</span>
-                          <span className="text-[10px] font-semibold text-green-600 bg-green-500/10 px-1 py-0.2 rounded font-normal">
-                            {discount.discountType === "PERCENTAGE" ? `${discount.discountValue}% Off` : `৳${discount.discountValue} Off`}
-                          </span>
-                        </>
-                      )}
-                      <span className="ml-auto text-[10px] font-semibold text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                        Stock: {itemStock}
-                      </span>
-                   </div>
-                </div>
-                {item.variants && item.variants.length > 0 ? (
-                  <Button 
-                    className="w-full bg-primary text-primary-foreground hover:bg-primary/90 rounded-full text-xs" 
-                    onClick={() => handleAddToCart(item)}
-                  >
-                    <FaPlus className="w-3.5 h-3.5 mr-1" /> Add SKU
-                  </Button>
-                ) : (
-                  <Button 
-                    className="w-full bg-primary text-primary-foreground hover:bg-primary/90 rounded-full" 
-                    onClick={() => handleAddToCart(item)}
-                  >
-                    <FaPlus className="w-4 h-4 mr-2" /> Add
-                  </Button>
-                )}
-              </div>
-            )})}
-          </div>
-        </div>
-
-        {/* Floating Action Buttons - Bottom Left */}
-        <div className="absolute bottom-0 left-0 p-4 z-20 flex items-center gap-2 bg-transparent">
-          <button 
-            className="flex items-center justify-center gap-2 h-10 px-4 bg-[#e11d48] text-white hover:bg-[#e11d48]/90 transition-colors border border-[#e11d48]/20 rounded-lg text-xs font-bold shadow-lg"
-            onClick={() => { 
-              setActionSaleNumber(""); 
+              );
+            } else {
+              setIsExchangeMode(true);
+              setActionSaleNumber("");
               if (selectedClientId) setReturnCustomerId(selectedClientId);
-              setIsReturnModalOpen(true); 
-            }}
-          >
-            Return <FaUndoAlt className="w-3.5 h-3.5" />
-          </button>
-
-          <button 
-            className={`flex items-center justify-center gap-2 h-10 px-4 transition-all rounded-lg text-xs font-bold shadow-lg ${
-              isExchangeMode
-                ? "bg-[#d97706] text-white border-2 border-amber-400 ring-2 ring-amber-400/50 animate-pulse"
-                : "bg-[#d97706] text-white hover:bg-[#d97706]/90 border border-[#d97706]/20"
-            }`}
-            onClick={() => {
-              if (isExchangeMode) {
-                setIsExchangeMode(false);
-                setCart((prev) => prev.filter((i) => !i.isReturnItem));
-                sonnerToast.info("Exchange Mode Deactivated: Switched to standard POS sale.", {
+              setIsReturnModalOpen(true);
+              sonnerToast.success(
+                "Exchange Mode Active: Select returned items from modal or barcode scanner.",
+                {
                   position: "bottom-right",
-                });
-              } else {
-                setIsExchangeMode(true);
-                setActionSaleNumber("");
-                if (selectedClientId) setReturnCustomerId(selectedClientId);
-                setIsReturnModalOpen(true);
-                sonnerToast.success("Exchange Mode Active: Select returned items from modal or barcode scanner.", {
+                }
+              );
+            }
+          }}
+          onCollectDueClick={() => {
+            setPayDueClientId("");
+            setOutstandingSales([]);
+            setIsPayDueModalOpen(true);
+          }}
+          onHoldClick={() => {
+            if (cart.length > 0) handleHoldCart();
+            else if (heldCarts.length > 0) setIsHeldCartsModalOpen(true);
+            else toast({ title: "Hold", description: "No carts held." });
+          }}
+          onRefreshClick={() => {
+            handleNewSale();
+            toast({ title: "Refreshed", description: "POS reset successfully" });
+          }}
+          onLastBillClick={handlePrintLastBill}
+          posSettings={posSettings}
+        />
+      ) : (
+        <POSScreenStandard
+          items={items}
+          filteredItems={filteredItems}
+          categories={categories}
+          filterType={filterType}
+          setFilterType={setFilterType}
+          warehouses={warehouses}
+          selectedWarehouseId={selectedWarehouseId}
+          setSelectedWarehouseId={setSelectedWarehouseId}
+          currentUser={currentUser}
+          orderType={orderType}
+          isWholesaleAllowed={isWholesaleAllowed}
+          updateOrderMode={updateOrderMode}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          searchInputRef={searchInputRef}
+          onExitPOS={() => router.push("/dashboard/sales")}
+          clients={clients}
+          clientOptions={clientOptions}
+          selectedClientId={selectedClientId}
+          changeCustomerAndSyncMode={changeCustomerAndSyncMode}
+          onOpenAddCustomer={() => setIsAddCustomerOpen(true)}
+          cart={cart}
+          getItemDiscount={getItemDiscount}
+          handleAddToCart={handleAddToCart}
+          handleUpdateQuantity={handleUpdateQuantity}
+          handleCustomQuantitySet={handleCustomQuantitySet}
+          handleRemoveItem={handleRemoveItem}
+          posSettings={posSettings}
+          itemCount={cart.reduce((acc, i) => acc + (i.cartQuantity || 1), 0)}
+          subTotal={subTotal}
+          discountAmount={discountAmount}
+          taxAmount={computedTaxAmount}
+          taxPercent={taxPercent}
+          grandTotal={grandTotal}
+          appliedPromo={appliedPromo}
+          promoDiscountMsg={promoDiscountMsg}
+          onProcessTransaction={handleProcessTransaction}
+          isExchangeMode={isExchangeMode}
+          heldCartsCount={heldCarts.length}
+          hasLastSale={hasLastSale}
+          completedSaleNumber={completedSaleNumber}
+          onReturnClick={() => {
+            setActionSaleNumber("");
+            if (selectedClientId) setReturnCustomerId(selectedClientId);
+            setIsReturnModalOpen(true);
+          }}
+          onExchangeClick={() => {
+            if (isExchangeMode) {
+              setIsExchangeMode(false);
+              setCart((prev) => prev.filter((i) => !i.isReturnItem));
+              sonnerToast.info(
+                "Exchange Mode Deactivated: Switched to standard POS sale.",
+                {
                   position: "bottom-right",
-                });
-              }
-            }}
-          >
-            {isExchangeMode ? "Exit Exchange Mode" : "Exchange"} <FaExchangeAlt className="w-3.5 h-3.5" />
-          </button>
-
-          <button 
-            className="flex items-center justify-center gap-2 h-10 px-4 bg-[#6366f1] text-white hover:bg-[#6366f1]/90 transition-colors border border-[#6366f1]/20 rounded-lg text-xs font-bold shadow-lg"
-            onClick={() => { setPayDueClientId(""); setOutstandingSales([]); setIsPayDueModalOpen(true); }}
-          >
-            Collect Due <FaMoneyBillWave className="w-3.5 h-3.5" />
-          </button>
-          
-          <button 
-            className="flex items-center justify-center gap-2 h-10 px-4 bg-[#ffb000] text-black hover:bg-[#ffb000]/90 transition-colors border border-[#ffb000]/20 rounded-lg text-xs font-bold shadow-lg"
-            onClick={() => { if(cart.length > 0) handleHoldCart(); else if(heldCarts.length > 0) setIsHeldCartsModalOpen(true); else toast({title: "Hold", description:"No carts held."}) }}
-          >
-            Hold 
-            {heldCarts.length > 0 && <span className="ml-1 bg-black text-[#ffb000] rounded-full w-4 h-4 flex items-center justify-center text-[9px]">{heldCarts.length}</span>} 
-            <FaHandPaper className="w-3.5 h-3.5" />
-          </button>
-
-          <button 
-            className="flex items-center justify-center gap-2 h-10 px-4 bg-[#0f8c5a] text-white hover:bg-[#0f8c5a]/90 transition-colors border border-[#0f8c5a]/20 rounded-lg text-xs font-bold shadow-lg"
-            onClick={() => { handleNewSale(); toast({ title: "Refreshed", description: "POS reset successfully" }); }}
-          >
-            Refresh <FaSync className="w-3.5 h-3.5" />
-          </button>
-
-          <button 
-            className="flex items-center justify-center gap-2 h-10 px-4 bg-[#136bfb] text-white hover:bg-[#136bfb]/90 transition-colors border border-[#136bfb]/20 rounded-lg text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
-            onClick={handlePrintLastBill}
-            disabled={!hasLastSale && !completedSaleNumber}
-          >
-            Last Bill <FaPrint className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      </div>
-
-      <div className="w-[450px] flex flex-col bg-card text-card-foreground border-l border-border shadow-md z-10 relative">
-        <div className="p-4 flex-1 flex flex-col overflow-hidden">
-          <div className="flex items-center justify-between mb-3 gap-2">
-            <h2 className="text-xl font-bold text-foreground shrink-0">Order Details</h2>
-            {isWholesaleAllowed && (
-              <div className="flex bg-muted p-0.5 rounded-lg">
-                  <button 
-                    onClick={() => { if (orderType !== "RETAIL") updateOrderMode("RETAIL"); }}
-                    className={`px-2.5 py-1 text-[11px] font-semibold rounded-md transition-all ${orderType === "RETAIL" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-                  >
-                    Retail
-                  </button>
-                  <button 
-                    onClick={() => { if (orderType !== "WHOLESALE") updateOrderMode("WHOLESALE"); }}
-                    className={`px-2.5 py-1 text-[11px] font-semibold rounded-md transition-all ${orderType === "WHOLESALE" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-                  >
-                    Wholesale
-                  </button>
-              </div>
-            )}
-          </div>
-
-          <div className="space-y-2 mb-4">
-            <div>
-              <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1 block">
-                Customer <span className="text-destructive">*</span>
-                {selectedClientId && clients.find(c => c.id === selectedClientId)?.clientType === 'wholesale' && (
-                  <span className="ml-1 px-1 py-0.5 text-[9px] bg-amber-500/15 text-amber-600 rounded font-bold font-sans">WS</span>
-                )}
-              </label>
-              <div className="flex gap-2">
-                <div className="flex-1 min-w-0">
-                  <SearchableSelect
-                    options={clientOptions}
-                    value={selectedClientId || null}
-                    onValueChange={(val) => changeCustomerAndSyncMode(val || "")}
-                    placeholder="Select Customer..."
-                    searchPlaceholder="Search customer..."
-                    className="w-full h-9 text-xs"
-                  />
-                </div>
-                <Button 
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setIsAddCustomerOpen(true)}
-                  className="h-9 px-2 text-xs flex gap-1 font-semibold border-primary/30 text-primary hover:bg-primary/10 shrink-0"
-                >
-                  <FaPlus className="w-3.5 h-3.5" /> Add
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex-1 overflow-y-auto -mx-4 px-4 border-y border-border">
-             <div className="py-4 space-y-4">
-                {cart.length === 0 ? (
-                  <div className="h-full flex flex-col items-center justify-center text-muted-foreground py-10">
-                    <FaShoppingCart className="w-12 h-12 mb-4 opacity-50" />
-                    <p>Your cart is empty</p>
-                  </div>
-                ) : (
-                  sortedCart.map((item) => (
-                    <div key={item.cartKey} className="flex items-center gap-3">
-                      <div className="w-12 h-12 bg-muted rounded-md shrink-0 flex items-center justify-center relative overflow-hidden">
-                         {item.imageUrl ? (
-                           <img src={item.imageUrl} alt={item.description} className="object-cover w-full h-full" />
-                         ) : (
-                           <span className="text-[10px] text-muted-foreground px-1 text-center truncate">{item.code}</span>
-                         )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1">
-                          {item.isReturnItem && (
-                            <span className="text-[9px] font-bold px-1.5 py-0.2 bg-rose-500/10 text-rose-600 border border-rose-500/30 rounded uppercase shrink-0">
-                              Return
-                            </span>
-                          )}
-                          <p className="text-sm font-semibold text-foreground truncate">{item.description}</p>
-                        </div>
-                        {item.variantSku && (
-                          <div className="flex gap-1 mt-0.5">
-                            <span className="text-[9px] px-1.5 py-0.2 bg-muted border border-border text-foreground rounded font-medium">{item.color}</span>
-                            <span className="text-[9px] px-1.5 py-0.2 bg-muted border border-border text-foreground rounded font-medium">{item.size}</span>
-                          </div>
-                        )}
-                        <p className={`text-sm font-bold ${item.isReturnItem ? "text-rose-600" : "text-foreground"}`}>
-                          {item.isReturnItem ? "-" : ""}৳{item.unitPrice.toFixed(2)}
-                        </p>
-                      </div>
-                      <div className="flex items-center justify-between gap-2 bg-muted rounded-full border border-border px-1 py-1 w-[124px] shrink-0">
-                        <button 
-                          className="w-6 h-6 flex items-center justify-center bg-background rounded-full border border-border shadow-sm text-muted-foreground hover:text-foreground"
-                          onClick={() => handleUpdateQuantity(item.cartKey, -1)}
-                        >
-                          <FaMinus className="w-3 h-3" />
-                        </button>
-                        <input
-                          type="number"
-                          min="0"
-                          value={item.cartQuantity === 0 ? "" : item.cartQuantity}
-                          onChange={(e) => {
-                            const val = parseInt(e.target.value, 10);
-                            handleCustomQuantitySet(item.cartKey, isNaN(val) ? 0 : val);
-                          }}
-                          onBlur={(e) => {
-                            const val = parseInt(e.target.value, 10);
-                            if (isNaN(val) || val <= 0) {
-                              handleRemoveItem(item.cartKey);
-                            }
-                          }}
-                          className="text-sm font-semibold w-14 text-center text-foreground bg-background border border-border/80 rounded-md outline-none focus:border-primary/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none py-0.5 px-0.5 m-0"
-                        />
-                        <button 
-                          className="w-6 h-6 flex items-center justify-center bg-background rounded-full border border-border shadow-sm text-muted-foreground hover:text-foreground"
-                          onClick={() => handleUpdateQuantity(item.cartKey, 1)}
-                        >
-                          <FaPlus className="w-3 h-3" />
-                        </button>
-                      </div>
-                      <button 
-                        className="w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors shrink-0"
-                        onClick={() => handleRemoveItem(item.cartKey)}
-                      >
-                        <FaTrashAlt className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))
-                )}
-             </div>
-          </div>
-
-          <div className="pt-3">
-            <h3 className="text-sm font-bold text-foreground mb-2">Order Summary</h3>
-            {isExchangeMode ? (
-              (() => {
-                const retSub = cart.filter((i) => i.isReturnItem).reduce((acc, item) => acc + item.unitPrice * item.cartQuantity, 0);
-                const newSub = cart.filter((i) => !i.isReturnItem).reduce((acc, item) => acc + item.unitPrice * item.cartQuantity, 0);
-                const netBal = newSub - retSub;
-                return (
-                  <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 space-y-2">
-                    <div className="flex justify-between text-xs font-semibold text-rose-600">
-                      <span>Returned Subtotal:</span>
-                      <span>-৳{retSub.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between text-xs font-semibold text-emerald-600">
-                      <span>New Purchase Subtotal:</span>
-                      <span>+৳{newSub.toFixed(2)}</span>
-                    </div>
-                    <div className="border-t border-dashed border-amber-500/40 pt-2 flex justify-between items-center">
-                      <span className="font-bold text-xs text-amber-700 uppercase">
-                        {netBal > 0 ? "Net Payable:" : netBal < 0 ? "Net Refund:" : "Even Exchange:"}
-                      </span>
-                      <span className="text-base font-black text-amber-700">
-                        ৳{Math.abs(netBal).toFixed(2)}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })()
-            ) : (
-              <div className="bg-muted rounded-xl p-4 space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Item ({cart.length})</span>
-                  <span className="font-medium text-foreground">৳{subTotal.toFixed(2)}</span>
-                </div>
-                <div className="border-t border-border border-dashed pt-2 flex justify-between items-center">
-                  <span className="font-bold text-foreground">Total</span>
-                  <span className="text-lg font-black text-foreground">৳{grandTotal.toFixed(2)}</span>
-                </div>
-              </div>
-            )}
-
-            <Button 
-              className={`w-full mt-3 h-12 text-base font-bold rounded-xl text-primary-foreground ${
-                isExchangeMode
-                  ? "bg-amber-600 hover:bg-amber-700"
-                  : "bg-primary hover:bg-primary/90"
-              }`}
-              size="lg"
-              onClick={handleProcessTransaction}
-              disabled={cart.length === 0}
-            >
-              {isExchangeMode ? "Process Exchange" : "Process Transaction"}
-            </Button>
-          </div>
-        </div>
-      </div>
+                }
+              );
+            } else {
+              setIsExchangeMode(true);
+              setActionSaleNumber("");
+              if (selectedClientId) setReturnCustomerId(selectedClientId);
+              setIsReturnModalOpen(true);
+              sonnerToast.success(
+                "Exchange Mode Active: Select returned items from modal or barcode scanner.",
+                {
+                  position: "bottom-right",
+                }
+              );
+            }
+          }}
+          onCollectDueClick={() => {
+            setPayDueClientId("");
+            setOutstandingSales([]);
+            setIsPayDueModalOpen(true);
+          }}
+          onHoldClick={() => {
+            if (cart.length > 0) handleHoldCart();
+            else if (heldCarts.length > 0) setIsHeldCartsModalOpen(true);
+            else toast({ title: "Hold", description: "No carts held." });
+          }}
+          onRefreshClick={() => {
+            handleNewSale();
+            toast({ title: "Refreshed", description: "POS reset successfully" });
+          }}
+          onLastBillClick={handlePrintLastBill}
+        />
+      )}
 
       <Dialog open={isConfirmModalOpen} onOpenChange={setIsConfirmModalOpen}>
         <DialogContent className="sm:max-w-6xl p-0 overflow-hidden bg-card text-card-foreground border border-border">
@@ -2668,89 +2604,105 @@ export default function POSComponent({ items, clients: initialClients, warehouse
             <div className="w-full md:w-[400px] bg-background p-6 flex flex-col justify-between border-t md:border-t-0 border-border">
               <div className="space-y-4 overflow-y-auto pr-1">
                 {/* Coupon Code Section */}
-                <div className="bg-muted/40 p-3.5 rounded-xl border border-border">
-                  <label className="text-xs font-bold uppercase tracking-wide text-muted-foreground block mb-2"><span className="flex items-center gap-2"><FaTicketAlt /> Promo / Coupon Code</span></label>
-                  <div className="flex gap-2">
-                    <Input 
-                      placeholder="Enter coupon code..." 
-                      value={promoCode}
-                      onChange={(e) => setPromoCode(e.target.value)}
-                      disabled={!!appliedPromo}
-                      className="h-9 text-xs bg-background"
-                    />
-                    {appliedPromo ? (
-                      <Button 
-                        type="button" 
-                        variant="destructive" 
-                        size="sm"
-                        onClick={handleRemovePromo}
-                        className="h-9 px-3 shrink-0"
-                      >
-                        Remove
-                      </Button>
-                    ) : (
-                      <Button 
-                        type="button" 
-                        variant="outline" 
-                        size="sm"
-                        onClick={handleApplyPromo}
-                        className="h-9 px-3 shrink-0 border-primary/30 text-primary hover:bg-primary/10"
-                      >
-                        Apply
-                      </Button>
+                {(posSettings?.allowCoupon ?? true) && (
+                  <div className="bg-muted/40 p-3.5 rounded-xl border border-border">
+                    <label className="text-xs font-bold uppercase tracking-wide text-muted-foreground block mb-2"><span className="flex items-center gap-2"><FaTicketAlt /> Promo / Coupon Code</span></label>
+                    <div className="flex gap-2">
+                      <Input 
+                        placeholder="Enter coupon code..." 
+                        value={promoCode}
+                        onChange={(e) => setPromoCode(e.target.value)}
+                        disabled={!!appliedPromo}
+                        className="h-9 text-xs bg-background"
+                      />
+                      {appliedPromo ? (
+                        <Button 
+                          type="button" 
+                          variant="destructive" 
+                          size="sm"
+                          onClick={handleRemovePromo}
+                          className="h-9 px-3 shrink-0"
+                        >
+                          Remove
+                        </Button>
+                      ) : (
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          size="sm"
+                          onClick={handleApplyPromo}
+                          className="h-9 px-3 shrink-0 border-primary/30 text-primary hover:bg-primary/10"
+                        >
+                          Apply
+                        </Button>
+                      )}
+                    </div>
+                    {appliedPromo && (
+                      <div className="mt-2 flex items-center justify-between text-[11px] text-green-600 bg-green-500/10 border border-green-500/20 px-2 py-1 rounded">
+                        <span className="font-bold">Code: {appliedPromo}</span>
+                        <span>{promoDiscountMsg}</span>
+                      </div>
                     )}
                   </div>
-                  {appliedPromo && (
-                    <div className="mt-2 flex items-center justify-between text-[11px] text-green-600 bg-green-500/10 border border-green-500/20 px-2 py-1 rounded">
-                      <span className="font-bold">Code: {appliedPromo}</span>
-                      <span>{promoDiscountMsg}</span>
-                    </div>
-                  )}
-                </div>
+                )}
 
                 {/* Additional Manual Discount & Tax */}
                 <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide mb-1 block">Manual Discount</label>
-                    <div className="flex gap-1.5">
-                      <Select
-                        value={discountType}
-                        onValueChange={(value: "FLAT" | "PERCENTAGE") => {
-                          setDiscountType(value);
-                          setDiscountValue(0);
-                          if (appliedPromo) {
-                            setAppliedPromo(null);
-                            setPromoDiscountMsg("");
-                          }
-                        }}
-                      >
-                        <SelectTrigger className="w-[65px] h-9 text-xs shrink-0">
-                          <SelectValue placeholder="Type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="FLAT" className="text-xs">৳</SelectItem>
-                          <SelectItem value="PERCENTAGE" className="text-xs">%</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Input 
-                        type="number" 
-                        value={discountValue || ""}
-                        onChange={(e) => {
-                          setDiscountValue(Number(e.target.value) || 0);
-                          if (appliedPromo) {
-                            setAppliedPromo(null);
-                            setPromoDiscountMsg("");
-                          }
-                        }}
-                        placeholder={discountType === "PERCENTAGE" ? "Discount %" : "Discount ৳"}
-                        className="h-9 text-xs bg-background flex-1"
-                      />
+                  {(posSettings?.allowDiscount ?? true) ? (
+                    <div>
+                      <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide mb-1 block">Manual Discount</label>
+                      <div className="flex gap-1.5">
+                        <Select
+                          value={discountType}
+                          onValueChange={(value: "FLAT" | "PERCENTAGE") => {
+                            setDiscountType(value);
+                            setDiscountValue(0);
+                            if (appliedPromo) {
+                              setAppliedPromo(null);
+                              setPromoDiscountMsg("");
+                            }
+                          }}
+                        >
+                          <SelectTrigger className="w-[65px] h-9 text-xs shrink-0">
+                            <SelectValue placeholder="Type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="FLAT" className="text-xs">৳</SelectItem>
+                            <SelectItem value="PERCENTAGE" className="text-xs">%</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Input 
+                          type="number" 
+                          value={discountValue || ""}
+                          onChange={(e) => {
+                            setDiscountValue(Number(e.target.value) || 0);
+                            if (appliedPromo) {
+                              setAppliedPromo(null);
+                              setPromoDiscountMsg("");
+                            }
+                          }}
+                          placeholder="0"
+                          className={`h-9 text-xs font-semibold ${
+                            discountLimitError 
+                              ? "border-rose-500 text-rose-600 focus-visible:ring-rose-500 bg-rose-500/10 dark:bg-rose-950/20" 
+                              : "bg-background border-border"
+                          }`}
+                        />
+                      </div>
+                      {discountLimitError && (
+                        <div className="text-[11px] font-semibold text-rose-600 dark:text-rose-400 mt-1 flex items-center gap-1">
+                          <FaExclamationTriangle className="w-3 h-3 shrink-0" />
+                          <span>{discountLimitError}</span>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                  <div>
-                    <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide mb-1 block">Tax</label>
-                                        <div className="text-sm font-medium text-foreground">৳{tax.toFixed(2)}</div>
-                  </div>
+                  ) : <div></div>}
+                  {(posSettings?.allowTax ?? true) && (
+                    <div>
+                      <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide mb-1 block">TAX</label>
+                      <div className="text-sm font-medium text-foreground">৳{tax.toFixed(2)}</div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Sales Assistant Section */}
@@ -2953,15 +2905,15 @@ export default function POSComponent({ items, clients: initialClients, warehouse
 
                 {/* Real-time Change / Due Displays */}
                 <div className="pt-2">
-                  {paidAmount >= grandTotal ? (
+                  {paidAmount >= roundedGrandTotal ? (
                     <div className="bg-green-500/10 border border-green-500/20 text-green-600 rounded-xl p-3 flex justify-between items-center shadow-sm">
                       <span className="text-xs font-bold uppercase tracking-wide">Change to Return:</span>
-                      <span className="text-lg font-black">৳{(paidAmount - grandTotal).toFixed(2)}</span>
+                      <span className="text-lg font-black">৳{(paidAmount - roundedGrandTotal).toFixed(2)}</span>
                     </div>
                   ) : (
                     <div className="bg-amber-500/10 border border-amber-500/20 text-amber-600 rounded-xl p-3 flex justify-between items-center shadow-sm">
                       <span className="text-xs font-bold uppercase tracking-wide">Remaining Due:</span>
-                      <span className="text-lg font-black">৳{(grandTotal - paidAmount).toFixed(2)}</span>
+                      <span className="text-lg font-black">৳{(roundedGrandTotal - paidAmount).toFixed(2)}</span>
                     </div>
                   )}
                 </div>
@@ -2984,10 +2936,10 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                     <span>{isExchangeMode ? "Net Subtotal:" : "Subtotal:"}</span>
                     <span>৳{subTotal.toFixed(2)}</span>
                   </div>
-                  {appliedPromo || manualDiscountAmount > 0 ? (
+                  {appliedPromo || discountAmount > 0 || manualDiscountAmount > 0 ? (
                     <div className="flex justify-between text-xs font-semibold text-green-600">
                       <span>Discount{appliedPromo ? ` (${appliedPromo})` : ""}:</span>
-                      <span>-৳{(appliedPromo ? discountAmount : manualDiscountAmount).toFixed(2)}</span>
+                      <span>-৳{(appliedPromo || discountAmount > 0 ? discountAmount : manualDiscountAmount).toFixed(2)}</span>
                     </div>
                   ) : null}
                   {membershipDiscountAmount > 0 && matchedMembershipTier && (
@@ -3009,8 +2961,8 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                     </div>
                   )}
                   <div className="flex justify-between text-base font-extrabold text-foreground pt-1.5 border-t border-dashed border-border">
-                    <span>Grand Total:</span>
-                    <span>৳{grandTotal.toFixed(2)}</span>
+                    <span>Grand Total (Round):</span>
+                    <span>৳{roundedGrandTotal.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-xs font-semibold text-amber-600 pt-1.5 border-t border-dashed border-border">
                     <span>Previous Due:</span>
@@ -3018,7 +2970,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                   </div>
                   <div className="flex justify-between text-sm font-bold text-destructive">
                     <span>Total Due:</span>
-                    <span>৳{(previousCustomerDue + (isReturnMode ? 0 : Math.max(0, grandTotal - paidAmount))).toFixed(2)}</span>
+                    <span>৳{(previousCustomerDue + (isReturnMode ? 0 : Math.max(0, roundedGrandTotal - paidAmount))).toFixed(2)}</span>
                   </div>
                 </div>
               </div>
@@ -3028,14 +2980,16 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                 <Button variant="outline" className="flex-1 rounded-xl" onClick={() => setIsConfirmModalOpen(false)}>Cancel</Button>
                 <Button 
                   className={`flex-1 rounded-xl text-white font-semibold transition-all ${
-                    paidAmount >= grandTotal 
+                    isProcessing || !!discountLimitError
+                      ? 'bg-slate-700 text-muted-foreground opacity-60 cursor-not-allowed'
+                      : paidAmount >= roundedGrandTotal 
                       ? 'bg-green-600 hover:bg-green-700 shadow-md shadow-green-500/15' 
                       : 'bg-amber-600 hover:bg-amber-700 shadow-md shadow-amber-500/15'
                   }`} 
-                  onClick={handleConfirmOrder} 
-                  disabled={isProcessing}
+                  onClick={() => handleConfirmOrder()} 
+                  disabled={isProcessing || !!discountLimitError}
                 >
-                  {isProcessing ? "Processing..." : paidAmount >= grandTotal ? "Confirm & Pay" : "Confirm (Part Paid)"}
+                  {isProcessing ? "Processing..." : paidAmount >= roundedGrandTotal ? "Confirm & Pay" : "Confirm (Part Paid)"}
                 </Button>
               </div>
             </div>
@@ -3085,13 +3039,23 @@ export default function POSComponent({ items, clients: initialClients, warehouse
       <Dialog open={isChangeDialogOpen} onOpenChange={(open) => { if (!open) handleNewSale(); }}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle className="text-center text-foreground"><span className="flex items-center gap-2 justify-center"><FaMoneyBillWave /> Change Amount</span></DialogTitle>
+            <DialogTitle className="text-center text-foreground">
+              <span className="flex items-center gap-2 justify-center">
+                <FaMoneyBillWave className={changeAmount < -0.001 ? "text-amber-500" : "text-emerald-500"} />
+                {changeAmount < -0.001 ? "Due Amount" : "Change Amount"}
+              </span>
+            </DialogTitle>
           </DialogHeader>
           <div className="text-center py-6">
-            <div className={`text-5xl font-black mb-2 ${changeAmount >= 0 ? 'text-green-500' : 'text-destructive'}`}>
+            <div className={`text-5xl font-black mb-2 ${changeAmount < -0.001 ? 'text-amber-500' : 'text-emerald-500'}`}>
               ৳{Math.abs(changeAmount).toFixed(2)}
             </div>
-            <Button className="w-full h-12 text-base" onClick={handleNewSale}>New Sale (Press Enter)</Button>
+            <p className="text-xs text-muted-foreground font-medium mb-5">
+              {changeAmount < -0.001
+                ? "Remaining due balance recorded for this transaction."
+                : "Change to return to customer."}
+            </p>
+            <Button className="w-full h-12 text-base font-semibold" onClick={handleNewSale}>New Sale (Press Enter)</Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -3925,6 +3889,6 @@ export default function POSComponent({ items, clients: initialClients, warehouse
         </DialogContent>
       </Dialog>
 
-    </div>
+    </>
   );
 }
