@@ -2,12 +2,20 @@ import { auth } from "@/lib/auth"
 import { NextResponse } from "next/server"
 
 const PUBLIC_ROUTES = ["/", "/about", "/contact"]
-const AUTH_ROUTES = ["/login", "/registration", "/auth/", "/api/auth/"]
+const AUTH_ROUTES = ["/login", "/registration", "/auth/"]
 
 export default auth(async (req) => {
   const pathname = req.nextUrl.pathname
 
-  // Allow auth-related routes
+  // Validate session
+  const isLoggedIn = !!(req.auth?.user?.id && req.auth?.user?.email)
+
+  // Redirect authenticated users away from root page and auth routes (/login, /registration, etc.) to /dashboard
+  if (isLoggedIn && (pathname === "/" || AUTH_ROUTES.some(route => pathname.startsWith(route)))) {
+    return NextResponse.redirect(new URL("/dashboard", req.url))
+  }
+
+  // Allow auth-related routes for unauthenticated users
   if (AUTH_ROUTES.some(route => pathname.startsWith(route))) {
     return NextResponse.next()
   }
@@ -17,8 +25,6 @@ export default auth(async (req) => {
     return NextResponse.next()
   }
 
-  // Validate session
-  const isLoggedIn = !!(req.auth?.user?.id && req.auth?.user?.email)
   const isProtectedRoute = pathname.startsWith("/dashboard") || pathname.startsWith("/admin")
   const isAdminRoute = pathname.startsWith("/admin")
   const userRole = req.auth?.user?.role?.toLowerCase()

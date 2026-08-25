@@ -5,6 +5,8 @@
 
 
 import { Metadata } from "next";
+import { auth } from "@/lib/auth";
+import { redirect } from "next/navigation";
 // import Header from "@/components/common/header";
 import LoginForm from "@/components/forms/login-form";
 import Logo from "@/components/layout/logo";
@@ -12,13 +14,20 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = {
   title: "Startup MVP - Build Your Dream Application",
   description: "The complete startup template with authentication, dashboard, and modern features built with Next.js 15, TypeScript, and Tailwind CSS.",
 };
 
-export default function HomePage() {
-  console.log("HomePage", process.env.DATABASE_URL);
+export default async function HomePage() {
+  const session = await auth();
+
+  if (session?.user?.id && session?.user?.email) {
+    redirect("/dashboard");
+  }
+
   return (
     <div className="min-h-screen flex bg-[url('/auth-bg.jpg')] bg-cover bg-center min-h-screen">
       {/* Left Side - Branding & Testimonial */}

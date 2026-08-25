@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { Metadata } from "next";
 import Logo from "@/components/layout/logo";
 
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = {
   title: "Login | Startup MVP",
   description: "Sign in to your account",
