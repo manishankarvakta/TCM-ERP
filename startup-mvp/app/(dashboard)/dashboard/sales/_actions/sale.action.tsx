@@ -3397,6 +3397,25 @@ export async function processSaleReturn(saleId: string | null, returnItems: { it
 
       const returnSaleNumber = await generateReturnSaleNumber(tx);
 
+      // Check if cash refund should be paid out (only if original sale had payment details, or if it is walkway client)
+      let shouldRefundCash = false;
+      if (originalSale) {
+        const paymentDetails = originalSale.paymentDetails as any;
+        if (paymentDetails) {
+          const cashAmt = Number(paymentDetails.cashAmount || 0);
+          const cardAmt = Number(paymentDetails.cardAmount || 0);
+          const mfsAmt = Number(paymentDetails.mfsAmount || 0);
+          if (cashAmt + cardAmt + mfsAmt > 0) {
+            shouldRefundCash = true;
+          }
+        }
+      } else {
+        const isWalkway = !clientId || clientId === "cmrl9t294000ecke2jw5ogbxf";
+        if (isWalkway) {
+          shouldRefundCash = true;
+        }
+      }
+
       const returnSale = await tx.sale.create({
         data: {
           saleNumber: returnSaleNumber,
@@ -3408,6 +3427,12 @@ export async function processSaleReturn(saleId: string | null, returnItems: { it
           subTotal: -totalRefund,
           grandTotal: -totalRefund,
           createdBy: session.user.id,
+          paymentDetails: shouldRefundCash ? {
+            cashAmount: totalRefund,
+            cardAmount: 0,
+            mfsAmount: 0,
+            changeAmount: 0
+          } : undefined,
           items: {
             create: newSaleItems.map(i => ({
               itemId: i.itemId,
@@ -3451,24 +3476,7 @@ export async function processSaleReturn(saleId: string | null, returnItems: { it
         }
       }
 
-      // Check if cash refund should be paid out (only if original sale had payment details, or if it is walkway client)
-      let shouldRefundCash = false;
-      if (originalSale) {
-        const paymentDetails = originalSale.paymentDetails as any;
-        if (paymentDetails) {
-          const cashAmt = Number(paymentDetails.cashAmount || 0);
-          const cardAmt = Number(paymentDetails.cardAmount || 0);
-          const mfsAmt = Number(paymentDetails.mfsAmount || 0);
-          if (cashAmt + cardAmt + mfsAmt > 0) {
-            shouldRefundCash = true;
-          }
-        }
-      } else {
-        const isWalkway = !clientId || clientId === "cmrl9t294000ecke2jw5ogbxf";
-        if (isWalkway) {
-          shouldRefundCash = true;
-        }
-      }
+
 
       const warehouseCashAccountId = await getWarehouseCashAccount(warehouseId, tx);
       const creditAccountId = shouldRefundCash && warehouseCashAccountId ? warehouseCashAccountId : arAccountId;

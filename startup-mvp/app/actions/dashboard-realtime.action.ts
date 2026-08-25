@@ -77,20 +77,19 @@ export async function getRealtimeDashboardStats(
 
     const getSaleDue = (sale: any) => {
       const grandTotal = Number(sale.grandTotal);
+      if (sale.orderType === "RETURN" || sale.status === "RETURN" || grandTotal < 0) {
+        return 0;
+      }
       const details = sale.paymentDetails as any;
       let initialPaid = 0;
       let totalCollected = 0;
       if (details) {
-        initialPaid = Number(details.cashAmount || 0) + Number(details.cardAmount || 0) + Number(details.mfsAmount || 0) - Number(details.changeAmount || 0);
+        initialPaid = Math.abs(Number(details.cashAmount || 0)) + Math.abs(Number(details.cardAmount || 0)) + Math.abs(Number(details.mfsAmount || 0)) - Number(details.changeAmount || 0);
         if (Array.isArray(details.dueCollections)) {
           for (const col of details.dueCollections) {
             totalCollected += Number(col.cashAmount || 0) + Number(col.cardAmount || 0) + Number(col.mfsAmount || 0);
           }
         }
-      }
-      if (sale.orderType === "RETURN" || sale.status === "RETURN" || grandTotal < 0) {
-        const netDueDiff = grandTotal - initialPaid - totalCollected;
-        return netDueDiff < 0 ? netDueDiff : 0;
       }
       return Math.max(0, grandTotal - initialPaid - totalCollected);
     };
@@ -198,8 +197,8 @@ export async function getRealtimeDashboardStats(
     const purchaseGrowth = prevPurchaseTotal > 0 ? ((currentPurchaseTotal - prevPurchaseTotal) / prevPurchaseTotal) * 100 : 0;
 
     // Due calculations
-    const currentDueTotal = currentSales.reduce((acc, sale) => acc + getSaleDue(sale), 0);
-    const prevDueTotal = prevSales.reduce((acc, sale) => acc + getSaleDue(sale), 0);
+    const currentDueTotal = Math.max(0, currentSales.reduce((acc, sale) => acc + getSaleDue(sale), 0));
+    const prevDueTotal = Math.max(0, prevSales.reduce((acc, sale) => acc + getSaleDue(sale), 0));
     const dueGrowth = prevDueTotal > 0 ? ((currentDueTotal - prevDueTotal) / prevDueTotal) * 100 : 0;
 
     // Paid Sale calculations
