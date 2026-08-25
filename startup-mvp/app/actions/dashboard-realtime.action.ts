@@ -258,6 +258,9 @@ export async function getRealtimeDashboardStats(
             createdAt: { gte: currentStart, lte: currentEnd },
             ...voucherWarehouseFilter,
           },
+          ChartOfAccount: {
+            type: "EXPENSE",
+          },
           debitAmount: { gt: 0 },
         },
         _sum: { debitAmount: true },
@@ -268,6 +271,9 @@ export async function getRealtimeDashboardStats(
             type: "PAYMENT",
             createdAt: { gte: prevStart, lte: prevEnd },
             ...voucherWarehouseFilter,
+          },
+          ChartOfAccount: {
+            type: "EXPENSE",
           },
           debitAmount: { gt: 0 },
         },
@@ -701,6 +707,9 @@ export async function getRealtimeDashboardStats(
               createdAt: { gte: stepStart, lte: stepEnd },
               ...voucherWarehouseFilter,
             },
+            ChartOfAccount: {
+              type: "EXPENSE",
+            },
             debitAmount: { gt: 0 },
           },
           _sum: { debitAmount: true },
@@ -747,6 +756,9 @@ export async function getRealtimeDashboardStats(
               createdAt: { gte: stepStart, lte: stepEnd },
               ...voucherWarehouseFilter,
             },
+            ChartOfAccount: {
+              type: "EXPENSE",
+            },
             debitAmount: { gt: 0 },
           },
           _sum: { debitAmount: true },
@@ -792,6 +804,9 @@ export async function getRealtimeDashboardStats(
               createdAt: { gte: stepStart, lte: stepEnd },
               ...voucherWarehouseFilter,
             },
+            ChartOfAccount: {
+              type: "EXPENSE",
+            },
             debitAmount: { gt: 0 },
           },
           _sum: { debitAmount: true },
@@ -836,6 +851,9 @@ export async function getRealtimeDashboardStats(
               type: "PAYMENT",
               createdAt: { gte: stepStart, lte: stepEnd },
               ...voucherWarehouseFilter,
+            },
+            ChartOfAccount: {
+              type: "EXPENSE",
             },
             debitAmount: { gt: 0 },
           },
