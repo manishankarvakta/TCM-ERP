@@ -285,12 +285,12 @@ export async function getUserCrmMetrics(
     }
 
     const ownerFilter = fetchAll ? {} : { ownerId: targetUserId };
-    const taskFilter = fetchAll ? {} : { OR: [{ assigneeId: targetUserId }, { userId: targetUserId }] };
-    const activityFilter = fetchAll ? {} : { OR: [{ ownerId: targetUserId }, { assignedToId: targetUserId }] };
+    const taskFilter = fetchAll ? {} : { OR: [{ assigneeId: targetUserId }, { AND: [{ assigneeId: null }, { userId: targetUserId }] }] };
+    const activityFilter = fetchAll ? {} : { OR: [{ assignedToId: targetUserId }, { AND: [{ assignedToId: null }, { ownerId: targetUserId }] }] };
     const eventFilter = fetchAll ? {} : {
         OR: [
-            { ownerId: targetUserId }, 
             { assignedToId: targetUserId },
+            { AND: [{ assignedToId: null }, { ownerId: targetUserId }] },
             {
               metadata: {
                 path: ['attendees'],
@@ -398,7 +398,7 @@ export async function getUserCrmMetrics(
           Opportunity: { select: { id: true, title: true } },
           Contact: { select: { id: true, firstName: true, lastName: true } }
         },
-        orderBy: { dueDate: 'asc' },
+        orderBy: { createdAt: 'desc' },
         take: isTaskCustomFilter ? 20 : 5
       }) : Promise.resolve([]),
 
@@ -416,7 +416,7 @@ export async function getUserCrmMetrics(
           Opportunity: { select: { id: true, title: true } },
           Contact: { select: { id: true, firstName: true, lastName: true } }
         },
-        orderBy: { dueDate: 'asc' },
+        orderBy: { createdAt: 'desc' },
         take: 5
       }),
 
@@ -432,7 +432,7 @@ export async function getUserCrmMetrics(
           Owner: { select: { name: true } },
           AssignedTo: { select: { name: true } }
         },
-        orderBy: { dueDate: 'asc' },
+        orderBy: { createdAt: 'desc' },
         take: isEventCustomFilter ? 20 : 5
       }),
 

@@ -697,22 +697,24 @@ export default function ActivityManager({
                     <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between p-4 bg-muted/20 border border-border/50 rounded-xl">
                         <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center flex-1">
                             {/* User Select */}
-                            <div className="flex-1 min-w-[150px] space-y-1">
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-1">User</span>
-                                <Select value={selectedUser} onValueChange={handleUserChange}>
-                                    <SelectTrigger className="bg-background h-9 text-xs">
-                                        <SelectValue placeholder="All Users" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">All Users</SelectItem>
-                                        {uniqueUsers.map((user) => (
-                                            <SelectItem key={user.id} value={user.id}>
-                                                {user.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                            {isAdmin && (
+                                <div className="flex-1 min-w-[150px] space-y-1">
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-1">User</span>
+                                    <Select value={selectedUser} onValueChange={handleUserChange}>
+                                        <SelectTrigger className="bg-background h-9 text-xs">
+                                            <SelectValue placeholder="All Users" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">All Users</SelectItem>
+                                            {uniqueUsers.map((user) => (
+                                                <SelectItem key={user.id} value={user.id}>
+                                                    {user.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            )}
 
                             {/* Date Predefined range Select */}
                             <div className="flex-1 min-w-[150px] space-y-1">

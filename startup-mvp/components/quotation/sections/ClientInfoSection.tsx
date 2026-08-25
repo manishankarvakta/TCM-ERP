@@ -70,7 +70,7 @@ export function ClientInfoSection({ data, onChange, readOnly = false, contacts =
   if (readOnly) {
     return (
       <div className="space-y-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-6 bg-gray-50 p-6 rounded-2xl border border-gray-100">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-6 py-4">
           <div className="space-y-1">
             <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Company Name</h4>
             <p className="text-base text-gray-900 font-medium">{data.companyName || 'N/A'}</p>

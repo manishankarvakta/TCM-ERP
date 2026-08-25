@@ -86,30 +86,30 @@ export function TermsSection({
     return (
       <div className="space-y-8 text-sm">
         {data.tos && (
-          <div className="bg-gray-50/50 rounded-xl p-6 border border-gray-100">
-            <span className="font-semibold text-[#0A2540] mb-4 block tracking-tight uppercase text-xs">Terms & Conditions</span>
+          <div className="bg-white rounded-none p-6 border border-gray-200">
+            <span className="font-semibold text-black mb-4 block tracking-tight uppercase text-xs">Terms & Conditions</span>
             <div className="text-gray-600 leading-relaxed whitespace-pre-wrap prose prose-sm prose-blue max-w-none" dangerouslySetInnerHTML={{ __html: data.tos }} />
           </div>
         )}
         
         {data.paymentTerms && (
-          <div className="bg-gray-50/50 rounded-xl p-6 border border-gray-100">
-            <span className="font-semibold text-[#0A2540] mb-4 block tracking-tight uppercase text-xs">Payment Terms</span>
+          <div className="bg-white rounded-none p-6 border border-gray-200">
+            <span className="font-semibold text-black mb-4 block tracking-tight uppercase text-xs">Payment Terms</span>
             <div className="text-gray-600 leading-relaxed whitespace-pre-wrap prose prose-sm prose-blue max-w-none" dangerouslySetInnerHTML={{ __html: data.paymentTerms }} />
           </div>
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {data.refundPolicy && (
-            <div className="bg-gray-50/50 rounded-xl p-6 border border-gray-100">
-              <span className="font-semibold text-[#0A2540] mb-4 block tracking-tight uppercase text-xs">Refund Policy</span>
+            <div className="bg-white rounded-none p-6 border border-gray-200">
+              <span className="font-semibold text-black mb-4 block tracking-tight uppercase text-xs">Refund Policy</span>
               <div className="text-gray-600 leading-relaxed whitespace-pre-wrap prose prose-sm prose-blue max-w-none" dangerouslySetInnerHTML={{ __html: data.refundPolicy }} />
             </div>
           )}
 
           {data.terminationPolicy && (
-            <div className="bg-gray-50/50 rounded-xl p-6 border border-gray-100">
-              <span className="font-semibold text-[#0A2540] mb-4 block tracking-tight uppercase text-xs">Termination Policy</span>
+            <div className="bg-white rounded-none p-6 border border-gray-200">
+              <span className="font-semibold text-black mb-4 block tracking-tight uppercase text-xs">Termination Policy</span>
               <div className="text-gray-600 leading-relaxed whitespace-pre-wrap prose prose-sm prose-blue max-w-none" dangerouslySetInnerHTML={{ __html: data.terminationPolicy }} />
             </div>
           )}

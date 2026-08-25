@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { getUserCrmMetrics } from "@/app/actions/crm/crm-dashboard.action";
-import { FiTrendingUp, FiCheckSquare, FiCalendar, FiUsers, FiAlertCircle, FiPhoneCall, FiCheckCircle, FiFileText, FiTarget, FiUser, FiVideo, FiClock, FiMail, FiFlag } from "react-icons/fi";
+import { FiTrendingUp, FiCheckSquare, FiCalendar, FiUsers, FiAlertCircle, FiPhoneCall, FiCheckCircle, FiFileText, FiTarget, FiUser, FiVideo, FiClock, FiMail, FiFlag, FiExternalLink } from "react-icons/fi";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency, formatCompactCurrency } from "@/lib/utils";
 import { format, formatDistanceToNow } from "date-fns";
@@ -201,17 +201,18 @@ export function UserDashboard({ isAdmin = false, selectedUserId }: { isAdmin?: b
                   ) : (
                       <>
                           {metrics.overdueTasks.map((task: any) => (
-                              <div key={`overdue-${task.id}`} className="flex items-start gap-3 p-3.5 rounded-lg border border-red-100 dark:border-red-900/30 bg-red-50/50 dark:bg-red-900/10 hover:shadow-sm transition-shadow">
+                              <div key={`overdue-${task.id}`} className="group flex items-start gap-3 p-3.5 rounded-lg border border-red-100 dark:border-red-900/30 bg-red-50/50 dark:bg-red-900/10 hover:shadow-sm transition-shadow">
                                   <div className="mt-0.5 flex-shrink-0">
                                       <FiAlertCircle className="text-red-500 dark:text-red-400 h-4 w-4" />
                                   </div>
                                   <div className="min-w-0 flex-1">
                                       <div className="flex items-start justify-between gap-2">
                                           <Link 
-                                              href={task.Lead ? `/dashboard/crm/leads/${task.Lead.id}` : task.Opportunity ? `/dashboard/crm/opportunities/${task.Opportunity.id}` : task.Contact ? `/dashboard/crm/contacts/${task.Contact.id}` : "/dashboard/crm/activities"} 
-                                              className="hover:underline group-hover:text-primary transition-colors flex-1"
+                                              href={task.Lead ? `/dashboard/crm/leads/${task.Lead.id}` : task.Opportunity ? `/dashboard/crm/opportunities/${task.Opportunity.id}` : task.Contact ? `/dashboard/crm/contacts/${task.Contact.id}` : `/dashboard/tasks?taskId=${task.id}`} 
+                                              className="hover:underline hover:text-primary transition-colors flex-1 flex items-center gap-1.5"
                                           >
                                               <p className="text-sm font-bold text-slate-900 dark:text-slate-50 break-words line-clamp-1">{task.title}</p>
+                                              <FiExternalLink className="w-3.5 h-3.5 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
                                           </Link>
                                           {(task.Lead || task.Opportunity || task.Contact) && (
                                               <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-[18px] bg-white dark:bg-slate-800/50 text-slate-500 shrink-0 font-medium border-slate-200 dark:border-slate-700">
@@ -245,17 +246,18 @@ export function UserDashboard({ isAdmin = false, selectedUserId }: { isAdmin?: b
                               </div>
                           ))}
                           {metrics.todayTasks.map((task: any) => (
-                              <div key={`today-${task.id}`} className="flex items-start gap-3 p-3.5 rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 hover:shadow-sm transition-shadow">
+                              <div key={`today-${task.id}`} className="group flex items-start gap-3 p-3.5 rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 hover:shadow-sm transition-shadow">
                                   <div className="mt-0.5 flex-shrink-0">
                                       <FiCheckSquare className="text-amber-500 h-4 w-4" />
                                   </div>
                                   <div className="min-w-0 flex-1">
                                       <div className="flex items-start justify-between gap-2">
                                           <Link 
-                                              href={task.Lead ? `/dashboard/crm/leads/${task.Lead.id}` : task.Opportunity ? `/dashboard/crm/opportunities/${task.Opportunity.id}` : task.Contact ? `/dashboard/crm/contacts/${task.Contact.id}` : "/dashboard/crm/activities"} 
-                                              className="hover:underline group-hover:text-primary transition-colors flex-1"
+                                              href={task.Lead ? `/dashboard/crm/leads/${task.Lead.id}` : task.Opportunity ? `/dashboard/crm/opportunities/${task.Opportunity.id}` : task.Contact ? `/dashboard/crm/contacts/${task.Contact.id}` : `/dashboard/tasks?taskId=${task.id}`} 
+                                              className="hover:underline hover:text-primary transition-colors flex-1 flex items-center gap-1.5"
                                           >
                                               <p className="text-sm font-bold text-slate-900 dark:text-slate-50 break-words line-clamp-1">{task.title}</p>
+                                              <FiExternalLink className="w-3.5 h-3.5 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
                                           </Link>
                                           {(task.Lead || task.Opportunity || task.Contact) && (
                                               <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-[18px] bg-white dark:bg-slate-800/50 text-slate-500 shrink-0 font-medium border-slate-200 dark:border-slate-700">
@@ -360,7 +362,7 @@ export function UserDashboard({ isAdmin = false, selectedUserId }: { isAdmin?: b
                           const titleColor = isMissed ? 'text-red-600 dark:text-red-400 font-black' : isDone ? 'text-slate-500 line-through' : 'text-slate-900 dark:text-slate-50';
                           
                           return (
-                          <div key={`event-${event.id}`} className="flex items-start gap-4 p-3 rounded-lg border border-slate-100 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-800/30 hover:shadow-sm transition-shadow">
+                          <div key={`event-${event.id}`} className="group flex items-start gap-4 p-3 rounded-lg border border-slate-100 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-800/30 hover:shadow-sm transition-shadow">
                               <div className={`h-10 w-10 flex-shrink-0 rounded-md flex flex-col items-center justify-center border ${statusColor}`}>
                                   {isCall ? (
                                       <FiPhoneCall className="h-5 w-5" />
@@ -376,11 +378,12 @@ export function UserDashboard({ isAdmin = false, selectedUserId }: { isAdmin?: b
                               </div>
                               <div className="min-w-0 flex-1">
                                   <div className="flex items-start justify-between gap-2">
-                                      <Link href={event.moduleUrl || "/dashboard/crm/activities"} className="hover:underline group-hover:text-primary transition-colors flex-1">
+                                      <Link href={event.moduleUrl || "/dashboard/crm/activities"} className="hover:underline hover:text-primary transition-colors flex-1 flex items-center gap-1.5">
                                           <p className={`text-sm break-words line-clamp-1 ${titleColor}`}>
                                               {isMissed && <span className="text-red-600 dark:text-red-500 mr-1 font-bold">[MISSED]</span>}
                                               {event.title}
                                           </p>
+                                          <FiExternalLink className="w-3.5 h-3.5 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
                                       </Link>
                                   </div>
                                   <div className="flex flex-col gap-1.5 mt-1">

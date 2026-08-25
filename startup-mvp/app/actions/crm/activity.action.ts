@@ -343,9 +343,13 @@ export async function getActivities(page: number = 1, limit: number = 20) {
 
     const skip = (page - 1) * limit;
 
+    const isAdmin = session.user.role?.toLowerCase() === "admin" || session.user.role?.toLowerCase() === "manager";
+    const where = isAdmin ? {} : { ownerId: session.user.id };
+
     const [total, activities] = await Promise.all([
-      prisma.activity.count(),
+      prisma.activity.count({ where: where as any }),
       prisma.activity.findMany({
+        where: where as any,
         skip,
         take: limit,
         orderBy: { createdAt: "desc" },
