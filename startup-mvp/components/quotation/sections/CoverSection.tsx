@@ -147,7 +147,6 @@ export function CoverSection({ data, onChange, readOnly = false, context }: Cove
 
         {data.coverLetter && (
           <div>
-            <span className="font-semibold text-[#0A2540] mb-2 block tracking-tight uppercase text-xs">Cover Letter</span>
             <div className="text-gray-600 leading-relaxed whitespace-pre-wrap">
               {data.coverLetter}
             </div>

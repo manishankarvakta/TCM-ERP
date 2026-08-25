@@ -79,9 +79,9 @@ export function ScopeSection({ data, onChange, readOnly = false }: Props) {
             <span className="font-semibold text-[#0A2540] tracking-tight uppercase text-xs border-b border-gray-100 pb-2 block">Key Deliverables</span>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {deliverables.map((d, idx) => (
-                <div key={d.id || idx} className="bg-gray-50/50 border border-gray-100 rounded-lg p-5">
-                  <h6 className="font-bold text-[#0A2540] text-sm mb-3 flex items-center gap-2">
-                    <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs shrink-0">{idx + 1}</span>
+                <div key={d.id || idx} className="bg-white border border-gray-200 rounded-none p-5">
+                  <h6 className="font-bold text-black text-sm mb-3 flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-full bg-gray-100 text-gray-700 flex items-center justify-center text-xs shrink-0">{idx + 1}</span>
                     {d.name || 'Unnamed Deliverable'}
                   </h6>
                   <div className="space-y-3 pl-8 text-sm text-gray-600">
@@ -106,16 +106,16 @@ export function ScopeSection({ data, onChange, readOnly = false }: Props) {
         )}
 
         {(inclusions.length > 0 || exclusions.length > 0) && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-gray-50">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-gray-150">
             {inclusions.length > 0 && (
-              <div className="space-y-3 bg-emerald-50/30 p-5 rounded-lg border border-emerald-100/50">
-                <span className="font-semibold text-emerald-800 tracking-tight flex items-center gap-2">
-                  <Plus className="w-4 h-4" /> Inclusions
+              <div className="space-y-3 bg-white p-5 rounded-none border border-gray-200">
+                <span className="font-bold text-black tracking-tight flex items-center gap-2">
+                  <Plus className="w-4 h-4 text-black" /> Inclusions
                 </span>
                 <ul className="space-y-2">
                   {inclusions.map((inc, i) => (
                     <li key={i} className="flex items-start gap-2 text-gray-700">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-1.5 shrink-0" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-gray-400 mt-1.5 shrink-0" />
                       <span className="leading-relaxed">{inc}</span>
                     </li>
                   ))}
@@ -124,14 +124,14 @@ export function ScopeSection({ data, onChange, readOnly = false }: Props) {
             )}
             
             {exclusions.length > 0 && (
-              <div className="space-y-3 bg-red-50/30 p-5 rounded-lg border border-red-100/50">
-                <span className="font-semibold text-red-800 tracking-tight flex items-center gap-2">
-                  <span className="w-4 h-0.5 bg-red-600 shrink-0 inline-block rounded-full" /> Exclusions
+              <div className="space-y-3 bg-white p-5 rounded-none border border-gray-200">
+                <span className="font-bold text-black tracking-tight flex items-center gap-2">
+                  <span className="w-4 h-0.5 bg-black shrink-0 inline-block rounded-full" /> Exclusions
                 </span>
                 <ul className="space-y-2">
                   {exclusions.map((exc, i) => (
                     <li key={i} className="flex items-start gap-2 text-gray-700">
-                      <span className="w-1.5 h-1.5 rounded-full bg-red-400 mt-1.5 shrink-0" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-gray-400 mt-1.5 shrink-0" />
                       <span className="leading-relaxed">{exc}</span>
                     </li>
                   ))}

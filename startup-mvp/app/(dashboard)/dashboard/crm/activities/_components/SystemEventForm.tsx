@@ -231,56 +231,45 @@ export default function SystemEventForm({
         />
       </div>
 
-      {/* 4. Event Date */}
-      <div className="space-y-1">
-        <div className="flex items-center justify-between">
-            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+      {/* 4. Event Date & Participants */}
+      <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-1">
+          <Label htmlFor="startDate" className="text-sm font-medium">
             Event Date
-            </Label>
-        </div>
-        <div className="rounded-lg border bg-muted/20 p-3 transition-all hover:bg-muted/30 hover:border-border">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 mb-1">
-              <FiCalendar className="h-3.5 w-3.5 text-primary" />
-              <Label htmlFor="startDate" className="text-xs font-medium text-muted-foreground">
-                Date
-              </Label>
-            </div>
-            <Input
-              id="startDate"
-              type="date"
-              {...register("startDate", {
-                onChange: (e) => {
-                  setValue("endDate", e.target.value);
-                }
-              })}
-              disabled={isPending}
-              className="bg-background"
-            />
-            {errors.startDate && (
-              <p className="text-xs text-destructive">{errors.startDate.message}</p>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* 5. Participants */}
-      <div className="space-y-1">
-        <Label className="text-sm font-medium">Participants</Label>
-        <Controller
-          name="attendees"
-          control={control}
-          render={({ field }) => (
-            <MultiSelect
-              options={attendeeOptions}
-              value={field.value}
-              onValueChange={field.onChange}
-              placeholder="Select participants..."
-              disabled={isPending}
-              maxCount={3}
-            />
+          </Label>
+          <Input
+            id="startDate"
+            type="date"
+            {...register("startDate", {
+              onChange: (e) => {
+                setValue("endDate", e.target.value);
+              }
+            })}
+            disabled={isPending}
+            className="bg-background"
+          />
+          {errors.startDate && (
+            <p className="text-xs text-destructive">{errors.startDate.message}</p>
           )}
-        />
+        </div>
+
+        <div className="space-y-1">
+          <Label className="text-sm font-medium">Participants</Label>
+          <Controller
+            name="attendees"
+            control={control}
+            render={({ field }) => (
+              <MultiSelect
+                options={attendeeOptions}
+                value={field.value}
+                onValueChange={field.onChange}
+                placeholder="Select participants..."
+                disabled={isPending}
+                maxCount={3}
+              />
+            )}
+          />
+        </div>
       </div>
 
       {/* 6. Reminder & Status */}
