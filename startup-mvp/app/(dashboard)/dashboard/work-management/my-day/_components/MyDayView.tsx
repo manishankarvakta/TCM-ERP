@@ -721,7 +721,7 @@ export default function MyDayView({ initialData, currentUser }: Props) {
       {/* 1. Header Section */}
       <div className="flex flex-col gap-4 border-b border-border pb-6 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h1 className="text-2xl font-black tracking-tight text-foreground bg-gradient-to-r from-foreground to-foreground/75 bg-clip-text text-transparent">Daily Focus & Session Center</h1>
+          <h1 className="text-2xl font-black tracking-tight text-foreground bg-gradient-to-r from-foreground to-foreground/75 bg-clip-text text-transparent">Daily Focus</h1>
           <p className="text-xs text-muted-foreground mt-1">
             Plan, organize and track your daily priorities, session times, and accomplishments.
           </p>

@@ -495,15 +495,42 @@ export async function switchWorkSessionTask(taskId: string | null, projectId: st
       return { success: false, error: "Work session is not actively running. Start or resume work session first." };
     }
 
+    // Fetch the logs to find the last active log (START or RESUME) to calculate active time spent
+    const logs = await prisma.workSessionLog.findMany({
+      where: { sessionId: ws.id },
+      orderBy: { timestamp: "desc" },
+    });
+
+    const lastActiveLog = logs.find(
+      (log) => log.actionType === "START" || log.actionType === "RESUME"
+    );
+
     const now = new Date();
-    await prisma.workSessionLog.create({
-      data: {
-        sessionId: ws.id,
-        actionType: "RESUME", // Log task switch as RESUME log context
-        timestamp: now,
-        taskId: taskId || null,
-        projectId: projectId || null,
-      },
+    let elapsedMs = 0;
+    if (lastActiveLog) {
+      elapsedMs = now.getTime() - new Date(lastActiveLog.timestamp).getTime();
+    }
+
+    const newActiveTotal = ws.totalActiveMs + Math.max(0, elapsedMs);
+
+    // Update session and log the new transition inside a transaction
+    await prisma.$transaction(async (tx) => {
+      await tx.workSession.update({
+        where: { id: ws.id },
+        data: {
+          totalActiveMs: newActiveTotal,
+        },
+      });
+
+      await tx.workSessionLog.create({
+        data: {
+          sessionId: ws.id,
+          actionType: "RESUME", // Log task switch as RESUME log context
+          timestamp: now,
+          taskId: taskId || null,
+          projectId: projectId || null,
+        },
+      });
     });
 
     broadcastWorkManagementEvent("WORK_SESSION_RESUMED", {
