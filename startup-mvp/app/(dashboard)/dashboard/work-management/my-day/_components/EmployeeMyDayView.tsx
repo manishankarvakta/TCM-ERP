@@ -7,8 +7,10 @@ import {
   addTaskToMyDay, 
   removeTaskFromMyDay 
 } from "@/app/actions/projects/work-management-myday.action";
-import { createTask } from "@/app/actions/system/task.action";
+import { createTask, updateTask } from "@/app/actions/system/task.action";
 import { getProjects, getProjectById } from "@/app/actions/projects/project.action";
+import { SearchableSelect } from "@/components/ui/searchable-select";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Clock,
   Calendar,
@@ -20,9 +22,12 @@ import {
   AlertTriangle,
   Plus,
   Trash2,
+  Edit,
   Tag,
   Milestone,
   PlusCircle,
+  ArrowLeft,
+  ArrowRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -151,6 +156,13 @@ const getPriorityDetails = (priority: string) => {
 };
 
 export default function EmployeeMyDayView({ initialData, employeeId }: Props) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const currentDateParam = searchParams.get("date") || "";
+
+  const todayDateStr = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD
+  const isToday = !currentDateParam || currentDateParam === todayDateStr;
+
   const [data, setData] = useState(initialData);
   const [loading, setLoading] = useState(false);
   const { socket } = useSocket();
@@ -172,9 +184,54 @@ export default function EmployeeMyDayView({ initialData, employeeId }: Props) {
   const [projectsList, setProjectsList] = useState<any[]>([]);
   const [milestonesList, setMilestonesList] = useState<any[]>([]);
 
+  // Edit Task Form
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<any>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDesc, setEditDesc] = useState("");
+  const [editProjId, setEditProjId] = useState("");
+  const [editPriority, setEditPriority] = useState("medium");
+  const [editDueDate, setEditDueDate] = useState("");
+  const [editMilestoneId, setEditMilestoneId] = useState("");
+  const [editMilestonesList, setEditMilestonesList] = useState<any[]>([]);
+
+  const projectOptions = React.useMemo(() => {
+    return [
+      { label: "General Work (No Project)", value: "none" },
+      ...projectsList.map((p: any) => ({
+        label: p.title,
+        value: p.id,
+      })),
+    ];
+  }, [projectsList]);
+
+  // Sync initialData to state on navigation
+  useEffect(() => {
+    setData(initialData);
+  }, [initialData]);
+
+  const handleDateChange = (newDateStr: string) => {
+    if (!newDateStr) return;
+    router.push(`/dashboard/work-management/my-day/${employeeId}?date=${newDateStr}`);
+  };
+
+  const handlePrevDay = () => {
+    const d = new Date(data.dateStr);
+    d.setDate(d.getDate() - 1);
+    const prevDateStr = d.toISOString().split("T")[0];
+    router.push(`/dashboard/work-management/my-day/${employeeId}?date=${prevDateStr}`);
+  };
+
+  const handleNextDay = () => {
+    const d = new Date(data.dateStr);
+    d.setDate(d.getDate() + 1);
+    const nextDateStr = d.toISOString().split("T")[0];
+    router.push(`/dashboard/work-management/my-day/${employeeId}?date=${nextDateStr}`);
+  };
+
   const refreshEmployeeMyDay = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
-    const res = await getEmployeeMyDayData(employeeId);
+    const res = await getEmployeeMyDayData(employeeId, currentDateParam || undefined);
     if (res.success) {
       setData(res);
     } else {
@@ -197,6 +254,7 @@ export default function EmployeeMyDayView({ initialData, employeeId }: Props) {
   }, [isCreateOpen]);
 
   // Fetch project-specific milestones dynamically
+  // Fetch project-specific milestones dynamically
   useEffect(() => {
     async function loadMilestones() {
       if (!taskProjId) {
@@ -214,6 +272,27 @@ export default function EmployeeMyDayView({ initialData, employeeId }: Props) {
     }
     loadMilestones();
   }, [taskProjId]);
+
+  // Fetch project-specific milestones dynamically for edit form
+  useEffect(() => {
+    async function loadEditMilestones() {
+      if (!editProjId) {
+        setEditMilestonesList([]);
+        setEditMilestoneId("");
+        return;
+      }
+      const res = await getProjectById(editProjId);
+      if (res.success && res.project?.Milestones) {
+        setEditMilestonesList(res.project.Milestones);
+      } else {
+        setEditMilestonesList([]);
+      }
+      if (editingTask && editingTask.projectId !== editProjId) {
+        setEditMilestoneId("");
+      }
+    }
+    loadEditMilestones();
+  }, [editProjId, editingTask]);
 
   // Sync state over WebSocket
   useEffect(() => {
@@ -303,8 +382,67 @@ export default function EmployeeMyDayView({ initialData, employeeId }: Props) {
     });
   };
 
+  const handleOpenEditModal = (task: any) => {
+    setEditingTask(task);
+    setEditTitle(task.title || "");
+    setEditDesc(task.description || "");
+    setEditProjId(task.projectId || "");
+    setEditPriority(task.priority || "medium");
+    setEditDueDate(task.dueDate || "");
+    setEditMilestoneId(task.milestoneId || "");
+    setIsEditOpen(true);
+  };
+
+  const handleEditTaskSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTask) return;
+
+    try {
+      const res = await updateTask(editingTask.id, {
+        title: editTitle,
+        description: editDesc,
+        projectId: editProjId || null,
+        priority: editPriority,
+        dueDate: editDueDate ? new Date(editDueDate) : null,
+        milestoneId: editMilestoneId || null,
+      });
+
+      if (res.success) {
+        toast.success("Task updated successfully");
+        setIsEditOpen(false);
+        refreshEmployeeMyDay(true);
+      } else {
+        toast.error(res.error || "Failed to update task");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "An error occurred");
+    }
+  };
+
   return (
     <div className="max-w-full w-full px-6 pt-0 pb-6 space-y-6 animate-fade-in text-sm">
+      
+      {/* Past Date Banner */}
+      {!isToday && (
+        <div className="bg-amber-500/10 dark:bg-amber-500/5 border border-amber-500/20 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-amber-800 dark:text-amber-300 text-xs font-semibold animate-fade-in">
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0" />
+            <div>
+              <p className="font-bold text-sm text-foreground">Viewing Past Workspace Logs</p>
+              <p className="mt-0.5 text-muted-foreground">
+                You are currently viewing {employeeName}'s workspace history for <span className="font-extrabold text-amber-600 dark:text-amber-400">{data.dateStr}</span>. Administrative modifications are restricted on past logs.
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => router.push(`/dashboard/work-management/my-day/${employeeId}`)}
+            className="border-amber-500/30 hover:bg-amber-500/10 text-xs h-8 px-4 rounded-xl font-bold cursor-pointer shrink-0 self-start sm:self-center"
+          >
+            Return to Today
+          </Button>
+        </div>
+      )}
       {/* Header Banner */}
       <div className="flex flex-col gap-4 border-b border-border pb-6 lg:flex-row lg:items-center lg:justify-between">
         <div>
@@ -317,21 +455,52 @@ export default function EmployeeMyDayView({ initialData, employeeId }: Props) {
         </div>
 
         {/* Live Work Session Status Summary */}
-        <div className="rounded-xl border border-border bg-card p-2 px-4 flex items-center gap-4 shadow-xs text-xs">
-          <div className="flex flex-col">
-            <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Session Status</span>
-            <span className="font-bold text-foreground mt-0.5 uppercase text-[10px]">
-              {workSession ? workSession.status.replace("_", " ") : "Not Started"}
-            </span>
+        <div className="flex items-center gap-3">
+          {/* Date Selector Navigation */}
+          <div className="flex items-center gap-1 bg-muted/30 border border-border rounded-xl p-1 shadow-xs">
+            <button
+              onClick={handlePrevDay}
+              className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition cursor-pointer"
+              title="Previous Day"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+            </button>
+            
+            <div className="flex items-center gap-1.5 px-2 text-xs font-extrabold text-foreground">
+              <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+              <input
+                type="date"
+                value={data.dateStr}
+                onChange={(e) => handleDateChange(e.target.value)}
+                className="bg-transparent border-none text-xs font-bold focus:outline-none cursor-pointer focus:ring-0 w-24 p-0"
+              />
+            </div>
+
+            <button
+              onClick={handleNextDay}
+              className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition cursor-pointer"
+              title="Next Day"
+            >
+              <ArrowRight className="h-3.5 w-3.5" />
+            </button>
           </div>
 
-          <div className="h-7 w-px bg-border" />
+          <div className="rounded-xl border border-border bg-card p-2 px-4 flex items-center gap-4 shadow-xs text-xs">
+            <div className="flex flex-col">
+              <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Session Status</span>
+              <span className="font-bold text-foreground mt-0.5 uppercase text-[10px]">
+                {workSession ? workSession.status.replace("_", " ") : "Not Started"}
+              </span>
+            </div>
 
-          <div className="flex flex-col">
-            <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Active Time</span>
-            <span className="font-mono font-bold text-foreground mt-0.5">
-              {workSession ? formatMs(workSession.totalActiveMs) : "00h 00m 00s"}
-            </span>
+            <div className="h-7 w-px bg-border" />
+
+            <div className="flex flex-col">
+              <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Active Time</span>
+              <span className="font-mono font-bold text-foreground mt-0.5">
+                {workSession ? formatMs(workSession.totalActiveMs) : "00h 00m 00s"}
+              </span>
+            </div>
           </div>
         </div>
       </div>
@@ -345,12 +514,14 @@ export default function EmployeeMyDayView({ initialData, employeeId }: Props) {
               <h3 className="text-base font-black text-foreground uppercase tracking-wider">Today's Focus List</h3>
               <p className="text-xs text-muted-foreground mt-0.5">Work schedule chosen by employee for today.</p>
             </div>
-            <Button
-              onClick={() => setIsCreateOpen(true)}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm px-5 py-2.5 h-10 shadow-sm rounded-xl transition duration-200 gap-1.5"
-            >
-              <Plus className="h-4 w-4" /> Plan Task
-            </Button>
+            {isToday && (
+              <Button
+                onClick={() => setIsCreateOpen(true)}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm px-5 py-2.5 h-10 shadow-sm rounded-xl transition duration-200 gap-1.5"
+              >
+                <Plus className="h-4 w-4" /> Plan Task
+              </Button>
+            )}
           </div>
 
           <div className="space-y-2.5">
@@ -398,22 +569,35 @@ export default function EmployeeMyDayView({ initialData, employeeId }: Props) {
                         {statusInfo.label}
                       </span>
 
+                      {/* Edit Button for Admin */}
+                      {isToday && (
+                        <button
+                          onClick={() => handleOpenEditModal(t)}
+                          className="p-1 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition"
+                          title="Edit Task"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </button>
+                      )}
+
                       {/* Remove Button for Admin */}
-                      <button
-                        onClick={async () => {
-                          const res = await removeTaskFromMyDay(t.id, undefined, employeeId);
-                          if (res.success) {
-                            toast.success("Task removed from daily plan.");
-                            refreshEmployeeMyDay();
-                          } else {
-                            toast.error(res.error || "Failed to remove task");
-                          }
-                        }}
-                        className="p-1 rounded-lg hover:bg-muted text-muted-foreground hover:text-rose-500 transition"
-                        title="Remove from Daily Plan"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      {isToday && (
+                        <button
+                          onClick={async () => {
+                            const res = await removeTaskFromMyDay(t.id, undefined, employeeId);
+                            if (res.success) {
+                              toast.success("Task removed from daily plan.");
+                              refreshEmployeeMyDay();
+                            } else {
+                              toast.error(res.error || "Failed to remove task");
+                            }
+                          }}
+                          className="p-1 rounded-lg hover:bg-muted text-muted-foreground hover:text-rose-500 transition"
+                          title="Remove from Daily Plan"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
@@ -454,6 +638,126 @@ export default function EmployeeMyDayView({ initialData, employeeId }: Props) {
           </div>
         </div>
       </div>
+
+      {/* dialog: Edit Task for target employee */}
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent className="sm:max-w-lg bg-card border border-border overflow-hidden rounded-2xl p-0">
+          <DialogHeader className="bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 text-white p-6 pb-5">
+            <DialogTitle className="text-lg font-black tracking-tight flex items-center gap-2">
+              <Edit className="h-5 w-5 animate-pulse" /> Edit Task
+            </DialogTitle>
+            <DialogDescription className="text-xs text-purple-100 font-medium">
+              Modify the details of this planned task.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleEditTaskSubmit} className="space-y-4 text-xs p-6">
+            {/* Title */}
+            <div className="space-y-1">
+              <label className="font-semibold text-muted-foreground">Task Title *</label>
+              <input
+                type="text"
+                required
+                placeholder="What needs to be done?"
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                className="w-full rounded-lg border border-input bg-background py-2 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary shadow-xs transition"
+              />
+            </div>
+
+            {/* Description */}
+            <div className="space-y-1">
+              <label className="font-semibold text-muted-foreground">Description</label>
+              <textarea
+                placeholder="Add context or notes..."
+                value={editDesc}
+                onChange={(e) => setEditDesc(e.target.value)}
+                className="w-full rounded-lg border border-input bg-background py-2 px-3 text-xs h-20 focus:outline-none focus:ring-1 focus:ring-primary shadow-xs transition resize-none"
+              />
+            </div>
+
+            {/* Grid: Project & Priority */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="font-semibold text-muted-foreground">Project Relation</label>
+                <SearchableSelect
+                  options={projectOptions}
+                  value={editProjId || "none"}
+                  onValueChange={(val) => setEditProjId(val === "none" || !val ? "" : val)}
+                  placeholder="Select project"
+                  searchPlaceholder="Search project..."
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-semibold text-muted-foreground">Priority</label>
+                <Select value={editPriority} onValueChange={setEditPriority}>
+                  <SelectTrigger className="w-full bg-background border border-input rounded-lg h-9 text-xs justify-between">
+                    <SelectValue placeholder="Select priority" />
+                  </SelectTrigger>
+                  <SelectContent className="text-xs">
+                    <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="urgent">Urgent</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Grid: Due Date & Milestone */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="font-semibold text-muted-foreground">Due Date</label>
+                <input
+                  type="date"
+                  value={editDueDate}
+                  onChange={(e) => setEditDueDate(e.target.value)}
+                  className="w-full rounded-lg border border-input bg-background py-2 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary shadow-xs transition"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-semibold text-muted-foreground flex items-center gap-1">
+                  <Milestone className="h-3 w-3" /> Milestone
+                </label>
+                <Select value={editMilestoneId || "none"} onValueChange={(val) => setEditMilestoneId(val === "none" ? "" : val)}>
+                  <SelectTrigger className="w-full bg-background border border-input rounded-lg h-9 text-xs justify-between" disabled={!editProjId}>
+                    <SelectValue placeholder="Select milestone" />
+                  </SelectTrigger>
+                  <SelectContent className="text-xs">
+                    <SelectItem value="none">No Milestone</SelectItem>
+                    {editMilestonesList.map((m: any) => (
+                      <SelectItem key={m.id} value={m.id}>
+                        {m.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Footer Buttons */}
+            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-border">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsEditOpen(false)}
+                className="font-semibold h-8"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={isPending}
+                className="bg-primary text-primary-foreground font-semibold h-8"
+              >
+                {isPending ? "Saving..." : "Save Changes"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* dialog: Quick Create Task for target employee */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
@@ -496,19 +800,13 @@ export default function EmployeeMyDayView({ initialData, employeeId }: Props) {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="font-semibold text-muted-foreground">Project Relation</label>
-                <Select value={taskProjId} onValueChange={(val) => setTaskProjId(val === "none" ? "" : val)}>
-                  <SelectTrigger className="w-full bg-background border border-input rounded-lg h-9 text-xs justify-between">
-                    <SelectValue placeholder="Select project" />
-                  </SelectTrigger>
-                  <SelectContent className="text-xs">
-                    <SelectItem value="none">General Work (No Project)</SelectItem>
-                    {projectsList.map((p: any) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.title}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  options={projectOptions}
+                  value={taskProjId || "none"}
+                  onValueChange={(val) => setTaskProjId(val === "none" || !val ? "" : val)}
+                  placeholder="Select project"
+                  searchPlaceholder="Search project..."
+                />
               </div>
 
               <div className="space-y-1">

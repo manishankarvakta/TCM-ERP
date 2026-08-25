@@ -486,6 +486,7 @@ export async function getEmployeeMyDayData(employeeId: string, dateStr?: string)
             endTime: workSession.endTime ? workSession.endTime.toISOString() : null,
           }
         : null,
+      dateStr: today.toISOString().split("T")[0],
     };
   } catch (error: any) {
     console.error("getEmployeeMyDayData error:", error);

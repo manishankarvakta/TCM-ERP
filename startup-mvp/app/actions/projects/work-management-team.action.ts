@@ -34,6 +34,34 @@ export async function getTeamMembersWorkSummary() {
       },
     });
 
+    // Auto-link employees to users on-the-fly if userId is null
+    const users = await prisma.user.findMany({
+      select: { id: true, name: true, email: true, image: true }
+    });
+
+    for (const emp of employees) {
+      if (!emp.userId) {
+        let matchingUser = users.find(
+          (u) => u.email && emp.email && u.email.toLowerCase() === emp.email.toLowerCase()
+        );
+        if (!matchingUser) {
+          matchingUser = users.find(
+            (u) => u.name && emp.name && u.name.toLowerCase().includes(emp.name.toLowerCase())
+          );
+        }
+
+        if (matchingUser) {
+          await prisma.employee.update({
+            where: { id: emp.id },
+            data: { userId: matchingUser.id },
+          });
+          emp.userId = matchingUser.id;
+          emp.user = matchingUser;
+          console.log(`[Team Auto-Link] Linked employee "${emp.name}" to user "${matchingUser.name}"`);
+        }
+      }
+    }
+
     const activeUserIds = employees.map((emp) => emp.userId).filter(Boolean) as string[];
 
     // 2. Fetch today's work sessions
@@ -206,6 +234,31 @@ export async function getEmployeeWorkProfile(employeeId: string) {
 
     if (!employee) {
       return { success: false, error: "Employee profile not found", profile: null };
+    }
+
+    // Auto-link employees to users on-the-fly if userId is null
+    if (!employee.userId) {
+      const users = await prisma.user.findMany({
+        select: { id: true, name: true, email: true, image: true, role: true }
+      });
+      let matchingUser = users.find(
+        (u) => u.email && employee.email && u.email.toLowerCase() === employee.email.toLowerCase()
+      );
+      if (!matchingUser) {
+        matchingUser = users.find(
+          (u) => u.name && employee.name && u.name.toLowerCase().includes(employee.name.toLowerCase())
+        );
+      }
+
+      if (matchingUser) {
+        await prisma.employee.update({
+          where: { id: employee.id },
+          data: { userId: matchingUser.id },
+        });
+        employee.userId = matchingUser.id;
+        employee.user = matchingUser;
+        console.log(`[Profile Auto-Link] Linked employee "${employee.name}" to user "${matchingUser.name}"`);
+      }
     }
 
     const employeeUserId = employee.userId;

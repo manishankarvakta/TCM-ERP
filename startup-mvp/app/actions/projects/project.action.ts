@@ -177,7 +177,8 @@ export async function getProjects(
   sortBy: string = "createdAt",
   sortOrder: "asc" | "desc" = "desc",
   dateFrom?: string,
-  dateTo?: string
+  dateTo?: string,
+  priority: string = "all"
 ) {
   try {
     const session = await auth();
@@ -195,6 +196,10 @@ export async function getProjects(
 
     if (status && status !== "all") {
       where.status = status;
+    }
+
+    if (priority && priority !== "all") {
+      where.priority = priority;
     }
 
     if (dateFrom || dateTo) {

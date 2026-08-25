@@ -35,6 +35,35 @@ export async function getWorkManagementDashboardData() {
         },
       },
     });
+
+    // Auto-link employees to users on-the-fly if userId is null
+    const users = await prisma.user.findMany({
+      select: { id: true, name: true, email: true, image: true }
+    });
+
+    for (const emp of employees) {
+      if (!emp.userId) {
+        let matchingUser = users.find(
+          (u) => u.email && emp.email && u.email.toLowerCase() === emp.email.toLowerCase()
+        );
+        if (!matchingUser) {
+          matchingUser = users.find(
+            (u) => u.name && emp.name && u.name.toLowerCase().includes(emp.name.toLowerCase())
+          );
+        }
+
+        if (matchingUser) {
+          await prisma.employee.update({
+            where: { id: emp.id },
+            data: { userId: matchingUser.id },
+          });
+          emp.userId = matchingUser.id;
+          emp.user = matchingUser;
+          console.log(`[Dashboard Auto-Link] Linked employee "${emp.name}" to user "${matchingUser.name}"`);
+        }
+      }
+    }
+
     // Fetch today's My Day plans for all active employees to optimize query performance
     const allMyDayTasks = await prisma.myDayTask.findMany({
       where: {

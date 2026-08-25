@@ -17,6 +17,13 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { X } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface Props {
   initialTeam: any[];
@@ -165,10 +172,10 @@ export default function MyTeamView({ initialTeam }: Props) {
       <div className="flex flex-col gap-4 border-b border-border/40 pb-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-black tracking-tight text-foreground flex items-center gap-2">
-            Workforce Command Center
-            <Badge variant="secondary" className="bg-violet-100 text-violet-850 dark:bg-violet-950 dark:text-violet-400 font-extrabold px-2.5 py-0.5 rounded-full text-xs">
-              {processedTeam.length} Active
-            </Badge>
+            Teams Member
+            <span className="bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/5 dark:text-emerald-400 font-black px-3.5 py-1 rounded-full text-sm border border-emerald-500/20">
+              {processedTeam.length} Members
+            </span>
           </h1>
           <p className="text-xs text-muted-foreground mt-0.5">
             Operational status, workloads, and task completions of all active team members.
@@ -207,63 +214,67 @@ export default function MyTeamView({ initialTeam }: Props) {
         </div>
 
         {/* Status filter */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 w-full">
           <label className="text-[10px] font-bold text-muted-foreground uppercase shrink-0">Status:</label>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="w-full rounded-lg border border-border bg-background py-1.5 px-2 text-xs focus:outline-none focus:ring-1 focus:ring-violet-500"
-          >
-            <option value="all">All States</option>
-            <option value="working">Working</option>
-            <option value="on_break">On Break</option>
-            <option value="not_started">Not Started</option>
-            <option value="completed">Completed</option>
-          </select>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-full h-8 bg-background border border-border rounded-lg text-xs justify-between">
+              <SelectValue placeholder="All States" />
+            </SelectTrigger>
+            <SelectContent className="text-xs">
+              <SelectItem value="all">All States</SelectItem>
+              <SelectItem value="working">Working</SelectItem>
+              <SelectItem value="on_break">On Break</SelectItem>
+              <SelectItem value="not_started">Not Started</SelectItem>
+              <SelectItem value="completed">Completed</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Department Filter */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 w-full">
           <label className="text-[10px] font-bold text-muted-foreground uppercase shrink-0">Dept:</label>
-          <select
-            value={deptFilter}
-            onChange={(e) => setDeptFilter(e.target.value)}
-            className="w-full rounded-lg border border-border bg-background py-1.5 px-2 text-xs focus:outline-none focus:ring-1 focus:ring-violet-500"
-          >
-            <option value="all">All Depts</option>
-            {departmentsList.map((d: string) => (
-              <option key={d} value={d}>{d}</option>
-            ))}
-          </select>
+          <Select value={deptFilter} onValueChange={setDeptFilter}>
+            <SelectTrigger className="w-full h-8 bg-background border border-border rounded-lg text-xs justify-between">
+              <SelectValue placeholder="All Depts" />
+            </SelectTrigger>
+            <SelectContent className="text-xs">
+              <SelectItem value="all">All Depts</SelectItem>
+              {departmentsList.map((d: string) => (
+                <SelectItem key={d} value={d}>{d}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Workload filter */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 w-full">
           <label className="text-[10px] font-bold text-muted-foreground uppercase shrink-0">Load:</label>
-          <select
-            value={workloadFilter}
-            onChange={(e) => setWorkloadFilter(e.target.value)}
-            className="w-full rounded-lg border border-border bg-background py-1.5 px-2 text-xs focus:outline-none focus:ring-1 focus:ring-violet-500"
-          >
-            <option value="all">All Loads</option>
-            <option value="overloaded">Overloaded (&gt;80%)</option>
-            <option value="healthy">Healthy (50%-80%)</option>
-            <option value="underutilized">Underutilized (&lt;50%)</option>
-          </select>
+          <Select value={workloadFilter} onValueChange={setWorkloadFilter}>
+            <SelectTrigger className="w-full h-8 bg-background border border-border rounded-lg text-xs justify-between">
+              <SelectValue placeholder="All Loads" />
+            </SelectTrigger>
+            <SelectContent className="text-xs">
+              <SelectItem value="all">All Loads</SelectItem>
+              <SelectItem value="overloaded">Overloaded (&gt;80%)</SelectItem>
+              <SelectItem value="healthy">Healthy (50%-80%)</SelectItem>
+              <SelectItem value="underutilized">Underutilized (&lt;50%)</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Updates filter */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 w-full">
           <label className="text-[10px] font-bold text-muted-foreground uppercase shrink-0">Report:</label>
-          <select
-            value={updateFilter}
-            onChange={(e) => setUpdateFilter(e.target.value)}
-            className="w-full rounded-lg border border-border bg-background py-1.5 px-2 text-xs focus:outline-none focus:ring-1 focus:ring-violet-500"
-          >
-            <option value="all">All Reports</option>
-            <option value="submitted">Submitted</option>
-            <option value="missing">Missing Today</option>
-          </select>
+          <Select value={updateFilter} onValueChange={setUpdateFilter}>
+            <SelectTrigger className="w-full h-8 bg-background border border-border rounded-lg text-xs justify-between">
+              <SelectValue placeholder="All Reports" />
+            </SelectTrigger>
+            <SelectContent className="text-xs">
+              <SelectItem value="all">All Reports</SelectItem>
+              <SelectItem value="submitted">Submitted</SelectItem>
+              <SelectItem value="missing">Missing Today</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Clear filters action */}

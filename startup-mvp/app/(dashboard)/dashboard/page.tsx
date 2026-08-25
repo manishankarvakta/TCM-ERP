@@ -207,59 +207,83 @@ export default async function AdminDashboardPage() {
         </Card>
 
         <Card className="col-span-full lg:col-span-3 shadow-sm border border-border/50">
-          <CardHeader>
+          <CardHeader className="pb-3">
             <CardTitle className="text-base font-semibold">Quick Actions</CardTitle>
-            <CardDescription className="text-sm">Quick links to create new entities</CardDescription>
+            <CardDescription className="text-xs">Quick links to create new entities</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-1">
-              <Button variant="outline" className="h-auto py-3.5 flex flex-col items-start" asChild>
-                <Link href="/dashboard/quotations/new">
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <FiFileText className="h-4.5 w-4.5 text-indigo-500" />
-                    <span className="font-semibold text-sm">New Quotation</span>
+            <div className="grid gap-3 grid-cols-2 sm:grid-cols-4 lg:grid-cols-2">
+              <Link 
+                href="/dashboard/quotations/new" 
+                className="group flex flex-col p-3.5 rounded-xl border border-border/60 hover:border-indigo-500/40 hover:bg-indigo-50/10 dark:hover:bg-indigo-950/10 transition-all duration-300 shadow-xs"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="p-2 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-500 group-hover:scale-105 transition-transform duration-300">
+                    <FiFileText className="h-4 w-4" />
                   </div>
-                  <span className="text-[11px] text-muted-foreground text-left leading-normal">
-                    Create a new quotation for a client
+                  <span className="text-[10px] font-bold text-indigo-500 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-1 group-hover:translate-x-0">
+                    &rarr;
                   </span>
-                </Link>
-              </Button>
+                </div>
+                <span className="font-semibold text-xs text-foreground mb-0.5">New Quotation</span>
+                <span className="text-[10px] text-muted-foreground leading-normal line-clamp-1">
+                  Create client quotation
+                </span>
+              </Link>
 
-              <Button variant="outline" className="h-auto py-3.5 flex flex-col items-start" asChild>
-                <Link href="/dashboard/items/add">
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <FiPackage className="h-4.5 w-4.5 text-emerald-500" />
-                    <span className="font-semibold text-sm">Add Item</span>
+              <Link 
+                href="/dashboard/items/add" 
+                className="group flex flex-col p-3.5 rounded-xl border border-border/60 hover:border-emerald-500/40 hover:bg-emerald-50/10 dark:hover:bg-emerald-950/10 transition-all duration-300 shadow-xs"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-500 group-hover:scale-105 transition-transform duration-300">
+                    <FiPackage className="h-4 w-4" />
                   </div>
-                  <span className="text-[11px] text-muted-foreground text-left leading-normal">
-                    Add a new item to the catalog
+                  <span className="text-[10px] font-bold text-emerald-500 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-1 group-hover:translate-x-0">
+                    &rarr;
                   </span>
-                </Link>
-              </Button>
+                </div>
+                <span className="font-semibold text-xs text-foreground mb-0.5">Add Item</span>
+                <span className="text-[10px] text-muted-foreground leading-normal line-clamp-1">
+                  Add catalog item
+                </span>
+              </Link>
 
-              <Button variant="outline" className="h-auto py-3.5 flex flex-col items-start" asChild>
-                <Link href="/dashboard/clients/add">
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <FiUsers className="h-4.5 w-4.5 text-blue-500" />
-                    <span className="font-semibold text-sm">Add Client</span>
+              <Link 
+                href="/dashboard/clients/add" 
+                className="group flex flex-col p-3.5 rounded-xl border border-border/60 hover:border-blue-500/40 hover:bg-blue-50/10 dark:hover:bg-blue-950/10 transition-all duration-300 shadow-xs"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-500 group-hover:scale-105 transition-transform duration-300">
+                    <FiUsers className="h-4 w-4" />
                   </div>
-                  <span className="text-[11px] text-muted-foreground text-left leading-normal">
-                    Add a new client to the system
+                  <span className="text-[10px] font-bold text-blue-500 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-1 group-hover:translate-x-0">
+                    &rarr;
                   </span>
-                </Link>
-              </Button>
+                </div>
+                <span className="font-semibold text-xs text-foreground mb-0.5">Add Client</span>
+                <span className="text-[10px] text-muted-foreground leading-normal line-clamp-1">
+                  Add new system client
+                </span>
+              </Link>
 
-              <Button variant="outline" className="h-auto py-3.5 flex flex-col items-start" asChild>
-                <Link href="/dashboard/suppliers/add">
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <FiShoppingCart className="h-4.5 w-4.5 text-purple-500" />
-                    <span className="font-semibold text-sm">Add Supplier</span>
+              <Link 
+                href="/dashboard/suppliers/add" 
+                className="group flex flex-col p-3.5 rounded-xl border border-border/60 hover:border-purple-500/40 hover:bg-purple-50/10 dark:hover:bg-purple-950/10 transition-all duration-300 shadow-xs"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="p-2 rounded-lg bg-purple-50 dark:bg-purple-950/40 text-purple-500 group-hover:scale-105 transition-transform duration-300">
+                    <FiShoppingCart className="h-4 w-4" />
                   </div>
-                  <span className="text-[11px] text-muted-foreground text-left leading-normal">
-                    Add a new supplier to the system
+                  <span className="text-[10px] font-bold text-purple-500 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-1 group-hover:translate-x-0">
+                    &rarr;
                   </span>
-                </Link>
-              </Button>
+                </div>
+                <span className="font-semibold text-xs text-foreground mb-0.5">Add Supplier</span>
+                <span className="text-[10px] text-muted-foreground leading-normal line-clamp-1">
+                  Add new supplier
+                </span>
+              </Link>
             </div>
           </CardContent>
         </Card>

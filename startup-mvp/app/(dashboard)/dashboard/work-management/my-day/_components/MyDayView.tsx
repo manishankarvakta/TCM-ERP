@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useTransition } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useSocket } from "@/components/providers/SocketProvider";
 import {
   getMyDayData,
@@ -36,14 +37,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Share2 } from "lucide-react";
 import {
   Play,
   Pause,
   Plus,
   Trash2,
+  Edit,
   ArrowUp,
   ArrowDown,
+  ArrowLeft,
+  ArrowRight,
   CheckCircle2,
   AlertCircle,
   Calendar,
@@ -178,9 +183,40 @@ const getPriorityDetails = (priority: string) => {
 };
 
 export default function MyDayView({ initialData, currentUser }: Props) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const currentDateParam = searchParams.get("date") || "";
+
+  const todayDateStr = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD
+  const isToday = !currentDateParam || currentDateParam === todayDateStr;
+
   const [data, setData] = useState(initialData);
   const [loading, setLoading] = useState(false);
   const [isPending, startTransition] = useTransition();
+
+  // Sync initialData to state on navigation
+  useEffect(() => {
+    setData(initialData);
+  }, [initialData]);
+
+  const handleDateChange = (newDateStr: string) => {
+    if (!newDateStr) return;
+    router.push(`/dashboard/work-management/my-day?date=${newDateStr}`);
+  };
+
+  const handlePrevDay = () => {
+    const d = new Date(data.dateStr);
+    d.setDate(d.getDate() - 1);
+    const prevDateStr = d.toISOString().split("T")[0];
+    router.push(`/dashboard/work-management/my-day?date=${prevDateStr}`);
+  };
+
+  const handleNextDay = () => {
+    const d = new Date(data.dateStr);
+    d.setDate(d.getDate() + 1);
+    const nextDateStr = d.toISOString().split("T")[0];
+    router.push(`/dashboard/work-management/my-day?date=${nextDateStr}`);
+  };
 
   // Dialogs / Form States
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -201,6 +237,27 @@ export default function MyDayView({ initialData, currentUser }: Props) {
   const [projectsList, setProjectsList] = useState<any[]>([]);
   const [milestonesList, setMilestonesList] = useState<any[]>([]);
 
+  // Edit Task Form
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<any>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDesc, setEditDesc] = useState("");
+  const [editProjId, setEditProjId] = useState("");
+  const [editPriority, setEditPriority] = useState("medium");
+  const [editDueDate, setEditDueDate] = useState("");
+  const [editMilestoneId, setEditMilestoneId] = useState("");
+  const [editMilestonesList, setEditMilestonesList] = useState<any[]>([]);
+
+  const projectOptions = React.useMemo(() => {
+    return [
+      { label: "General Work (No Project)", value: "none" },
+      ...projectsList.map((p: any) => ({
+        label: p.title,
+        value: p.id,
+      })),
+    ];
+  }, [projectsList]);
+
   // Daily Update Form Prefill
   const [updateCompleted, setUpdateCompleted] = useState("");
   const [updatePending, setUpdatePending] = useState("");
@@ -219,7 +276,7 @@ export default function MyDayView({ initialData, currentUser }: Props) {
 
   const refreshMyDay = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
-    const res = await getMyDayData();
+    const res = await getMyDayData(currentDateParam || undefined);
     if (res.success) {
       setData(res);
     } else {
@@ -264,6 +321,27 @@ export default function MyDayView({ initialData, currentUser }: Props) {
     }
     loadMilestones();
   }, [taskProjId]);
+
+  // Fetch project-specific milestones dynamically for edit form
+  useEffect(() => {
+    async function loadEditMilestones() {
+      if (!editProjId) {
+        setEditMilestonesList([]);
+        setEditMilestoneId("");
+        return;
+      }
+      const res = await getProjectById(editProjId);
+      if (res.success && res.project?.Milestones) {
+        setEditMilestonesList(res.project.Milestones);
+      } else {
+        setEditMilestonesList([]);
+      }
+      if (editingTask && editingTask.projectId !== editProjId) {
+        setEditMilestoneId("");
+      }
+    }
+    loadEditMilestones();
+  }, [editProjId, editingTask]);
 
   // Sync state over WebSocket
   useEffect(() => {
@@ -529,6 +607,43 @@ export default function MyDayView({ initialData, currentUser }: Props) {
     });
   };
 
+  const handleOpenEditModal = (task: any) => {
+    setEditingTask(task);
+    setEditTitle(task.title || "");
+    setEditDesc(task.description || "");
+    setEditProjId(task.projectId || "");
+    setEditPriority(task.priority || "medium");
+    setEditDueDate(task.dueDate || "");
+    setEditMilestoneId(task.milestoneId || "");
+    setIsEditOpen(true);
+  };
+
+  const handleEditTaskSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTask) return;
+
+    try {
+      const res = await updateTask(editingTask.id, {
+        title: editTitle,
+        description: editDesc,
+        projectId: editProjId || null,
+        priority: editPriority,
+        dueDate: editDueDate ? new Date(editDueDate) : null,
+        milestoneId: editMilestoneId || null,
+      });
+
+      if (res.success) {
+        toast.success("Task updated successfully");
+        setIsEditOpen(false);
+        refreshMyDay(true);
+      } else {
+        toast.error(res.error || "Failed to update task");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "An error occurred");
+    }
+  };
+
   const handlePrefillDailyReport = async () => {
     const res = await generateDailyUpdateDraftText();
     if (res.success && res.draft) {
@@ -581,6 +696,28 @@ export default function MyDayView({ initialData, currentUser }: Props) {
   return (
     <div className="max-w-full w-full px-6 pt-0 pb-6 space-y-6 animate-fade-in text-sm">
       
+      {/* Past Date Banner */}
+      {!isToday && (
+        <div className="bg-amber-500/10 dark:bg-amber-500/5 border border-amber-500/20 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-amber-800 dark:text-amber-300 text-xs font-semibold animate-fade-in">
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0" />
+            <div>
+              <p className="font-bold text-sm text-foreground">Viewing Past Workspace Logs</p>
+              <p className="mt-0.5 text-muted-foreground">
+                You are currently viewing workspace history for <span className="font-extrabold text-amber-600 dark:text-amber-400">{data.dateStr}</span>. Designing plans or managing work sessions is restricted.
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => router.push("/dashboard/work-management/my-day")}
+            className="border-amber-500/30 hover:bg-amber-500/10 text-xs h-8 px-4 rounded-xl font-bold cursor-pointer shrink-0 self-start sm:self-center"
+          >
+            Return to Today
+          </Button>
+        </div>
+      )}
+
       {/* 1. Header Section */}
       <div className="flex flex-col gap-4 border-b border-border pb-6 lg:flex-row lg:items-center lg:justify-between">
         <div>
@@ -593,10 +730,33 @@ export default function MyDayView({ initialData, currentUser }: Props) {
         {/* Header Right Side Actions */}
         <div className="flex flex-wrap items-center gap-3">
           
-          {/* Today Date */}
-          <div className="bg-muted/50 border border-border rounded-lg px-3 py-1.5 flex items-center gap-2 text-xs font-semibold text-foreground">
-            <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-            <span>Today: {dateStr}</span>
+          {/* Date Selector Navigation */}
+          <div className="flex items-center gap-1 bg-muted/30 border border-border rounded-xl p-1 shadow-xs">
+            <button
+              onClick={handlePrevDay}
+              className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition cursor-pointer"
+              title="Previous Day"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+            </button>
+            
+            <div className="flex items-center gap-1.5 px-2 text-xs font-extrabold text-foreground">
+              <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+              <input
+                type="date"
+                value={data.dateStr}
+                onChange={(e) => handleDateChange(e.target.value)}
+                className="bg-transparent border-none text-xs font-bold focus:outline-none cursor-pointer focus:ring-0 w-24 p-0"
+              />
+            </div>
+
+            <button
+              onClick={handleNextDay}
+              className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition cursor-pointer"
+              title="Next Day"
+            >
+              <ArrowRight className="h-3.5 w-3.5" />
+            </button>
           </div>
 
           {/* Session Indicator & Clock */}
@@ -631,69 +791,73 @@ export default function MyDayView({ initialData, currentUser }: Props) {
           </div>
 
           {/* Session Controller buttons */}
-          <div className="flex items-center gap-2">
-            {!workSession && (
-              <Button
-                onClick={() => handleStartSession()}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm px-5 py-2.5 h-10 shadow-sm rounded-xl transition duration-200 animate-fade-in gap-1.5 cursor-pointer"
-              >
-                <Play className="h-4 w-4" /> Start Work
-              </Button>
-            )}
-
-            {workSession && workSession.status === "ACTIVE" && (
-              <>
+          {isToday && (
+            <div className="flex items-center gap-2">
+              {!workSession && (
                 <Button
-                  variant="outline"
-                  onClick={handlePauseSession}
-                  className="text-amber-600 border border-amber-200 dark:border-amber-900 bg-amber-50/55 hover:text-amber-700 hover:bg-amber-100/50 font-bold text-sm px-5 py-2.5 h-10 shadow-xs rounded-xl gap-1.5 cursor-pointer transition-all"
+                  onClick={() => handleStartSession()}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm px-5 py-2.5 h-10 shadow-sm rounded-xl transition duration-200 animate-fade-in gap-1.5 cursor-pointer"
                 >
-                  <Pause className="h-4 w-4" /> Break
+                  <Play className="h-4 w-4" /> Start Work
                 </Button>
-                <Button
-                  variant="destructive"
-                  onClick={handleEndSession}
-                  className="font-bold text-sm px-5 py-2.5 h-10 shadow-sm rounded-xl gap-1.5 cursor-pointer"
-                >
-                  End Session
-                </Button>
-              </>
-            )}
+              )}
 
-            {workSession && workSession.status === "BREAK" && (
-              <>
-                <Button
-                  onClick={() => handleResumeSession()}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm px-5 py-2.5 h-10 shadow-sm rounded-xl gap-1.5 cursor-pointer"
-                >
-                  <Play className="h-4 w-4" /> Resume
-                </Button>
-                <Button
-                  variant="destructive"
-                  onClick={handleEndSession}
-                  className="font-bold text-sm px-5 py-2.5 h-10 shadow-sm rounded-xl gap-1.5 cursor-pointer"
-                >
-                  End Session
-                </Button>
-              </>
-            )}
+              {workSession && workSession.status === "ACTIVE" && (
+                <>
+                  <Button
+                    variant="outline"
+                    onClick={handlePauseSession}
+                    className="text-amber-600 border border-amber-200 dark:border-amber-900 bg-amber-50/55 hover:text-amber-700 hover:bg-amber-100/50 font-bold text-sm px-5 py-2.5 h-10 shadow-xs rounded-xl gap-1.5 cursor-pointer transition-all"
+                  >
+                    <Pause className="h-4 w-4" /> Break
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={handleEndSession}
+                    className="font-bold text-sm px-5 py-2.5 h-10 shadow-sm rounded-xl gap-1.5 cursor-pointer"
+                  >
+                    End Session
+                  </Button>
+                </>
+              )}
 
-            {workSession && workSession.status === "COMPLETED" && (
-              <Button
-                onClick={handleReopenSession}
-                className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm px-5 py-2.5 h-10 shadow-sm rounded-xl transition duration-200 animate-fade-in gap-1.5 cursor-pointer"
-              >
-                <Play className="h-4 w-4" /> Reopen Session
-              </Button>
-            )}
-          </div>
+              {workSession && workSession.status === "BREAK" && (
+                <>
+                  <Button
+                    onClick={() => handleResumeSession()}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm px-5 py-2.5 h-10 shadow-sm rounded-xl gap-1.5 cursor-pointer"
+                  >
+                    <Play className="h-4 w-4" /> Resume
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={handleEndSession}
+                    className="font-bold text-sm px-5 py-2.5 h-10 shadow-sm rounded-xl gap-1.5 cursor-pointer"
+                  >
+                    End Session
+                  </Button>
+                </>
+              )}
 
-          <Button
-            onClick={() => setIsCreateOpen(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm px-5 py-2.5 h-10 shadow-sm rounded-xl transition duration-200 gap-1.5 cursor-pointer"
-          >
-            <Plus className="h-4 w-4" /> Create Task
-          </Button>
+              {workSession && workSession.status === "COMPLETED" && (
+                <Button
+                  onClick={handleReopenSession}
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm px-5 py-2.5 h-10 shadow-sm rounded-xl transition duration-200 animate-fade-in gap-1.5 cursor-pointer"
+                >
+                  <Play className="h-4 w-4" /> Reopen Session
+                </Button>
+              )}
+            </div>
+          )}
+
+          {isToday && (
+            <Button
+              onClick={() => setIsCreateOpen(true)}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm px-5 py-2.5 h-10 shadow-sm rounded-xl transition duration-200 gap-1.5 cursor-pointer"
+            >
+              <Plus className="h-4 w-4" /> Create Task
+            </Button>
+          )}
         </div>
       </div>
 
@@ -720,48 +884,50 @@ export default function MyDayView({ initialData, currentUser }: Props) {
       </div>
 
       {/* 3. Currently Working focused banner */}
-      <div className="bg-blue-50/40 dark:bg-blue-950/10 border border-blue-200/50 dark:border-blue-900/30 border-l-blue-500 border-l-2 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 transition shadow-xs">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="relative flex h-2 w-2">
-              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${currentTask ? "bg-blue-400" : "bg-zinc-400"}`} />
-              <span className={`relative inline-flex rounded-full h-2 w-2 ${currentTask ? "bg-blue-500" : "bg-zinc-500"}`} />
-            </span>
-            <span className="text-xs text-blue-600 dark:text-blue-400 uppercase font-bold tracking-wider">
-              Currently Working Focus Item
-            </span>
-          </div>
-          <h2 className="text-base font-bold text-foreground">
-            {currentTask ? currentTask.title : "No focus active. Click 'Focus' in the task list below to track time on a specific task."}
-          </h2>
-          {currentTask && currentTask.projectName && (
-            <p className="text-xs text-muted-foreground">
-              Project: <span className="font-bold text-foreground">{currentTask.projectName}</span>
-            </p>
-          )}
-        </div>
-
-        {currentTask && (
-          <div className="flex items-center gap-2.5 shrink-0 self-start sm:self-center">
-            <Button
-              variant="outline"
-              onClick={() => handleTaskStatusUpdate(currentTask.id, "completed")}
-              className="text-emerald-600 border border-emerald-200 dark:border-emerald-900 bg-emerald-50/40 hover:text-emerald-700 hover:bg-emerald-100/50 font-bold text-xs h-9 px-4 rounded-xl gap-1.5 cursor-pointer transition-all"
-            >
-              <CheckCircle2 className="h-4 w-4" /> Mark Complete
-            </Button>
-            {workSession && workSession.status === "ACTIVE" && (
-              <Button
-                variant="outline"
-                onClick={handlePauseSession}
-                className="text-amber-600 border border-amber-200 dark:border-amber-900 bg-amber-50/40 hover:text-amber-700 hover:bg-amber-100/50 font-bold text-xs h-9 px-4 rounded-xl gap-1.5 cursor-pointer transition-all"
-              >
-                <Pause className="h-4 w-4" /> Pause focus
-              </Button>
+      {isToday && (
+        <div className="bg-blue-50/40 dark:bg-blue-950/10 border border-blue-200/50 dark:border-blue-900/30 border-l-blue-500 border-l-2 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 transition shadow-xs">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="relative flex h-2 w-2">
+                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${currentTask ? "bg-blue-400" : "bg-zinc-400"}`} />
+                <span className={`relative inline-flex rounded-full h-2 w-2 ${currentTask ? "bg-blue-500" : "bg-zinc-500"}`} />
+              </span>
+              <span className="text-xs text-blue-600 dark:text-blue-400 uppercase font-bold tracking-wider">
+                Currently Working Focus Item
+              </span>
+            </div>
+            <h2 className="text-base font-bold text-foreground">
+              {currentTask ? currentTask.title : "No focus active. Click 'Focus' in the task list below to track time on a specific task."}
+            </h2>
+            {currentTask && currentTask.projectName && (
+              <p className="text-xs text-muted-foreground">
+                Project: <span className="font-bold text-foreground">{currentTask.projectName}</span>
+              </p>
             )}
           </div>
-        )}
-      </div>
+
+          {currentTask && (
+            <div className="flex items-center gap-2.5 shrink-0 self-start sm:self-center">
+              <Button
+                variant="outline"
+                onClick={() => handleTaskStatusUpdate(currentTask.id, "completed")}
+                className="text-emerald-600 border border-emerald-200 dark:border-emerald-900 bg-emerald-50/40 hover:text-emerald-700 hover:bg-emerald-100/50 font-bold text-xs h-9 px-4 rounded-xl gap-1.5 cursor-pointer transition-all"
+              >
+                <CheckCircle2 className="h-4 w-4" /> Mark Complete
+              </Button>
+              {workSession && workSession.status === "ACTIVE" && (
+                <Button
+                  variant="outline"
+                  onClick={handlePauseSession}
+                  className="text-amber-600 border border-amber-200 dark:border-amber-900 bg-amber-50/40 hover:text-amber-700 hover:bg-amber-100/50 font-bold text-xs h-9 px-4 rounded-xl gap-1.5 cursor-pointer transition-all"
+                >
+                  <Pause className="h-4 w-4" /> Pause focus
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 4. Main Split: Today's Plan vs Sidebar lists */}
       <div className="grid gap-8 grid-cols-1 lg:grid-cols-3 items-start">
@@ -774,15 +940,17 @@ export default function MyDayView({ initialData, currentUser }: Props) {
               <p className="text-xs text-muted-foreground mt-0.5">Your planned focus tasks for today.</p>
             </div>
             
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setIsAddOpen(true)}
-                className="h-9 text-xs font-bold px-4 border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-xl shadow-xs gap-1.5 cursor-pointer transition-all"
-              >
-                <Plus className="h-3.5 w-3.5" /> Add Task
-              </Button>
-            </div>
+            {isToday && (
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsAddOpen(true)}
+                  className="h-9 text-xs font-bold px-4 border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-xl shadow-xs gap-1.5 cursor-pointer transition-all"
+                >
+                  <Plus className="h-3.5 w-3.5" /> Add Task
+                </Button>
+              </div>
+            )}
           </div>
 
           <div className="space-y-2.5">
@@ -903,6 +1071,15 @@ export default function MyDayView({ initialData, currentUser }: Props) {
                           </button>
                         )
                       )}
+
+                      {/* Edit Button */}
+                      <button
+                        onClick={() => handleOpenEditModal(t)}
+                        className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-muted-foreground hover:text-foreground transition opacity-0 group-hover:opacity-100 cursor-pointer animate-fade-in"
+                        title="Edit Task"
+                      >
+                        <Edit className="h-3.5 w-3.5" />
+                      </button>
 
                       {/* Remove Button */}
                       <button
@@ -1068,6 +1245,115 @@ export default function MyDayView({ initialData, currentUser }: Props) {
         </DialogContent>
       </Dialog>
 
+      {/* dialog 3: Redesigned Task Editor */}
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent className="sm:max-w-lg bg-card border border-border">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold text-foreground">Edit Task</DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Modify the details of your selected task.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleEditTaskSubmit} className="space-y-4 text-xs">
+            
+            {/* Title */}
+            <div className="space-y-1">
+              <label className="font-semibold text-muted-foreground">Task Title *</label>
+              <input
+                type="text"
+                required
+                placeholder="What needs to be done?"
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                className="w-full rounded-lg border border-input bg-background py-2 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary shadow-xs transition"
+              />
+            </div>
+
+            {/* Description */}
+            <div className="space-y-1">
+              <label className="font-semibold text-muted-foreground">Description</label>
+              <textarea
+                placeholder="Add context or notes..."
+                value={editDesc}
+                onChange={(e) => setEditDesc(e.target.value)}
+                className="w-full rounded-lg border border-input bg-background py-2 px-3 text-xs h-20 focus:outline-none focus:ring-1 focus:ring-primary shadow-xs transition resize-none"
+              />
+            </div>
+
+            {/* Grid: Project & Priority */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="font-semibold text-muted-foreground">Project Relation</label>
+                <SearchableSelect
+                  options={projectOptions}
+                  value={editProjId || "none"}
+                  onValueChange={(val) => setEditProjId(val === "none" || !val ? "" : val)}
+                  placeholder="Select project"
+                  searchPlaceholder="Search project..."
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-semibold text-muted-foreground">Priority</label>
+                <Select value={editPriority} onValueChange={setEditPriority}>
+                  <SelectTrigger className="w-full bg-background border border-input rounded-lg h-9 text-xs justify-between">
+                    <SelectValue placeholder="Select priority" />
+                  </SelectTrigger>
+                  <SelectContent className="text-xs">
+                    <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="urgent">Urgent</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Grid: Due Date & Milestone */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="font-semibold text-muted-foreground">Due Date</label>
+                <input
+                  type="date"
+                  value={editDueDate}
+                  onChange={(e) => setEditDueDate(e.target.value)}
+                  className="w-full rounded-lg border border-input bg-background py-2 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary shadow-xs transition"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-semibold text-muted-foreground flex items-center gap-1">
+                  <Milestone className="h-3 w-3" /> Milestone
+                </label>
+                <Select value={editMilestoneId || "none"} onValueChange={(val) => setEditMilestoneId(val === "none" ? "" : val)}>
+                  <SelectTrigger className="w-full bg-background border border-input rounded-lg h-9 text-xs justify-between" disabled={!editProjId}>
+                    <SelectValue placeholder="Select milestone" />
+                  </SelectTrigger>
+                  <SelectContent className="text-xs">
+                    <SelectItem value="none">No Milestone</SelectItem>
+                    {editMilestonesList.map((m: any) => (
+                      <SelectItem key={m.id} value={m.id}>
+                        {m.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button type="button" variant="outline" onClick={() => setIsEditOpen(false)} className="rounded-xl h-9 text-xs font-bold px-4 cursor-pointer">
+                Cancel
+              </Button>
+              <Button type="submit" className="rounded-xl h-9 text-xs font-bold px-4 bg-primary text-primary-foreground hover:bg-primary/95 cursor-pointer">
+                Save Changes
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       {/* dialog 2: Redesigned Task Composer */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
         <DialogContent className="sm:max-w-lg bg-card border border-border">
@@ -1108,19 +1394,13 @@ export default function MyDayView({ initialData, currentUser }: Props) {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="font-semibold text-muted-foreground">Project Relation</label>
-                <Select value={taskProjId} onValueChange={(val) => setTaskProjId(val === "none" ? "" : val)}>
-                  <SelectTrigger className="w-full bg-background border border-input rounded-lg h-9 text-xs justify-between">
-                    <SelectValue placeholder="Select project" />
-                  </SelectTrigger>
-                  <SelectContent className="text-xs">
-                    <SelectItem value="none">General Work (No Project)</SelectItem>
-                    {projectsList.map((p: any) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.title}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  options={projectOptions}
+                  value={taskProjId || "none"}
+                  onValueChange={(val) => setTaskProjId(val === "none" || !val ? "" : val)}
+                  placeholder="Select project"
+                  searchPlaceholder="Search project..."
+                />
               </div>
 
               <div className="space-y-1">

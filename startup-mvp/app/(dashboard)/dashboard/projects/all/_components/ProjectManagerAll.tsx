@@ -58,6 +58,7 @@ export default function ProjectManagerAll({ initialProjects, initialPagination, 
   const [sortBy, setSortBy] = useState(searchParams.get("sortBy") || "createdAt");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">((searchParams.get("sortOrder") as "asc" | "desc") || "desc");
   const [statusFilter, setStatusFilter] = useState<string>((searchParams.get("status") as string) || "all");
+  const [priorityFilter, setPriorityFilter] = useState<string>((searchParams.get("priority") as string) || "all");
   const [dateFrom, setDateFrom] = useState<string | undefined>(searchParams.get("dateFrom") || undefined);
   const [dateTo, setDateTo] = useState<string | undefined>(searchParams.get("dateTo") || undefined);
 
@@ -74,7 +75,8 @@ export default function ProjectManagerAll({ initialProjects, initialPagination, 
         sortBy, 
         sortOrder,
         dateFrom,
-        dateTo
+        dateTo,
+        priorityFilter
       );
       if (result.success) {
         setProjects(result.projects || []);
@@ -95,6 +97,7 @@ export default function ProjectManagerAll({ initialProjects, initialPagination, 
     if (sortBy !== "createdAt") params.set("sortBy", sortBy);
     if (sortOrder !== "desc") params.set("sortOrder", sortOrder);
     if (statusFilter !== "all") params.set("status", statusFilter);
+    if (priorityFilter !== "all") params.set("priority", priorityFilter);
     if (dateFrom) params.set("dateFrom", dateFrom);
     if (dateTo) params.set("dateTo", dateTo);
     
@@ -106,7 +109,7 @@ export default function ProjectManagerAll({ initialProjects, initialPagination, 
     }
     
     fetchProjectsData(1);
-  }, [debouncedSearch, view, sortBy, sortOrder, statusFilter, dateFrom, dateTo]);
+  }, [debouncedSearch, view, sortBy, sortOrder, statusFilter, priorityFilter, dateFrom, dateTo]);
 
   const handleCreateSuccess = () => {
     setIsSheetOpen(false);
@@ -153,22 +156,40 @@ export default function ProjectManagerAll({ initialProjects, initialPagination, 
             />
             </div>
             
-            <div className="flex items-center gap-2 ml-auto">
-                <span className="text-sm font-medium text-muted-foreground">Status:</span>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-[140px] bg-background focus:ring-violet-500">
-                        <SelectValue placeholder="Status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">All</SelectItem>
-                        <SelectItem value="PLANNING">Planning</SelectItem>
-                        <SelectItem value="ACTIVE">Active</SelectItem>
-                        <SelectItem value="ON_HOLD">On Hold</SelectItem>
-                        <SelectItem value="COMPLETED">Completed</SelectItem>
-                        <SelectItem value="CANCELLED">Cancelled</SelectItem>
-                    </SelectContent>
-                </Select>
-            </div>
+             <div className="flex flex-wrap items-center gap-4 ml-auto">
+                 <div className="flex items-center gap-2">
+                     <span className="text-xs font-bold text-muted-foreground uppercase">Status:</span>
+                     <Select value={statusFilter} onValueChange={setStatusFilter}>
+                         <SelectTrigger className="w-[125px] h-8 bg-background focus:ring-violet-500 text-xs">
+                             <SelectValue placeholder="Status" />
+                         </SelectTrigger>
+                         <SelectContent className="text-xs">
+                             <SelectItem value="all">All Statuses</SelectItem>
+                             <SelectItem value="PLANNING">Planning</SelectItem>
+                             <SelectItem value="ACTIVE">Active</SelectItem>
+                             <SelectItem value="ON_HOLD">On Hold</SelectItem>
+                             <SelectItem value="COMPLETED">Completed</SelectItem>
+                             <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                         </SelectContent>
+                     </Select>
+                 </div>
+
+                 <div className="flex items-center gap-2">
+                     <span className="text-xs font-bold text-muted-foreground uppercase">Priority:</span>
+                     <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+                         <SelectTrigger className="w-[125px] h-8 bg-background focus:ring-violet-500 text-xs">
+                             <SelectValue placeholder="Priority" />
+                         </SelectTrigger>
+                         <SelectContent className="text-xs">
+                             <SelectItem value="all">All Priorities</SelectItem>
+                             <SelectItem value="LOW">Low</SelectItem>
+                             <SelectItem value="NORMAL">Normal</SelectItem>
+                             <SelectItem value="HIGH">High</SelectItem>
+                             <SelectItem value="URGENT">Urgent</SelectItem>
+                         </SelectContent>
+                     </Select>
+                 </div>
+             </div>
         </div>
 
         <div className="flex flex-col sm:flex-row items-center gap-4 pt-2 border-t border-dashed border-muted/50">
