@@ -608,15 +608,23 @@ async function updateDatabaseUrlsPostRestore(restoreId: string): Promise<void> {
       targetHost
     );
 
-    // 5. Client (image)
+    // 5. Client (image & documents)
     await prisma.$executeRawUnsafe(
       `UPDATE "Client" SET "image" = regexp_replace("image", '^https?://[^/]+', $1) WHERE "image" ~ '^https?://'`,
       targetHost
     );
+    await prisma.$executeRawUnsafe(
+      `UPDATE "Client" SET "documents" = regexp_replace("documents"::text, 'https?://[^/]+', $1, 'g')::jsonb WHERE "documents" IS NOT NULL`,
+      targetHost
+    );
 
-    // 6. Supplier (image)
+    // 6. Supplier (image & documents)
     await prisma.$executeRawUnsafe(
       `UPDATE "Supplier" SET "image" = regexp_replace("image", '^https?://[^/]+', $1) WHERE "image" ~ '^https?://'`,
+      targetHost
+    );
+    await prisma.$executeRawUnsafe(
+      `UPDATE "Supplier" SET "documents" = regexp_replace("documents"::text, 'https?://[^/]+', $1, 'g')::jsonb WHERE "documents" IS NOT NULL`,
       targetHost
     );
 

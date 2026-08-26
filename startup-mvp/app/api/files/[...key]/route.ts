@@ -55,16 +55,13 @@ export async function GET(
       );
     }
 
-    const isImage = file.mimeType.startsWith("image/");
-    if (file.ownerId !== session.user.id && !isImage) {
-      return NextResponse.json(
-        { error: "Forbidden: You don't have permission to access this file" },
-        { status: 403 }
-      );
-    }
+    // Check download query param
+    const isDownload =
+      request.nextUrl.searchParams.get("download") === "true" ||
+      request.nextUrl.searchParams.get("download") === "1";
 
     // Check if file exists on disk
-    if (!await storage.exists(key)) {
+    if (!(await storage.exists(key))) {
       console.error(`File missing on disk: ${key}`);
       return NextResponse.json(
         { error: "File not found on storage" },
@@ -75,13 +72,15 @@ export async function GET(
     // Read file from local storage
     const buffer = await storage.readFile(key);
 
+    const dispositionType = isDownload ? "attachment" : "inline";
+
     // Return file with appropriate headers
     return new NextResponse(new Uint8Array(buffer), {
       status: 200,
       headers: {
         "Content-Type": file.mimeType || "application/octet-stream",
         "Content-Length": file.size.toString(),
-        "Content-Disposition": `inline; filename="${encodeURIComponent(file.name)}"`,
+        "Content-Disposition": `${dispositionType}; filename="${encodeURIComponent(file.name)}"`,
         "Cache-Control": "public, max-age=3600", // Cache for 1 hour
       },
     });

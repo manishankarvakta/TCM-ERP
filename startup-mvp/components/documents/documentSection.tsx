@@ -124,6 +124,20 @@ export default function DocumentSection({
     return <FiFile className="h-6 w-6 text-emerald-500" />;
   };
 
+  const getFormattedUrl = (url: string, isDownload = false) => {
+    if (!url) return "#";
+    // Normalize full host URLs to relative path (e.g. http://localhost:3000/api/files/... -> /api/files/...)
+    let relativeUrl = url;
+    if (url.includes("/api/files/")) {
+      relativeUrl = "/api/files/" + url.split("/api/files/")[1];
+    }
+    if (isDownload) {
+      const separator = relativeUrl.includes("?") ? "&" : "?";
+      return `${relativeUrl}${separator}download=1`;
+    }
+    return relativeUrl;
+  };
+
   const isImage = (url: string) => {
     const lowerUrl = url.toLowerCase();
     return (
@@ -223,7 +237,7 @@ export default function DocumentSection({
                   <div className="mt-3 relative h-28 w-full rounded border overflow-hidden bg-muted/30">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={doc.url}
+                      src={getFormattedUrl(doc.url)}
                       alt={doc.name}
                       className="h-full w-full object-cover"
                     />
@@ -232,7 +246,7 @@ export default function DocumentSection({
 
                 <div className="flex items-center justify-end gap-2 mt-3 pt-2 border-t text-xs">
                   <a
-                    href={doc.url}
+                    href={getFormattedUrl(doc.url)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1 text-primary hover:underline"
@@ -241,8 +255,8 @@ export default function DocumentSection({
                     View / Open
                   </a>
                   <a
-                    href={doc.url}
-                    download
+                    href={getFormattedUrl(doc.url, true)}
+                    download={doc.name || true}
                     className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
                   >
                     <FiDownload className="h-3.5 w-3.5" />
