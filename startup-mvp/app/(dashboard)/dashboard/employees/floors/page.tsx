@@ -30,11 +30,12 @@ export default async function FloorsPage({ searchParams }: FloorsPageProps) {
   const session = await auth();
   const userId = session?.user?.id;
 
-  const [result, canView, canEdit, canMoveToTrash] = await Promise.all([
+  const [result, canView, canEdit, canMoveToTrash, canDeletePermanently] = await Promise.all([
     getFloors(page, 10, search, tab === "trash" ? "trash" : "all"),
     userId ? hasPermission(userId, "peoples.employees", "view") : false,
     userId ? hasPermission(userId, "peoples.employees", "edit") : false,
     userId ? hasPermission(userId, "peoples.employees", "move-to-trash") : false,
+    userId ? hasPermission(userId, "peoples.employees", "delete-permanently") : false,
   ]);
 
   if (!result.success) {
@@ -133,6 +134,7 @@ export default async function FloorsPage({ searchParams }: FloorsPageProps) {
               view: canView,
               edit: canEdit,
               moveToTrash: canMoveToTrash,
+              deletePermanently: canDeletePermanently,
             }}
           />
         </TabsContent>

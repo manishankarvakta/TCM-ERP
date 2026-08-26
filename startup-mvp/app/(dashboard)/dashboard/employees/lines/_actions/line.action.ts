@@ -234,7 +234,46 @@ export async function trashLine(id: string) {
   }
 }
 
-export async function bulkUpdateLineStatus(ids: string[], action: "trash" | "active" | "inactive" | "restore") {
+export async function deleteLinePermanently(id: string) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const canDelete = await hasPermission(session.user.id, "peoples.employees", "delete-permanently") || session.user.role?.toLowerCase() === "admin";
+    if (!canDelete) {
+      return { success: false, error: "You don't have permission to delete lines permanently" };
+    }
+
+    const oldLine = await prisma.line.findUnique({ where: { id } });
+    if (!oldLine) {
+      return { success: false, error: "Line not found" };
+    }
+
+    // Check if any employee is associated with this line
+    const employeeCount = await prisma.employee.count({
+      where: { lineId: id },
+    });
+    if (employeeCount > 0) {
+      return { success: false, error: `Cannot delete permanently: ${employeeCount} employees are associated with this line.` };
+    }
+
+    await prisma.line.delete({
+      where: { id },
+    });
+
+    await logItemDeleted(session.user.id, "Line (Permanent)", id, oldLine.name);
+    revalidateBothPaths("employees");
+
+    return { success: true };
+  } catch (error) {
+    console.error("deleteLinePermanently error:", error);
+    return { success: false, error: error instanceof Error ? error.message : "Failed to delete line permanently" };
+  }
+}
+
+export async function bulkUpdateLineStatus(ids: string[], action: "trash" | "active" | "inactive" | "restore" | "delete-permanently") {
   try {
     const session = await auth();
     if (!session?.user) {
@@ -243,37 +282,51 @@ export async function bulkUpdateLineStatus(ids: string[], action: "trash" | "act
 
     let requiredPermission = "edit";
     if (action === "trash") requiredPermission = "move-to-trash";
+    if (action === "delete-permanently") requiredPermission = "delete-permanently";
     
     const hasPerm = await hasPermission(session.user.id, "peoples.employees", requiredPermission as any) || session.user.role?.toLowerCase() === "admin";
     if (!hasPerm) {
       return { success: false, error: `You don't have permission to perform bulk ${action}` };
     }
 
-    if (action === "trash") {
+    if (action === "delete-permanently") {
       const employeeCount = await prisma.employee.count({
-        where: { lineId: { in: ids }, status: "active" },
+        where: { lineId: { in: ids } },
       });
       if (employeeCount > 0) {
-        return { success: false, error: `Cannot bulk delete: active employees are currently assigned to some of these lines.` };
+        return { success: false, error: `Cannot delete permanently: employees are associated with some of these lines.` };
       }
-    }
 
-    const data: any = {};
-    if (action === "trash") {
-      data.isTrash = true;
-      data.status = "trash";
-    } else if (action === "restore") {
-      data.isTrash = false;
-      data.status = "active";
+      await prisma.line.deleteMany({
+        where: { id: { in: ids }, isTrash: true },
+      });
     } else {
-      data.isTrash = false;
-      data.status = action;
-    }
+      if (action === "trash") {
+        const employeeCount = await prisma.employee.count({
+          where: { lineId: { in: ids }, status: "active" },
+        });
+        if (employeeCount > 0) {
+          return { success: false, error: `Cannot bulk delete: active employees are currently assigned to some of these lines.` };
+        }
+      }
 
-    await prisma.line.updateMany({
-      where: { id: { in: ids } },
-      data,
-    });
+      const data: any = {};
+      if (action === "trash") {
+        data.isTrash = true;
+        data.status = "trash";
+      } else if (action === "restore") {
+        data.isTrash = false;
+        data.status = "active";
+      } else {
+        data.isTrash = false;
+        data.status = action;
+      }
+
+      await prisma.line.updateMany({
+        where: { id: { in: ids } },
+        data,
+      });
+    }
 
     revalidateBothPaths("employees");
 

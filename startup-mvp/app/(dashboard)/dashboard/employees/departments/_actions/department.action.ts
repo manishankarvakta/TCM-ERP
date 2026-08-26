@@ -224,7 +224,46 @@ export async function trashDepartment(id: string) {
   }
 }
 
-export async function bulkUpdateDepartmentStatus(ids: string[], action: "trash" | "active" | "inactive" | "restore") {
+export async function deleteDepartmentPermanently(id: string) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const canDelete = await hasPermission(session.user.id, "peoples.employees", "delete-permanently") || session.user.role?.toLowerCase() === "admin";
+    if (!canDelete) {
+      return { success: false, error: "You don't have permission to delete departments permanently" };
+    }
+
+    const oldDepartment = await prisma.department.findUnique({ where: { id } });
+    if (!oldDepartment) {
+      return { success: false, error: "Department not found" };
+    }
+
+    // Check if any employee is associated with this department
+    const employeeCount = await prisma.employee.count({
+      where: { departmentId: id },
+    });
+    if (employeeCount > 0) {
+      return { success: false, error: `Cannot delete permanently: ${employeeCount} employees are associated with this department.` };
+    }
+
+    await prisma.department.delete({
+      where: { id },
+    });
+
+    await logItemDeleted(session.user.id, "Department (Permanent)", id, oldDepartment.name);
+    revalidateBothPaths("employees");
+
+    return { success: true };
+  } catch (error) {
+    console.error("deleteDepartmentPermanently error:", error);
+    return { success: false, error: error instanceof Error ? error.message : "Failed to delete department permanently" };
+  }
+}
+
+export async function bulkUpdateDepartmentStatus(ids: string[], action: "trash" | "active" | "inactive" | "restore" | "delete-permanently") {
   try {
     const session = await auth();
     if (!session?.user) {
@@ -233,38 +272,52 @@ export async function bulkUpdateDepartmentStatus(ids: string[], action: "trash" 
 
     let requiredPermission = "edit";
     if (action === "trash") requiredPermission = "move-to-trash";
+    if (action === "delete-permanently") requiredPermission = "delete-permanently";
     
     const hasPerm = await hasPermission(session.user.id, "peoples.employees", requiredPermission as any) || session.user.role?.toLowerCase() === "admin";
     if (!hasPerm) {
       return { success: false, error: `You don't have permission to perform bulk ${action}` };
     }
 
-    if (action === "trash") {
-      // Check if any employee is using any of these departments
+    if (action === "delete-permanently") {
       const employeeCount = await prisma.employee.count({
-        where: { departmentId: { in: ids }, status: "active" },
+        where: { departmentId: { in: ids } },
       });
       if (employeeCount > 0) {
-        return { success: false, error: `Cannot bulk delete: active employees are currently assigned to some of these departments.` };
+        return { success: false, error: `Cannot delete permanently: employees are associated with some of these departments.` };
       }
-    }
 
-    const data: any = {};
-    if (action === "trash") {
-      data.isTrash = true;
-      data.status = "trash";
-    } else if (action === "restore") {
-      data.isTrash = false;
-      data.status = "active";
+      await prisma.department.deleteMany({
+        where: { id: { in: ids }, isTrash: true },
+      });
     } else {
-      data.isTrash = false;
-      data.status = action;
-    }
+      if (action === "trash") {
+        // Check if any employee is using any of these departments
+        const employeeCount = await prisma.employee.count({
+          where: { departmentId: { in: ids }, status: "active" },
+        });
+        if (employeeCount > 0) {
+          return { success: false, error: `Cannot bulk delete: active employees are currently assigned to some of these departments.` };
+        }
+      }
 
-    await prisma.department.updateMany({
-      where: { id: { in: ids } },
-      data,
-    });
+      const data: any = {};
+      if (action === "trash") {
+        data.isTrash = true;
+        data.status = "trash";
+      } else if (action === "restore") {
+        data.isTrash = false;
+        data.status = "active";
+      } else {
+        data.isTrash = false;
+        data.status = action;
+      }
+
+      await prisma.department.updateMany({
+        where: { id: { in: ids } },
+        data,
+      });
+    }
 
     revalidateBothPaths("employees");
 

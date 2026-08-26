@@ -494,6 +494,60 @@ export async function deleteUser(userId: string) {
 }
 
 /**
+ * Restore a user from trash (moves status to active)
+ */
+export async function restoreUser(userId: string) {
+  try {
+    const session = await auth();
+    
+    if (!session?.user) {
+      return {
+        success: false,
+        error: "Unauthorized",
+      };
+    }
+
+    // Only admins can restore users
+    const userRole = session.user.role?.toLowerCase();
+    if (userRole !== "admin") {
+      return {
+        success: false,
+        error: "Forbidden: Admin access required",
+      };
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, status: true },
+    });
+
+    if (!user) {
+      return {
+        success: false,
+        error: "User not found",
+      };
+    }
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { status: "active" },
+    });
+
+    nextRevalidatePath("/dashboard/users");
+
+    return {
+      success: true,
+    };
+  } catch (error) {
+    console.error("restoreUser error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to restore user",
+    };
+  }
+}
+
+/**
  * Force logout a user by deleting all their sessions
  */
 export async function forceLogoutUser(userId: string) {
@@ -589,6 +643,8 @@ export async function getUserById(userId: string) {
         email: true,
         role: true,
         image: true,
+        status: true,
+        isActive: true,
         inchargeId: true,
         incharge: {
           select: {

@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
 import { FiSearch, FiTrash2, FiX, FiCircle, FiCheck, FiMoreVertical, FiRotateCw } from "react-icons/fi";
-import { trashDesignation, bulkUpdateDesignationStatus } from "../_actions/designation.action";
+import { trashDesignation, bulkUpdateDesignationStatus, deleteDesignationPermanently } from "../_actions/designation.action";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -61,6 +61,7 @@ interface DesignationsListProps {
     view: boolean;
     edit: boolean;
     moveToTrash: boolean;
+    deletePermanently?: boolean;
   };
 }
 
@@ -76,6 +77,7 @@ export default function DesignationsList({
   const searchParams = useSearchParams();
   const [search, setSearch] = useState(initialSearch);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [permanentDeleteId, setPermanentDeleteId] = useState<string | null>(null);
   const [restoreId, setRestoreId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
@@ -104,6 +106,21 @@ export default function DesignationsList({
         router.refresh();
       } else {
         toast({ title: "Error", description: result.error || "Failed to delete designation", variant: "destructive" });
+      }
+    });
+  };
+
+  const handleDeletePermanently = async () => {
+    if (!permanentDeleteId) return;
+
+    startTransition(async () => {
+      const result = await deleteDesignationPermanently(permanentDeleteId);
+      if (result.success) {
+        setPermanentDeleteId(null);
+        toast({ title: "Success", description: "Designation deleted permanently" });
+        router.refresh();
+      } else {
+        toast({ title: "Error", description: result.error || "Failed to delete permanently", variant: "destructive" });
       }
     });
   };
@@ -138,7 +155,7 @@ export default function DesignationsList({
     }
   };
 
-  const handleBulkAction = async (action: "trash" | "active" | "inactive" | "restore") => {
+  const handleBulkAction = async (action: "trash" | "active" | "inactive" | "restore" | "delete-permanently") => {
     if (selectedIds.size === 0) return;
 
     const ids = Array.from(selectedIds);
@@ -211,10 +228,19 @@ export default function DesignationsList({
                   </DropdownMenuItem>
                 </>
               ) : (
-                <DropdownMenuItem onClick={() => handleBulkAction("restore")}>
-                  <FiCheck className="mr-2 h-4 w-4" />
-                  Restore
-                </DropdownMenuItem>
+                <>
+                  <DropdownMenuItem onClick={() => handleBulkAction("restore")}>
+                    <FiCheck className="mr-2 h-4 w-4" />
+                    Restore
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => handleBulkAction("delete-permanently")}
+                    className="text-destructive"
+                  >
+                    <FiTrash2 className="mr-2 h-4 w-4" />
+                    Delete Permanently
+                  </DropdownMenuItem>
+                </>
               )}
             </DropdownMenuContent>
           </DropdownMenu>
@@ -228,7 +254,7 @@ export default function DesignationsList({
               <TableHead className="w-12">
                 <Checkbox checked={allSelected} onCheckedChange={handleSelectAll} />
               </TableHead>
-              <TableHead>Designation Title</TableHead>
+              <TableHead>Name</TableHead>
               <TableHead>Description</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -285,6 +311,7 @@ export default function DesignationsList({
                               handleRestore();
                             }}
                             disabled={isPending}
+                            title="Restore"
                           >
                             <FiRotateCw className="h-4 w-4" />
                           </Button>
@@ -296,6 +323,19 @@ export default function DesignationsList({
                             onClick={() => setDeleteId(item.id)}
                             disabled={isPending}
                             className="text-destructive hover:text-destructive"
+                            title="Move to trash"
+                          >
+                            <FiTrash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {isTrash && (permissions?.deletePermanently ?? permissions?.moveToTrash ?? true) && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setPermanentDeleteId(item.id)}
+                            disabled={isPending}
+                            className="text-destructive hover:text-destructive"
+                            title="Delete permanently"
                           >
                             <FiTrash2 className="h-4 w-4" />
                           </Button>
@@ -310,6 +350,7 @@ export default function DesignationsList({
         </Table>
       </div>
 
+      {/* Move to Trash Dialog */}
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -326,6 +367,28 @@ export default function DesignationsList({
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {isPending ? "Moving..." : "Move to Trash"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Permanently Dialog */}
+      <AlertDialog open={!!permanentDeleteId} onOpenChange={() => setPermanentDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Designation Permanently</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the designation from the database.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeletePermanently}
+              disabled={isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isPending ? "Deleting..." : "Delete Permanently"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

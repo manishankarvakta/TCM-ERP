@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
 import { FiSearch, FiTrash2, FiX, FiCircle, FiCheck, FiMoreVertical, FiRotateCw } from "react-icons/fi";
-import { trashFloor, bulkUpdateFloorStatus } from "../_actions/floor.action";
+import { trashFloor, bulkUpdateFloorStatus, deleteFloorPermanently } from "../_actions/floor.action";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -65,6 +65,7 @@ interface FloorsListProps {
     view: boolean;
     edit: boolean;
     moveToTrash: boolean;
+    deletePermanently?: boolean;
   };
 }
 
@@ -80,6 +81,7 @@ export default function FloorsList({
   const searchParams = useSearchParams();
   const [search, setSearch] = useState(initialSearch);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [permanentDeleteId, setPermanentDeleteId] = useState<string | null>(null);
   const [restoreId, setRestoreId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
@@ -108,6 +110,21 @@ export default function FloorsList({
         router.refresh();
       } else {
         toast({ title: "Error", description: result.error || "Failed to delete floor", variant: "destructive" });
+      }
+    });
+  };
+
+  const handleDeletePermanently = async () => {
+    if (!permanentDeleteId) return;
+
+    startTransition(async () => {
+      const result = await deleteFloorPermanently(permanentDeleteId);
+      if (result.success) {
+        setPermanentDeleteId(null);
+        toast({ title: "Success", description: "Floor deleted permanently" });
+        router.refresh();
+      } else {
+        toast({ title: "Error", description: result.error || "Failed to delete permanently", variant: "destructive" });
       }
     });
   };
@@ -142,7 +159,7 @@ export default function FloorsList({
     }
   };
 
-  const handleBulkAction = async (action: "trash" | "active" | "inactive" | "restore") => {
+  const handleBulkAction = async (action: "trash" | "active" | "inactive" | "restore" | "delete-permanently") => {
     if (selectedIds.size === 0) return;
 
     const ids = Array.from(selectedIds);
@@ -215,10 +232,19 @@ export default function FloorsList({
                   </DropdownMenuItem>
                 </>
               ) : (
-                <DropdownMenuItem onClick={() => handleBulkAction("restore")}>
-                  <FiCheck className="mr-2 h-4 w-4" />
-                  Restore
-                </DropdownMenuItem>
+                <>
+                  <DropdownMenuItem onClick={() => handleBulkAction("restore")}>
+                    <FiCheck className="mr-2 h-4 w-4" />
+                    Restore
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => handleBulkAction("delete-permanently")}
+                    className="text-destructive"
+                  >
+                    <FiTrash2 className="mr-2 h-4 w-4" />
+                    Delete Permanently
+                  </DropdownMenuItem>
+                </>
               )}
             </DropdownMenuContent>
           </DropdownMenu>
@@ -297,6 +323,7 @@ export default function FloorsList({
                               handleRestore();
                             }}
                             disabled={isPending}
+                            title="Restore"
                           >
                             <FiRotateCw className="h-4 w-4" />
                           </Button>
@@ -308,6 +335,19 @@ export default function FloorsList({
                             onClick={() => setDeleteId(item.id)}
                             disabled={isPending}
                             className="text-destructive hover:text-destructive"
+                            title="Move to trash"
+                          >
+                            <FiTrash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {isTrash && (permissions?.deletePermanently ?? permissions?.moveToTrash ?? true) && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setPermanentDeleteId(item.id)}
+                            disabled={isPending}
+                            className="text-destructive hover:text-destructive"
+                            title="Delete permanently"
                           >
                             <FiTrash2 className="h-4 w-4" />
                           </Button>
@@ -322,6 +362,7 @@ export default function FloorsList({
         </Table>
       </div>
 
+      {/* Move to Trash Dialog */}
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -338,6 +379,28 @@ export default function FloorsList({
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {isPending ? "Moving..." : "Move to Trash"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Permanently Dialog */}
+      <AlertDialog open={!!permanentDeleteId} onOpenChange={() => setPermanentDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Floor Permanently</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the floor from the database.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeletePermanently}
+              disabled={isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isPending ? "Deleting..." : "Delete Permanently"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -222,7 +222,46 @@ export async function trashFloor(id: string) {
   }
 }
 
-export async function bulkUpdateFloorStatus(ids: string[], action: "trash" | "active" | "inactive" | "restore") {
+export async function deleteFloorPermanently(id: string) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const canDelete = await hasPermission(session.user.id, "peoples.employees", "delete-permanently") || session.user.role?.toLowerCase() === "admin";
+    if (!canDelete) {
+      return { success: false, error: "You don't have permission to delete floors permanently" };
+    }
+
+    const oldFloor = await prisma.floor.findUnique({ where: { id } });
+    if (!oldFloor) {
+      return { success: false, error: "Floor not found" };
+    }
+
+    // Check if any employee is associated with this floor
+    const employeeCount = await prisma.employee.count({
+      where: { floorId: id },
+    });
+    if (employeeCount > 0) {
+      return { success: false, error: `Cannot delete permanently: ${employeeCount} employees are associated with this floor.` };
+    }
+
+    await prisma.floor.delete({
+      where: { id },
+    });
+
+    await logItemDeleted(session.user.id, "Floor (Permanent)", id, oldFloor.name);
+    revalidateBothPaths("employees");
+
+    return { success: true };
+  } catch (error) {
+    console.error("deleteFloorPermanently error:", error);
+    return { success: false, error: error instanceof Error ? error.message : "Failed to delete floor permanently" };
+  }
+}
+
+export async function bulkUpdateFloorStatus(ids: string[], action: "trash" | "active" | "inactive" | "restore" | "delete-permanently") {
   try {
     const session = await auth();
     if (!session?.user) {
@@ -231,37 +270,51 @@ export async function bulkUpdateFloorStatus(ids: string[], action: "trash" | "ac
 
     let requiredPermission = "edit";
     if (action === "trash") requiredPermission = "move-to-trash";
+    if (action === "delete-permanently") requiredPermission = "delete-permanently";
     
     const hasPerm = await hasPermission(session.user.id, "peoples.employees", requiredPermission as any) || session.user.role?.toLowerCase() === "admin";
     if (!hasPerm) {
       return { success: false, error: `You don't have permission to perform bulk ${action}` };
     }
 
-    if (action === "trash") {
+    if (action === "delete-permanently") {
       const employeeCount = await prisma.employee.count({
-        where: { floorId: { in: ids }, status: "active" },
+        where: { floorId: { in: ids } },
       });
       if (employeeCount > 0) {
-        return { success: false, error: `Cannot bulk delete: active employees are currently assigned to some of these floors.` };
+        return { success: false, error: `Cannot delete permanently: employees are associated with some of these floors.` };
       }
-    }
 
-    const data: any = {};
-    if (action === "trash") {
-      data.isTrash = true;
-      data.status = "trash";
-    } else if (action === "restore") {
-      data.isTrash = false;
-      data.status = "active";
+      await prisma.floor.deleteMany({
+        where: { id: { in: ids }, isTrash: true },
+      });
     } else {
-      data.isTrash = false;
-      data.status = action;
-    }
+      if (action === "trash") {
+        const employeeCount = await prisma.employee.count({
+          where: { floorId: { in: ids }, status: "active" },
+        });
+        if (employeeCount > 0) {
+          return { success: false, error: `Cannot bulk delete: active employees are currently assigned to some of these floors.` };
+        }
+      }
 
-    await prisma.floor.updateMany({
-      where: { id: { in: ids } },
-      data,
-    });
+      const data: any = {};
+      if (action === "trash") {
+        data.isTrash = true;
+        data.status = "trash";
+      } else if (action === "restore") {
+        data.isTrash = false;
+        data.status = "active";
+      } else {
+        data.isTrash = false;
+        data.status = action;
+      }
+
+      await prisma.floor.updateMany({
+        where: { id: { in: ids } },
+        data,
+      });
+    }
 
     revalidateBothPaths("employees");
 

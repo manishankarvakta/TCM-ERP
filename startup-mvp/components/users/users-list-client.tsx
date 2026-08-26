@@ -24,8 +24,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
-import { FiSearch, FiEdit, FiTrash2, FiX, FiCircle, FiLogOut, FiMoreVertical, FiCheck, FiLock } from "react-icons/fi";
-import { deleteUser, forceLogoutUser, bulkUpdateUserStatus, deleteUsersPermanently, toggleUserActiveStatus } from "@/app/actions/user.action";
+import { FiSearch, FiEdit, FiTrash2, FiX, FiCircle, FiLogOut, FiMoreVertical, FiCheck, FiLock, FiRotateCw } from "react-icons/fi";
+import { deleteUser, forceLogoutUser, bulkUpdateUserStatus, deleteUsersPermanently, toggleUserActiveStatus, restoreUser } from "@/app/actions/user.action";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -133,6 +133,25 @@ export default function UsersListClient({
         toast({
           title: "Error",
           description: result.error || "Failed to delete user",
+          variant: "destructive",
+        });
+      }
+    });
+  };
+
+  const handleRestoreUser = async (userId: string) => {
+    startTransition(async () => {
+      const result = await restoreUser(userId);
+      if (result.success) {
+        toast({
+          title: "Success",
+          description: "User restored successfully",
+        });
+        router.refresh();
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to restore user",
           variant: "destructive",
         });
       }
@@ -463,7 +482,30 @@ export default function UsersListClient({
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
-                        {!isTrash && (
+                        {isTrash || userStatus === "trash" ? (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleRestoreUser(user.id)}
+                              className="text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-950"
+                              title="Restore user"
+                              disabled={isPending}
+                            >
+                              <FiRotateCw className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setDeleteUserId(user.id)}
+                              className="text-destructive hover:text-destructive"
+                              title="Delete permanently"
+                              disabled={isPending}
+                            >
+                              <FiTrash2 className="h-4 w-4" />
+                            </Button>
+                          </>
+                        ) : (
                           <>
                             <Button variant="ghost" size="sm" asChild>
                               <Link href={`${basePath}/users/${user.id}`}>View</Link>
@@ -490,18 +532,18 @@ export default function UsersListClient({
                                 <FiLogOut className="h-4 w-4" />
                               </Button>
                             )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setDeleteUserId(user.id)}
+                              className="text-destructive hover:text-destructive"
+                              title="Move to trash"
+                              disabled={isPending}
+                            >
+                              <FiTrash2 className="h-4 w-4" />
+                            </Button>
                           </>
                         )}
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setDeleteUserId(user.id)}
-                          className="text-destructive hover:text-destructive"
-                          title={isTrash ? "Delete permanently" : "Move to trash"}
-                          disabled={isPending}
-                        >
-                          <FiTrash2 className="h-4 w-4" />
-                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
