@@ -42,11 +42,12 @@ import * as XLSX from "xlsx";
 export default function ImportWizard() {
   const { toast } = useToast();
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
-  const [selectedModuleId, setSelectedModuleId] = useState<string>("Products");
+  const initialModule = IMPORT_MODULES.find((m) => m.id === "Products") || IMPORT_MODULES[0];
+  const [selectedModuleId, setSelectedModuleId] = useState<string>(initialModule.id);
 
   // Track user-selected fields for import (required fields auto-selected and locked)
   const [selectedFieldKeys, setSelectedFieldKeys] = useState<string[]>(() =>
-    IMPORT_MODULES[0].fields.map((f) => f.key)
+    initialModule.fields.map((f) => f.key)
   );
 
   const [file, setFile] = useState<File | null>(null);
@@ -157,24 +158,43 @@ export default function ImportWizard() {
 
           // Initial auto-mapping: System Database Field (targetKey) -> CSV Column Header (csvHeader)
           const initialMapping: FieldMapping = {};
+          const usedHeaders = new Set<string>();
+
+          // Pass 1: Exact Matches (Key or Label)
           activeModuleConfig.fields.forEach((field) => {
             const normalizedKey = field.key.toLowerCase().replace(/[^a-z0-9]/g, "");
             const normalizedLabel = field.label.toLowerCase().replace(/[^a-z0-9]/g, "");
 
-            const matchedHeader = headers.find((h) => {
+            const exactHeader = headers.find((h) => {
               const normalizedHeader = h.toLowerCase().replace(/[^a-z0-9]/g, "");
-              return (
-                normalizedHeader === normalizedKey ||
-                normalizedHeader === normalizedLabel ||
-                normalizedHeader.includes(normalizedKey) ||
-                normalizedLabel.includes(normalizedHeader)
-              );
+              return normalizedHeader === normalizedKey || normalizedHeader === normalizedLabel;
             });
 
-            if (matchedHeader) {
-              initialMapping[field.key] = matchedHeader;
+            if (exactHeader) {
+              initialMapping[field.key] = exactHeader;
+              usedHeaders.add(exactHeader);
             }
           });
+
+          // Pass 2: Partial Matches for unmapped fields (avoiding used headers)
+          activeModuleConfig.fields.forEach((field) => {
+            if (initialMapping[field.key]) return;
+
+            const normalizedKey = field.key.toLowerCase().replace(/[^a-z0-9]/g, "");
+            const normalizedLabel = field.label.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+            const partialHeader = headers.find((h) => {
+              if (usedHeaders.has(h)) return false;
+              const normalizedHeader = h.toLowerCase().replace(/[^a-z0-9]/g, "");
+              return normalizedHeader.includes(normalizedKey) || normalizedHeader.includes(normalizedLabel);
+            });
+
+            if (partialHeader) {
+              initialMapping[field.key] = partialHeader;
+              usedHeaders.add(partialHeader);
+            }
+          });
+
           setFieldMapping(initialMapping);
         }
       } catch (err) {

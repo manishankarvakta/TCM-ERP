@@ -29,24 +29,41 @@ export default function FieldMapper({
 }: FieldMapperProps) {
   // Auto-match system fields to CSV headers
   const handleAutoMatch = () => {
-    const newMapping: FieldMapping = { ...mapping };
+    const newMapping: FieldMapping = {};
+    const usedHeaders = new Set<string>();
 
+    // Pass 1: Exact Matches (Key or Label)
     config.fields.forEach((field) => {
       const normalizedKey = field.key.toLowerCase().replace(/[^a-z0-9]/g, "");
       const normalizedLabel = field.label.toLowerCase().replace(/[^a-z0-9]/g, "");
 
-      const matchedHeader = headers.find((header) => {
-        const normalizedHeader = header.toLowerCase().replace(/[^a-z0-9]/g, "");
-        return (
-          normalizedHeader === normalizedKey ||
-          normalizedHeader === normalizedLabel ||
-          normalizedHeader.includes(normalizedKey) ||
-          normalizedLabel.includes(normalizedHeader)
-        );
+      const exactHeader = headers.find((h) => {
+        const normalizedHeader = h.toLowerCase().replace(/[^a-z0-9]/g, "");
+        return normalizedHeader === normalizedKey || normalizedHeader === normalizedLabel;
       });
 
-      if (matchedHeader) {
-        newMapping[field.key] = matchedHeader;
+      if (exactHeader) {
+        newMapping[field.key] = exactHeader;
+        usedHeaders.add(exactHeader);
+      }
+    });
+
+    // Pass 2: Partial Matches for unmapped fields (avoiding used headers)
+    config.fields.forEach((field) => {
+      if (newMapping[field.key]) return;
+
+      const normalizedKey = field.key.toLowerCase().replace(/[^a-z0-9]/g, "");
+      const normalizedLabel = field.label.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+      const partialHeader = headers.find((h) => {
+        if (usedHeaders.has(h)) return false;
+        const normalizedHeader = h.toLowerCase().replace(/[^a-z0-9]/g, "");
+        return normalizedHeader.includes(normalizedKey) || normalizedHeader.includes(normalizedLabel);
+      });
+
+      if (partialHeader) {
+        newMapping[field.key] = partialHeader;
+        usedHeaders.add(partialHeader);
       }
     });
 

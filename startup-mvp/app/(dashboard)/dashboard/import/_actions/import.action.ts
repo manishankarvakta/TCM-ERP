@@ -89,6 +89,60 @@ function safeParseDate(val: any): Date | null {
 }
 
 /**
+ * Safely generate a unique slug for Category
+ */
+async function generateUniqueCategorySlug(baseSlug?: string | null, excludeId?: string): Promise<string | null> {
+  if (!baseSlug || !String(baseSlug).trim()) return null;
+  const cleanSlug = String(baseSlug).toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  if (!cleanSlug) return null;
+
+  let currentSlug = cleanSlug;
+  let counter = 1;
+
+  while (true) {
+    const existing = await prisma.category.findFirst({
+      where: {
+        slug: currentSlug,
+        ...(excludeId ? { id: { not: excludeId } } : {}),
+      },
+      select: { id: true },
+    });
+
+    if (!existing) return currentSlug;
+
+    currentSlug = `${cleanSlug}-${counter}`;
+    counter++;
+  }
+}
+
+/**
+ * Safely generate a unique slug for Brand
+ */
+async function generateUniqueBrandSlug(baseSlug?: string | null, excludeId?: string): Promise<string | null> {
+  if (!baseSlug || !String(baseSlug).trim()) return null;
+  const cleanSlug = String(baseSlug).toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  if (!cleanSlug) return null;
+
+  let currentSlug = cleanSlug;
+  let counter = 1;
+
+  while (true) {
+    const existing = await prisma.brand.findFirst({
+      where: {
+        slug: currentSlug,
+        ...(excludeId ? { id: { not: excludeId } } : {}),
+      },
+      select: { id: true },
+    });
+
+    if (!existing) return currentSlug;
+
+    currentSlug = `${cleanSlug}-${counter}`;
+    counter++;
+  }
+}
+
+/**
  * Get available import modules
  */
 export async function getImportModulesAction(): Promise<{
@@ -415,6 +469,7 @@ export async function executeImportAction(
 
           const res = await createClient({
             name: row.name,
+            clientCode: row.clientCode || undefined,
             email: row.email || null,
             phone: row.phone || "",
             company: row.company || "",
@@ -453,6 +508,7 @@ export async function executeImportAction(
 
           const res = await createSupplier({
             name: row.name,
+            supplierCode: row.supplierCode || undefined,
             email: row.email || null,
             phone: row.phone || "",
             company: row.company || "",
@@ -473,20 +529,54 @@ export async function executeImportAction(
             failedRows.push({ rowIndex, error: res.error || "Failed to create supplier", data: row });
           }
         } else if (config.targetModel === "Category") {
+          let parentId: string | null = null;
+          if (row.parentCategoryName && String(row.parentCategoryName).trim() !== "") {
+            const parentCatName = String(row.parentCategoryName).trim();
+            let parentCat = await prisma.category.findFirst({
+              where: { name: { equals: parentCatName, mode: "insensitive" } },
+            });
+            if (!parentCat) {
+              const baseParentSlug = parentCatName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+              const parentSlug = await generateUniqueCategorySlug(baseParentSlug);
+              parentCat = await prisma.category.create({
+                data: {
+                  name: parentCatName,
+                  slug: parentSlug,
+                  status: "active",
+                },
+              });
+            }
+            parentId = parentCat.id;
+          }
+
+          const rawSlug = row.slug ? String(row.slug).trim() : (row.name ? String(row.name).trim() : "");
+          const targetSlug = rawSlug ? rawSlug.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") : "";
+
           const existing = await prisma.category.findFirst({
-            where: { name: { equals: row.name, mode: "insensitive" } },
+            where: {
+              OR: [
+                { name: { equals: row.name, mode: "insensitive" } },
+                targetSlug ? { slug: targetSlug } : {},
+              ].filter((cond) => Object.keys(cond).length > 0) as Prisma.CategoryWhereInput[],
+            },
           });
+
           if (existing) {
             if (duplicateStrategy === "skip") {
               skippedCount++;
               continue;
             }
+            const updatedSlug = row.slug
+              ? await generateUniqueCategorySlug(row.slug, existing.id)
+              : existing.slug;
+
             await prisma.category.update({
               where: { id: existing.id },
               data: {
-                slug: row.slug || existing.slug,
+                slug: updatedSlug,
                 description: row.description || existing.description,
                 image: row.image || existing.image,
+                parentId: parentId || existing.parentId,
                 status: row.status === "inactive" ? "inactive" : existing.status,
               },
             });
@@ -494,29 +584,45 @@ export async function executeImportAction(
             continue;
           }
 
+          const finalSlug = await generateUniqueCategorySlug(rawSlug);
+
           await prisma.category.create({
             data: {
               name: row.name,
-              slug: row.slug || null,
+              slug: finalSlug,
               description: row.description || null,
               image: row.image || null,
+              parentId,
               status: row.status === "inactive" ? "inactive" : "active",
             },
           });
           createdCount++;
         } else if (config.targetModel === "Brand") {
+          const rawSlug = row.slug ? String(row.slug).trim() : (row.name ? String(row.name).trim() : "");
+          const targetSlug = rawSlug ? rawSlug.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") : "";
+
           const existing = await prisma.brand.findFirst({
-            where: { name: { equals: row.name, mode: "insensitive" } },
+            where: {
+              OR: [
+                { name: { equals: row.name, mode: "insensitive" } },
+                targetSlug ? { slug: targetSlug } : {},
+              ].filter((cond) => Object.keys(cond).length > 0) as Prisma.BrandWhereInput[],
+            },
           });
+
           if (existing) {
             if (duplicateStrategy === "skip") {
               skippedCount++;
               continue;
             }
+            const updatedSlug = row.slug
+              ? await generateUniqueBrandSlug(row.slug, existing.id)
+              : existing.slug;
+
             await prisma.brand.update({
               where: { id: existing.id },
               data: {
-                slug: row.slug || existing.slug,
+                slug: updatedSlug,
                 description: row.description || existing.description,
                 image: row.image || existing.image,
                 status: row.status === "inactive" ? "inactive" : existing.status,
@@ -526,10 +632,12 @@ export async function executeImportAction(
             continue;
           }
 
+          const finalSlug = await generateUniqueBrandSlug(rawSlug);
+
           await prisma.brand.create({
             data: {
               name: row.name,
-              slug: row.slug || null,
+              slug: finalSlug,
               description: row.description || null,
               image: row.image || null,
               status: row.status === "inactive" ? "inactive" : "active",
@@ -616,15 +724,52 @@ export async function executeImportAction(
         } else if (config.targetModel === "Item") {
           // Products / Item
           let categoryId: string | null = null;
+          let subCategoryId: string | null = null;
           let brandId: string | null = null;
           let unitId: string | null = null;
 
-          if (row.categoryName) {
-            const cat = await prisma.category.findFirst({
-              where: { name: { equals: row.categoryName, mode: "insensitive" } },
+          if (row.categoryName && String(row.categoryName).trim() !== "") {
+            const catName = String(row.categoryName).trim();
+            let cat = await prisma.category.findFirst({
+              where: { name: { equals: catName, mode: "insensitive" } },
             });
-            if (cat) categoryId = cat.id;
+            if (!cat) {
+              const slugStr = await generateUniqueCategorySlug(catName);
+              cat = await prisma.category.create({
+                data: {
+                  name: catName,
+                  slug: slugStr,
+                  status: "active",
+                },
+              });
+            }
+            categoryId = cat.id;
           }
+
+          if (row.subCategoryName && String(row.subCategoryName).trim() !== "") {
+            const subCatName = String(row.subCategoryName).trim();
+            let subCat = await prisma.category.findFirst({
+              where: { name: { equals: subCatName, mode: "insensitive" } },
+            });
+            if (!subCat) {
+              const slugStr = await generateUniqueCategorySlug(subCatName);
+              subCat = await prisma.category.create({
+                data: {
+                  name: subCatName,
+                  slug: slugStr,
+                  parentId: categoryId,
+                  status: "active",
+                },
+              });
+            } else if (categoryId && !subCat.parentId) {
+              await prisma.category.update({
+                where: { id: subCat.id },
+                data: { parentId: categoryId },
+              });
+            }
+            subCategoryId = subCat.id;
+          }
+
           if (row.brandName) {
             const brand = await prisma.brand.findFirst({
               where: { name: { equals: row.brandName, mode: "insensitive" } },
@@ -686,6 +831,8 @@ export async function executeImportAction(
                 trackInventory: row.trackInventory === "true" || row.trackInventory === true ? true : existing.trackInventory,
                 isVatEnabled: row.isVatEnabled === "true" || row.isVatEnabled === true ? true : existing.isVatEnabled,
                 vatPercentage: row.vatPercentage ? Number(row.vatPercentage) : existing.vatPercentage,
+                categoryId: categoryId || existing.categoryId,
+                subCategoryId: subCategoryId || existing.subCategoryId,
                 status: row.status === "inactive" ? "inactive" : existing.status,
               },
             });
@@ -713,6 +860,7 @@ export async function executeImportAction(
               status: row.status === "inactive" ? "inactive" : "active",
               itemType: ItemType.READY_PRODUCT,
               categoryId,
+              subCategoryId,
               brandId,
               unitId,
               createdBy: session.user.id,
@@ -749,6 +897,7 @@ export async function executeImportAction(
                 designation: row.designation || existing.designation,
                 bloodGroup: row.bloodGroup || existing.bloodGroup,
                 nationalId: row.nationalId || existing.nationalId,
+                biometricDeviceId: row.biometricDeviceId || existing.biometricDeviceId,
                 photo: row.photo || existing.photo,
                 type: row.type || existing.type,
                 employmentType: parsedEmpType || existing.employmentType,
@@ -770,6 +919,7 @@ export async function executeImportAction(
               gender: row.gender?.toUpperCase() || null,
               bloodGroup: row.bloodGroup || null,
               nationalId: row.nationalId || null,
+              biometricDeviceId: row.biometricDeviceId || null,
               photo: row.photo || null,
               type: row.type || null,
               employmentType: parsedEmpType,

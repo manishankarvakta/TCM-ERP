@@ -481,6 +481,7 @@ export async function generateCustomerAccountCode(tx?: Prisma.TransactionClient)
  */
 export async function createClient(input: {
   name?: string;
+  clientCode?: string;
   email?: string | null;
   phone?: string;
   address?: string;
@@ -532,37 +533,44 @@ export async function createClient(input: {
     // Use transaction to ensure atomicity
     const result = await prisma.$transaction(async (tx) => {
       const discountsToUse = input.itemDiscounts || (input as any).discounts;
-      // Generate unique client code
-      let clientCode = await generateClientCode(tx);
-      
-      // Ensure code doesn't exist (double-check for race conditions)
-      let clientCodeExists = await tx.client.findUnique({
-        where: { clientCode },
-        select: { id: true },
-      });
-
-      // Retry logic for code generation (up to 10 attempts)
-      let clientCodeAttempts = 0;
-      while (clientCodeExists && clientCodeAttempts < 10) {
-        // Extract number and increment
-        const codeWithoutPrefix = clientCode.replace("CLI", "");
-        const number = parseInt(codeWithoutPrefix, 10);
-        if (!isNaN(number) && number >= 1000001) {
-          const newNumber = number + 1;
-          clientCode = `CLI${newNumber.toString().padStart(7, "0")}`;
-        } else {
-          // Fallback: start from 1000001
-          clientCode = `CLI1000001`;
-        }
-        clientCodeExists = await tx.client.findUnique({
+      // Determine client code (use custom code if provided, otherwise auto-generate)
+      let clientCode: string;
+      if (input.clientCode && input.clientCode.trim() !== "") {
+        clientCode = input.clientCode.trim();
+        const existingWithCode = await tx.client.findUnique({
           where: { clientCode },
           select: { id: true },
         });
-        clientCodeAttempts++;
-      }
+        if (existingWithCode) {
+          throw new Error(`Client code '${clientCode}' already exists.`);
+        }
+      } else {
+        clientCode = await generateClientCode(tx);
+        let clientCodeExists = await tx.client.findUnique({
+          where: { clientCode },
+          select: { id: true },
+        });
 
-      if (clientCodeExists) {
-        throw new Error("Unable to generate unique client code. Please try again.");
+        let clientCodeAttempts = 0;
+        while (clientCodeExists && clientCodeAttempts < 10) {
+          const codeWithoutPrefix = clientCode.replace("CLI", "");
+          const number = parseInt(codeWithoutPrefix, 10);
+          if (!isNaN(number) && number >= 1000001) {
+            const newNumber = number + 1;
+            clientCode = `CLI${newNumber.toString().padStart(7, "0")}`;
+          } else {
+            clientCode = `CLI1000001`;
+          }
+          clientCodeExists = await tx.client.findUnique({
+            where: { clientCode },
+            select: { id: true },
+          });
+          clientCodeAttempts++;
+        }
+
+        if (clientCodeExists) {
+          throw new Error("Unable to generate unique client code. Please try again.");
+        }
       }
 
       // Find Accounts Receivable parent account

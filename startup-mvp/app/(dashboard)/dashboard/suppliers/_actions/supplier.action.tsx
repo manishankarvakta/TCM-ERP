@@ -433,6 +433,7 @@ async function generateSupplierAccountCode(tx?: Prisma.TransactionClient): Promi
  */
 export async function createSupplier(input: {
   name?: string;
+  supplierCode?: string;
   email?: string | null;
   phone: string;
   address?: string;
@@ -475,37 +476,44 @@ export async function createSupplier(input: {
 
     // Use transaction to ensure atomicity
     const result = await prisma.$transaction(async (tx) => {
-      // Generate unique supplier code
-      let supplierCode = await generateSupplierCode(tx);
-      
-      // Ensure code doesn't exist (double-check for race conditions)
-      let supplierCodeExists = await tx.supplier.findUnique({
-        where: { supplierCode },
-        select: { id: true },
-      });
-
-      // Retry logic for code generation (up to 10 attempts)
-      let supplierCodeAttempts = 0;
-      while (supplierCodeExists && supplierCodeAttempts < 10) {
-        // Extract number and increment
-        const codeWithoutPrefix = supplierCode.replace("SUP", "");
-        const number = parseInt(codeWithoutPrefix, 10);
-        if (!isNaN(number) && number >= 1000001) {
-          const newNumber = number + 1;
-          supplierCode = `SUP${newNumber.toString().padStart(7, "0")}`;
-        } else {
-          // Fallback: start from 1000001
-          supplierCode = `SUP1000001`;
-        }
-        supplierCodeExists = await tx.supplier.findUnique({
+      // Determine supplier code (use custom code if provided, otherwise auto-generate)
+      let supplierCode: string;
+      if (input.supplierCode && input.supplierCode.trim() !== "") {
+        supplierCode = input.supplierCode.trim();
+        const existingWithCode = await tx.supplier.findUnique({
           where: { supplierCode },
           select: { id: true },
         });
-        supplierCodeAttempts++;
-      }
+        if (existingWithCode) {
+          throw new Error(`Supplier code '${supplierCode}' already exists.`);
+        }
+      } else {
+        supplierCode = await generateSupplierCode(tx);
+        let supplierCodeExists = await tx.supplier.findUnique({
+          where: { supplierCode },
+          select: { id: true },
+        });
 
-      if (supplierCodeExists) {
-        throw new Error("Unable to generate unique supplier code. Please try again.");
+        let supplierCodeAttempts = 0;
+        while (supplierCodeExists && supplierCodeAttempts < 10) {
+          const codeWithoutPrefix = supplierCode.replace("SUP", "");
+          const number = parseInt(codeWithoutPrefix, 10);
+          if (!isNaN(number) && number >= 1000001) {
+            const newNumber = number + 1;
+            supplierCode = `SUP${newNumber.toString().padStart(7, "0")}`;
+          } else {
+            supplierCode = `SUP1000001`;
+          }
+          supplierCodeExists = await tx.supplier.findUnique({
+            where: { supplierCode },
+            select: { id: true },
+          });
+          supplierCodeAttempts++;
+        }
+
+        if (supplierCodeExists) {
+          throw new Error("Unable to generate unique supplier code. Please try again.");
+        }
       }
 
       // Find Accounts Payable parent account
