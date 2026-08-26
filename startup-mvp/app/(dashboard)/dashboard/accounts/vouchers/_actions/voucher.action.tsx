@@ -637,6 +637,7 @@ export async function createVoucher(input: {
   userId?: string;
   organizationId?: string;
   warehouseId?: string;
+  createdBy?: string;
   isSystemAction?: boolean;
   lines: Array<{
     lineNumber: number;
@@ -665,7 +666,7 @@ export async function createVoucher(input: {
       }
     }
 
-    if (!session?.user) {
+    if (!session?.user && !input.isSystemAction) {
       return {
         success: false,
         error: "Unauthorized",
@@ -974,7 +975,7 @@ export async function createVoucher(input: {
 
     const performCreate = async (transaction: Prisma.TransactionClient) => {
       let targetWarehouseId = input.warehouseId || null;
-      if (!targetWarehouseId && session.user.id) {
+      if (!targetWarehouseId && session?.user?.id) {
         const creatorUser = await transaction.user.findUnique({
           where: { id: session.user.id },
           select: { defaultWarehouseId: true },
@@ -993,8 +994,8 @@ export async function createVoucher(input: {
           reference: input.reference || null,
           description: input.description || null,
           status: initialStatus,
-          createdBy: session.user.id,
-          postedById: canPost ? session.user.id : null,
+          createdBy: input.createdBy || session?.user?.id || "cmr8q3sw801ggmr01md8c1y3x",
+          postedById: canPost ? (session?.user?.id || input.createdBy || "cmr8q3sw801ggmr01md8c1y3x") : null,
           postedAt: canPost ? new Date() : null,
           clientId: input.clientId || null,
           supplierId: input.supplierId || null,
@@ -1093,7 +1094,7 @@ export async function createVoucher(input: {
 
       // Log action with detailed audit trail
       await createUserLog({
-        userId: session.user.id,
+        userId: session?.user?.id || input.createdBy || "cmr8q3sw801ggmr01md8c1y3x",
         action: LogAction.ITEM_CREATED,
         details: `Created voucher: ${voucherNumber} (${input.type}) [${initialStatus}] - Total: ৳${input.lines.reduce((sum, line) => sum + Number(line.debitAmount || 0), 0).toFixed(2)}`,
         metadata: { 
@@ -1177,7 +1178,7 @@ export async function postVoucher(voucherId: string, tx?: Prisma.TransactionClie
       }
     }
 
-    if (!session?.user) {
+    if (!session?.user && !isSystemAction) {
       return {
         success: false,
         error: "Unauthorized",
@@ -1301,7 +1302,7 @@ export async function postVoucher(voucherId: string, tx?: Prisma.TransactionClie
           description: voucher.description || null,
           status: "posted",
           createdBy: voucher.createdBy,
-          postedBy: session.user.id,
+          postedBy: session?.user?.id || voucher.createdBy || "cmr8q3sw801ggmr01md8c1y3x",
           postedAt: new Date(),
           JournalEntryLine: {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1342,7 +1343,7 @@ export async function postVoucher(voucherId: string, tx?: Prisma.TransactionClie
         where: { id: voucher.id },
         data: {
           status: "posted",
-          postedById: session.user.id,
+          postedById: session?.user?.id || voucher.createdBy || "cmr8q3sw801ggmr01md8c1y3x",
           postedAt: new Date(),
         },
         include: {
@@ -1396,7 +1397,7 @@ export async function postVoucher(voucherId: string, tx?: Prisma.TransactionClie
       const postTotalCredit = voucherLines.reduce((sum: number, line: any) => sum + Number(line.creditAmount), 0);
       
       await createUserLog({
-        userId: session.user.id,
+        userId: session?.user?.id || voucher.createdBy || "cmr8q3sw801ggmr01md8c1y3x",
         action: LogAction.ITEM_UPDATED,
         details: `Posted voucher: ${voucher.voucherNumber} (Journal Entry: ${entryNumber}) - Total: ৳${postTotalDebit.toFixed(2)}`,
         metadata: { 

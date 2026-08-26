@@ -1231,28 +1231,30 @@ export async function createSaleAccountingVoucher(
       chartOfAccountId: salesAccounts.revenueAccountId,
     });
 
-    // 3. COGS & Inventory
+    // 3. COGS & Inventory (Only push if net COGS is non-zero, e.g. absAmount > 0.001)
     if (salesAccounts.cogsAccountId) {
       for (const [invAccountId, data] of Object.entries(cogsByAccount)) {
         const absAmount = Math.abs(data.amount);
         
-        // COGS
-        voucherLines.push({
-          lineNumber: lineNumber++,
-          chartOfAccountId: salesAccounts.cogsAccountId,
-          debitAmount: isReturn ? 0 : absAmount,
-          creditAmount: isReturn ? absAmount : 0,
-          description: `${data.description} (${sale.saleNumber})`,
-        });
+        if (absAmount > 0.001) {
+          // COGS
+          voucherLines.push({
+            lineNumber: lineNumber++,
+            chartOfAccountId: salesAccounts.cogsAccountId,
+            debitAmount: isReturn ? 0 : absAmount,
+            creditAmount: isReturn ? absAmount : 0,
+            description: `${data.description} (${sale.saleNumber})`,
+          });
 
-        // Inventory
-        voucherLines.push({
-          lineNumber: lineNumber++,
-          chartOfAccountId: invAccountId,
-          debitAmount: isReturn ? absAmount : 0,
-          creditAmount: isReturn ? 0 : absAmount,
-          description: isReturn ? `Inventory restock for ${sale.saleNumber}` : `Inventory reduction for ${sale.saleNumber}`,
-        });
+          // Inventory
+          voucherLines.push({
+            lineNumber: lineNumber++,
+            chartOfAccountId: invAccountId,
+            debitAmount: isReturn ? absAmount : 0,
+            creditAmount: isReturn ? 0 : absAmount,
+            description: isReturn ? `Inventory restock for ${sale.saleNumber}` : `Inventory reduction for ${sale.saleNumber}`,
+          });
+        }
       }
     }
 
@@ -1269,6 +1271,7 @@ export async function createSaleAccountingVoucher(
         ? `Sales Return Invoice ${sale.saleNumber} - ${sale.client.name}`
         : `Sale ${sale.saleNumber} - ${sale.client.name}`,
       clientId: sale.clientId,
+      createdBy: sale.createdBy,
       isSystemAction: true,
       lines: voucherLines,
     }, tx);
@@ -1303,14 +1306,17 @@ export async function createSaleAccountingVoucher(
         // we scale down the cash/card/mfs amounts proportionally so that they total exactly absGrandTotal.
         const scale = totalPaid > absGrandTotal ? (absGrandTotal / totalPaid) : 1;
 
-        if (cashAmt > 0 && paymentDetails.cashAccountId) {
-          paymentLines.push({
-            accountId: paymentDetails.cashAccountId,
-            amount: Number((cashAmt * scale).toFixed(2)),
-            description: isReturn 
-              ? `Cash Refund Paid - ${sale.saleNumber} - ${sale.client.name}`
-              : `Cash Received - ${sale.saleNumber} - ${sale.client.name}`,
-          });
+        if (cashAmt > 0) {
+          const cashAcctId = paymentDetails.cashAccountId || (await getWarehouseCashAccount(sale.warehouseId, client));
+          if (cashAcctId) {
+            paymentLines.push({
+              accountId: cashAcctId,
+              amount: Number((cashAmt * scale).toFixed(2)),
+              description: isReturn 
+                ? `Cash Refund Paid - ${sale.saleNumber} - ${sale.client.name}`
+                : `Cash Received - ${sale.saleNumber} - ${sale.client.name}`,
+            });
+          }
         }
         if (cardAmt > 0 && paymentDetails.cardAccountId) {
           paymentLines.push({
@@ -1386,6 +1392,7 @@ export async function createSaleAccountingVoucher(
           ? `Refund Payment for Return ${sale.saleNumber} - ${sale.client.name}`
           : `Payment Receipt for Sale ${sale.saleNumber} - ${sale.client.name}`,
         clientId: sale.clientId,
+        createdBy: sale.createdBy,
         isSystemAction: true,
         lines: receiptVoucherLines,
       }, tx);
@@ -3907,7 +3914,10 @@ export async function processSaleExchange(payload: {
       });
 
       // 6. Generate Accounting Voucher
-      await createSaleAccountingVoucher(newSale.id, tx);
+      const voucherResult = await createSaleAccountingVoucher(newSale.id, tx);
+      if (!voucherResult.success) {
+        throw new Error(voucherResult.error || "Failed to create accounting voucher for exchange sale");
+      }
 
       return newSale;
     });
