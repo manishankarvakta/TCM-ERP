@@ -80,6 +80,7 @@ export interface POSScreenModernProps {
   taxAmount: number;
   taxPercent: number;
   grandTotal: number;
+  previousCustomerDue?: number;
 
   // Direct Billing Handlers
   onConfirmDirectPayment: (paymentDetails: {
@@ -139,6 +140,7 @@ export default function POSScreenModern({
   discountAmount,
   setDiscountAmount,
   grandTotal,
+  previousCustomerDue = 0,
   onConfirmDirectPayment,
   isExchangeMode,
   heldCartsCount,
@@ -752,6 +754,18 @@ export default function POSScreenModern({
                 <span>Gross Total(Round):</span>
                 <span>{roundedGrandTotal.toFixed(2)}BDT</span>
               </div>
+              {previousCustomerDue > 0 && (
+                <>
+                  <div className="flex justify-between items-center text-amber-600 dark:text-amber-400 font-semibold text-xs pt-1">
+                    <span>Previous Due:</span>
+                    <span>{previousCustomerDue.toFixed(2)}BDT</span>
+                  </div>
+                  <div className="flex justify-between items-center text-destructive font-bold text-xs">
+                    <span>Total Combined Due:</span>
+                    <span>{(previousCustomerDue + Math.max(0, roundedGrandTotal - totalPaid)).toFixed(2)}BDT</span>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Payment Inputs */}
@@ -1045,13 +1059,27 @@ export default function POSScreenModern({
                   <span className="font-semibold text-foreground">No Items</span>
                 </div>
               ) : isDueBill || totalPaid < roundedGrandTotal ? (
-                <div className="bg-amber-500/10 border border-amber-500/20 text-amber-600 rounded-lg p-2.5 flex justify-between items-center shadow-sm">
-                  <span className="text-xs font-bold uppercase tracking-wide">
-                    {totalPaid > 0 ? "Remaining Due:" : "Amount to Due:"}
-                  </span>
-                  <span className="text-base font-black">
-                    ৳{Math.max(0, roundedGrandTotal - totalPaid).toFixed(2)}
-                  </span>
+                <div className="bg-amber-500/10 border border-amber-500/20 text-amber-600 rounded-lg p-2.5 space-y-1 shadow-sm">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-bold uppercase tracking-wide">
+                      {totalPaid > 0 ? "Remaining Due:" : "Amount to Due:"}
+                    </span>
+                    <span className="text-base font-black">
+                      ৳{Math.max(0, roundedGrandTotal - totalPaid).toFixed(2)}
+                    </span>
+                  </div>
+                  {previousCustomerDue > 0 && (
+                    <>
+                      <div className="pt-1 border-t border-amber-500/20 flex justify-between items-center text-xs font-semibold text-amber-700 dark:text-amber-300">
+                        <span>Previous Customer Due:</span>
+                        <span>৳{previousCustomerDue.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs font-black text-destructive dark:text-rose-400">
+                        <span>Total Combined Due:</span>
+                        <span>৳{(previousCustomerDue + Math.max(0, roundedGrandTotal - totalPaid)).toFixed(2)}</span>
+                      </div>
+                    </>
+                  )}
                 </div>
               ) : (
                 <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 rounded-lg p-2.5 flex justify-between items-center shadow-sm">

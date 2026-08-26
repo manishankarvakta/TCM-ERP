@@ -96,7 +96,7 @@ export default async function InvoicePrintPage({ params }: { params: Promise<{ i
       }
     }
 
-    // 3. Subtract any standalone RECEIPT vouchers for this client before this sale
+    // 3. Subtract any standalone RECEIPT vouchers for this client before this sale (excluding vouchers linked/referenced to sales)
     const standaloneReceipts = await prisma.voucher.findMany({
       where: {
         clientId: sale.clientId,
@@ -104,6 +104,11 @@ export default async function InvoicePrintPage({ params }: { params: Promise<{ i
         status: "posted",
         createdAt: { lte: sale.createdAt },
         sales: { none: {} },
+        AND: [
+          { reference: { not: { startsWith: "SAL-" } } },
+          { reference: { not: { startsWith: "EXC-" } } },
+          { reference: { not: { startsWith: "RET-" } } },
+        ],
       },
       include: {
         VoucherLine: true,

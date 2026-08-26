@@ -30,6 +30,7 @@ interface SaleDetailsClientProps {
   couponDiscountAccount?: { code: string; name: string } | null;
   salesDiscountAccount?: { code: string; name: string } | null;
   extractedMembershipDiscount: number;
+  previousDue?: number;
   vouchers?: any[];
   isAdmin?: boolean;
 }
@@ -50,6 +51,7 @@ export default function SaleDetailsClient({
   couponDiscountAccount,
   salesDiscountAccount,
   extractedMembershipDiscount,
+  previousDue = 0,
   vouchers = [],
   isAdmin = false,
 }: SaleDetailsClientProps) {
@@ -733,6 +735,30 @@ export default function SaleDetailsClient({
             <div className="mt-4 print:mt-2 text-left">
               <p className="text-xs font-semibold uppercase text-slate-500">Note / Terms:</p>
               <p className="text-sm print:text-xs text-slate-700 mt-1 whitespace-pre-wrap">{sale.notes}</p>
+            </div>
+          )}
+
+          {/* Payment & Dues Summary Block for A4 Print */}
+          {(remainingDue > 0.01 || previousDue > 0 || netPaid > 0) && printMode !== "challan" && (
+            <div className="mt-4 pt-3 border-t border-slate-200 print:mt-2 print:pt-2">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 print:grid-cols-4 print:gap-2 text-xs print:text-[11px]">
+                <div className="p-2 rounded border border-slate-200 bg-slate-50 print:bg-transparent print:border-slate-300">
+                  <span className="text-muted-foreground block text-[11px] print:text-[9px] uppercase font-semibold">Total Paid</span>
+                  <span className="font-bold text-emerald-700 print:text-slate-900 font-mono text-sm print:text-xs">{formatCurrency(netPaid)}</span>
+                </div>
+                <div className="p-2 rounded border border-slate-200 bg-slate-50 print:bg-transparent print:border-slate-300">
+                  <span className="text-muted-foreground block text-[11px] print:text-[9px] uppercase font-semibold">Current Invoice Due</span>
+                  <span className="font-bold text-amber-600 print:text-slate-900 font-mono text-sm print:text-xs">{formatCurrency(Math.max(0, remainingDue))}</span>
+                </div>
+                <div className="p-2 rounded border border-slate-200 bg-slate-50 print:bg-transparent print:border-slate-300">
+                  <span className="text-muted-foreground block text-[11px] print:text-[9px] uppercase font-semibold">Previous Due</span>
+                  <span className="font-bold text-slate-700 print:text-slate-900 font-mono text-sm print:text-xs">{formatCurrency(previousDue)}</span>
+                </div>
+                <div className="p-2 rounded border border-slate-300 bg-amber-500/10 print:bg-transparent print:border-slate-800">
+                  <span className="text-amber-800 print:text-slate-900 block text-[11px] print:text-[9px] uppercase font-bold">Total Net Due</span>
+                  <span className="font-black text-rose-700 print:text-slate-900 font-mono text-sm print:text-xs">{formatCurrency(previousDue + Math.max(0, remainingDue))}</span>
+                </div>
+              </div>
             </div>
           )}
         </CardContent>

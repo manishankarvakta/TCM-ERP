@@ -2392,6 +2392,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
           taxAmount={computedTaxAmount}
           taxPercent={taxPercent}
           grandTotal={grandTotal}
+          previousCustomerDue={previousCustomerDue}
           onConfirmDirectPayment={handleDirectPaymentCheckout}
           isExchangeMode={isExchangeMode}
           heldCartsCount={heldCarts.length}

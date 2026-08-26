@@ -119,6 +119,86 @@ export default async function SaleDetailsPage({ params }: SaleDetailsPageProps) 
     console.error("Failed to load discount accounts in sale details page:", err);
   }
 
+  let previousDue = 0;
+  const targetClientId = sale.client?.id || (sale as any).clientId;
+  if (targetClientId) {
+    const openingBal = Number(sale.client?.openingBalance || 0);
+    const coaId = (sale.client as any)?.ChartOfAccount?.id;
+    let hasOpeningJournal = false;
+    if (coaId) {
+      const journalMatch = await prisma.journalEntryLine.findFirst({
+        where: {
+          chartOfAccountId: coaId,
+          description: { contains: "opening balance", mode: "insensitive" },
+        },
+      });
+      if (journalMatch) hasOpeningJournal = true;
+    }
+
+    if (openingBal > 0 && !hasOpeningJournal) {
+      previousDue += openingBal;
+    }
+
+    const previousSales = await prisma.sale.findMany({
+      where: {
+        clientId: targetClientId,
+        status: "COMPLETED",
+        isTrash: false,
+        id: { not: sale.id },
+        createdAt: { lte: sale.createdAt },
+      },
+    });
+
+    for (const pSale of previousSales) {
+      const pGrandTotal = pSale.grandTotal.toNumber();
+      const pDetails = pSale.paymentDetails as any;
+
+      let pInitialPaid = 0;
+      let pTotalCollected = 0;
+
+      if (pDetails) {
+        pInitialPaid = Number(pDetails.cashAmount || 0) + Number(pDetails.cardAmount || 0) + Number(pDetails.mfsAmount || 0) - Number(pDetails.changeAmount || 0);
+
+        if (Array.isArray(pDetails.dueCollections)) {
+          for (const col of pDetails.dueCollections) {
+            pTotalCollected += Number(col.cashAmount || 0) + Number(col.cardAmount || 0) + Number(col.mfsAmount || 0);
+          }
+        }
+      }
+
+      const pRemainingDue = Number((pGrandTotal - pInitialPaid - pTotalCollected).toFixed(2));
+      if (pRemainingDue > 0.01) {
+        previousDue += pRemainingDue;
+      }
+    }
+
+    const standaloneReceipts = await prisma.voucher.findMany({
+      where: {
+        clientId: targetClientId,
+        type: "RECEIPT",
+        status: "posted",
+        createdAt: { lte: sale.createdAt },
+        sales: { none: {} },
+        AND: [
+          { reference: { not: { startsWith: "SAL-" } } },
+          { reference: { not: { startsWith: "EXC-" } } },
+          { reference: { not: { startsWith: "RET-" } } },
+        ],
+      },
+      include: {
+        VoucherLine: true,
+      },
+    });
+
+    for (const vReceipt of standaloneReceipts) {
+      const vAmount = vReceipt.VoucherLine.reduce(
+        (sum, line) => sum + Number(line.creditAmount || 0),
+        0
+      );
+      previousDue = Math.max(0, previousDue - vAmount);
+    }
+  }
+
   const session = await auth().catch(() => null);
   const isAdmin = session?.user?.role === "admin";
 
@@ -133,6 +213,7 @@ export default async function SaleDetailsPage({ params }: SaleDetailsPageProps) 
         couponDiscountAccount={couponDiscountAccount}
         salesDiscountAccount={salesDiscountAccount}
         extractedMembershipDiscount={extractedMembershipDiscount}
+        previousDue={previousDue}
         vouchers={vouchers}
         isAdmin={isAdmin}
       />
