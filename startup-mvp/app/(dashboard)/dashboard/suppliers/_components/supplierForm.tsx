@@ -352,10 +352,15 @@ export default function SupplierForm({ mode, initialData }: SupplierFormProps) {
                       step="1"
                       placeholder="0.00"
                       {...register("openingBalance")}
-                      disabled={loading}
+                      disabled={loading || mode === "edit"}
+                      className={mode === "edit" ? "bg-muted cursor-not-allowed" : ""}
                     />
-                    {errors.openingBalance && (
-                      <p className="text-sm text-destructive">{errors.openingBalance.message}</p>
+                    {mode === "edit" ? (
+                      <p className="text-[11px] text-muted-foreground">Opening balance cannot be modified after creation.</p>
+                    ) : (
+                      errors.openingBalance && (
+                        <p className="text-sm text-destructive">{errors.openingBalance.message}</p>
+                      )
                     )}
                   </div>
                 </div>
