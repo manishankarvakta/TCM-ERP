@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSocket } from "@/components/providers/SocketProvider";
-import { DndContext, DragEndEvent, useDroppable, useDraggable } from "@dnd-kit/core";
+import { DndContext, DragEndEvent, useDroppable, useDraggable, DragOverlay, DragStartEvent } from "@dnd-kit/core";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -69,20 +69,20 @@ interface Milestone {
 interface ProjectIssuesKanbanProps {
     project: any;
     users?: any[];
-    onRefresh: () => void;
+    onRefresh: (silent?: boolean) => void;
     onEditIssue: (issue: any) => void;
     onDeleteIssue: (id: string) => void;
     hasOp: (key: string, op: any) => boolean;
+    onViewIssue?: (issue: any) => void;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const LANES = [
-    { id: "OPEN",        title: "Open",        color: "bg-slate-500",   bg: "bg-slate-50/60 dark:bg-slate-900/30",  ring: "ring-slate-200",   badge: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300" },
-    { id: "IN_PROGRESS", title: "In Progress",  color: "bg-amber-500",   bg: "bg-amber-50/60 dark:bg-amber-900/20",  ring: "ring-amber-200",   badge: "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300" },
-    { id: "REVIEW",      title: "Under Review", color: "bg-blue-500",    bg: "bg-blue-50/60 dark:bg-blue-900/20",    ring: "ring-blue-200",    badge: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300" },
-    { id: "COMPLETED",   title: "Completed",    color: "bg-emerald-500", bg: "bg-emerald-50/60 dark:bg-emerald-900/20", ring: "ring-emerald-200", badge: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300" },
-    { id: "CLOSED",      title: "Closed",       color: "bg-gray-400",    bg: "bg-gray-50/60 dark:bg-gray-900/20",    ring: "ring-gray-200",    badge: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400" },
+    { id: "OPEN",        title: "Todo",        color: "bg-slate-500",   bg: "bg-slate-50/30 border-slate-200/50 dark:bg-slate-900/10",  ring: "ring-slate-200",   badge: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300" },
+    { id: "IN_PROGRESS", title: "In Progress",  color: "bg-amber-500",   bg: "bg-amber-50/20 border-amber-200/50 dark:bg-amber-950/5",  ring: "ring-amber-200",   badge: "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300" },
+    { id: "REVIEW",      title: "In Review",    color: "bg-blue-500",    bg: "bg-blue-50/20 border-blue-200/50 dark:bg-blue-950/5",    ring: "ring-blue-200",    badge: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300" },
+    { id: "COMPLETED",   title: "Done",         color: "bg-emerald-500", bg: "bg-emerald-50/20 border-emerald-200/50 dark:bg-emerald-950/5", ring: "ring-emerald-200", badge: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300" },
 ];
 
 const PRIORITY_STYLES: Record<string, string> = {
@@ -116,11 +116,23 @@ const getPriorityStyle = (priority: string) => {
 
 // ─── Board View ───────────────────────────────────────────────────────────────
 
-function BoardCard({ issue, onEdit, onDelete, hasOp }: { issue: Issue; onEdit: (i: any) => void; onDelete: (id: string) => void; hasOp: (k: string, op: any) => boolean }) {
-    const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: issue.id });
-    const style = transform ? { transform: `translate3d(${transform.x}px,${transform.y}px,0)`, zIndex: 50 } : undefined;
-    
-    // Calculate total and completed tasks including subtasks
+function BoardCardContent({ 
+    issue, 
+    onEdit, 
+    onDelete, 
+    hasOp, 
+    isOverlay = false,
+    dragListeners,
+    dragAttributes
+}: { 
+    issue: Issue; 
+    onEdit?: (i: any) => void; 
+    onDelete?: (id: string) => void; 
+    hasOp?: (k: string, op: any) => boolean;
+    isOverlay?: boolean;
+    dragListeners?: any;
+    dragAttributes?: any;
+}) {
     let completedTasks = 0;
     let totalTasks = 0;
     issue.Tasks?.forEach(t => {
@@ -139,38 +151,40 @@ function BoardCard({ issue, onEdit, onDelete, hasOp }: { issue: Issue; onEdit: (
     const taskProgress = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
 
     return (
-        <div
-            ref={setNodeRef}
-            style={style}
-            className={`group bg-background border border-border/60 rounded-xl shadow-sm hover:shadow-md hover:border-primary/30 transition-all p-4 space-y-3 ${isDragging ? "opacity-40 scale-95" : ""}`}
-        >
+        <div className="space-y-3">
             {/* Header */}
             <div className="flex items-start justify-between gap-2">
-                <div {...listeners} {...attributes} className="flex-1 cursor-grab active:cursor-grabbing">
+                <div 
+                    {...dragListeners} 
+                    {...(dragAttributes || {})} 
+                    className={`flex-1 min-w-0 ${!isOverlay ? "cursor-grab active:cursor-grabbing" : ""}`}
+                >
                     <span className="text-[10px] font-bold text-muted-foreground tracking-widest uppercase">
                         {issue.issueNumber || `#${issue.id.slice(0, 6)}`}
                     </span>
                     <h5 className="text-sm font-bold leading-snug mt-0.5 line-clamp-2">{issue.title}</h5>
                 </div>
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <MoreVertical className="h-3.5 w-3.5" />
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                        {hasOp("projects.issues", "edit") && (
-                            <DropdownMenuItem onClick={() => onEdit(issue)} className="cursor-pointer">
-                                <Edit3 className="mr-2 h-3.5 w-3.5" /> Edit
-                            </DropdownMenuItem>
-                        )}
-                        {(hasOp("projects.issues", "delete-permanently") || hasOp("projects.issues", "move-to-trash")) && (
-                            <DropdownMenuItem className="text-destructive focus:bg-destructive/10 cursor-pointer" onClick={() => onDelete(issue.id)}>
-                                <Trash2 className="mr-2 h-3.5 w-3.5" /> Delete
-                            </DropdownMenuItem>
-                        )}
-                    </DropdownMenuContent>
-                </DropdownMenu>
+                {!isOverlay && onEdit && onDelete && hasOp && (
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                            <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <MoreVertical className="h-3.5 w-3.5" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            {hasOp("projects.issues", "edit") && (
+                                <DropdownMenuItem onClick={() => onEdit(issue)} className="cursor-pointer">
+                                    <Edit3 className="mr-2 h-3.5 w-3.5" /> Edit
+                                </DropdownMenuItem>
+                            )}
+                            {(hasOp("projects.issues", "delete-permanently") || hasOp("projects.issues", "move-to-trash")) && (
+                                <DropdownMenuItem className="text-destructive focus:bg-destructive/10 cursor-pointer" onClick={() => onDelete(issue.id)}>
+                                    <Trash2 className="mr-2 h-3.5 w-3.5" /> Delete
+                                </DropdownMenuItem>
+                            )}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                )}
             </div>
 
             {/* Description */}
@@ -210,12 +224,45 @@ function BoardCard({ issue, onEdit, onDelete, hasOp }: { issue: Issue; onEdit: (
     );
 }
 
-function BoardLane({ lane, issues, onEdit, onDelete, hasOp }: { lane: typeof LANES[0]; issues: Issue[]; onEdit: (i: any) => void; onDelete: (id: string) => void; hasOp: (k: string, op: any) => boolean }) {
+function BoardCard({ issue, onEdit, onDelete, onView, hasOp }: { issue: Issue; onEdit: (i: any) => void; onDelete: (id: string) => void; onView?: (i: any) => void; hasOp: (k: string, op: any) => boolean }) {
+    const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: issue.id });
+    const style = transform ? { transform: `translate3d(${transform.x}px,${transform.y}px,0)` } : undefined;
+    
+    if (isDragging) {
+        return (
+            <div
+                ref={setNodeRef}
+                style={style}
+                className="bg-muted/15 border border-dashed border-border/80 rounded-xl h-[120px] transition-all"
+            />
+        );
+    }
+
+    return (
+        <div
+            ref={setNodeRef}
+            style={style}
+            onClick={() => onView?.(issue)}
+            className="group bg-background border border-border/60 rounded-xl shadow-sm hover:shadow-md hover:border-primary/30 cursor-pointer transition-all p-4"
+        >
+            <BoardCardContent 
+                issue={issue} 
+                onEdit={onEdit} 
+                onDelete={onDelete} 
+                hasOp={hasOp} 
+                dragListeners={listeners}
+                dragAttributes={attributes}
+            />
+        </div>
+    );
+}
+
+function BoardLane({ lane, issues, onEdit, onDelete, onView, hasOp }: { lane: typeof LANES[0]; issues: Issue[]; onEdit: (i: any) => void; onDelete: (id: string) => void; onView?: (i: any) => void; hasOp: (k: string, op: any) => boolean }) {
     const { setNodeRef, isOver } = useDroppable({ id: lane.id });
     return (
         <div
             ref={setNodeRef}
-            className={`w-[320px] shrink-0 flex flex-col gap-3 min-h-[500px] rounded-2xl border p-4 transition-all duration-200 ${lane.bg} ${isOver ? `ring-2 ${lane.ring}` : "border-border/40"}`}
+            className={`w-full flex flex-col gap-3 min-h-[500px] rounded-2xl border p-4 transition-all duration-200 ${lane.bg} ${isOver ? `ring-2 ${lane.ring}` : "border-border/40"}`}
         >
             <div className="flex items-center justify-between pb-3 border-b border-border/40">
                 <div className="flex items-center gap-2">
@@ -228,7 +275,7 @@ function BoardLane({ lane, issues, onEdit, onDelete, hasOp }: { lane: typeof LAN
             </div>
             <div className="flex flex-col gap-3 overflow-y-auto max-h-[560px] pr-0.5">
                 {issues.map(issue => (
-                    <BoardCard key={issue.id} issue={issue} onEdit={onEdit} onDelete={onDelete} hasOp={hasOp} />
+                    <BoardCard key={issue.id} issue={issue} onEdit={onEdit} onDelete={onDelete} onView={onView} hasOp={hasOp} />
                 ))}
                 {issues.length === 0 && (
                     <div className="flex-1 flex items-center justify-center py-16 text-xs text-muted-foreground/50 border-2 border-dashed border-border/40 rounded-xl">
@@ -441,9 +488,10 @@ function MilestoneRow({ milestone, onEdit, onDelete, hasOp }: { milestone: Miles
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export default function ProjectIssuesKanban({ project, onRefresh, onEditIssue, onDeleteIssue, hasOp }: ProjectIssuesKanbanProps) {
+export default function ProjectIssuesKanban({ project, onRefresh, onEditIssue, onDeleteIssue, onViewIssue, hasOp }: ProjectIssuesKanbanProps) {
     const [view, setView] = useState<"board" | "list">("board");
     const [localIssues, setLocalIssues] = useState<Issue[]>([]);
+    const [activeId, setActiveId] = useState<string | null>(null);
     const { socket, isConnected } = useSocket();
 
     useEffect(() => {
@@ -457,8 +505,8 @@ export default function ProjectIssuesKanban({ project, onRefresh, onEditIssue, o
         const room = `entity:project:${project.id}`;
         socket.emit("join_room", { room });
         const handleRefresh = (payload: any) => {
-            if (payload?.actorId === socket.auth?.userId && payload?.metadata?.optimistic) return;
-            onRefresh();
+            if (payload?.actorId === (socket.auth as any)?.userId && payload?.metadata?.optimistic) return;
+            onRefresh(true);
         };
         socket.on("ISSUE_UPDATED", handleRefresh);
         socket.on("ISSUE_CREATED", handleRefresh);
@@ -471,7 +519,12 @@ export default function ProjectIssuesKanban({ project, onRefresh, onEditIssue, o
         };
     }, [socket, isConnected, project?.id, onRefresh]);
 
+    const handleDragStart = (event: DragStartEvent) => {
+        setActiveId(event.active.id as string);
+    };
+
     const handleDragEnd = async (event: DragEndEvent) => {
+        setActiveId(null);
         const { active, over } = event;
         if (!over) return;
         const issueId = active.id as string;
@@ -485,7 +538,7 @@ export default function ProjectIssuesKanban({ project, onRefresh, onEditIssue, o
         const res = await updateIssue(issueId, { status: targetStatus });
         if (res.success) {
             toast.success(`Status updated to ${targetStatus}`);
-            onRefresh();
+            onRefresh(true);
         } else {
             toast.error(res.error || "Failed to update status");
             setLocalIssues(previous);
@@ -523,10 +576,15 @@ export default function ProjectIssuesKanban({ project, onRefresh, onEditIssue, o
 
             {/* Board View */}
             {view === "board" && (
-                <DndContext onDragEnd={handleDragEnd}>
-                    <div className="flex gap-4 overflow-x-auto pb-4 items-start scrollbar-thin">
+                <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 pb-4 items-start w-full">
                         {LANES.map(lane => {
-                            const laneIssues = localIssues.filter(i => i.status === lane.id);
+                            const laneIssues = localIssues.filter(i => {
+                                if (lane.id === "COMPLETED") {
+                                    return i.status === "COMPLETED" || i.status === "CLOSED";
+                                }
+                                return i.status === lane.id;
+                            });
                             return (
                                 <BoardLane
                                     key={lane.id}
@@ -534,11 +592,22 @@ export default function ProjectIssuesKanban({ project, onRefresh, onEditIssue, o
                                     issues={laneIssues}
                                     onEdit={onEditIssue}
                                     onDelete={onDeleteIssue}
+                                    onView={onViewIssue}
                                     hasOp={hasOp}
                                 />
                             );
                         })}
                     </div>
+                    <DragOverlay adjustScale={false}>
+                        {activeId ? (
+                            <div className="opacity-95 scale-[1.03] z-[9999] pointer-events-none rotate-1 shadow-xl border border-primary/20 rounded-xl bg-background p-4 w-[288px]">
+                                <BoardCardContent 
+                                    issue={localIssues.find(i => i.id === activeId)!} 
+                                    isOverlay={true}
+                                />
+                            </div>
+                        ) : null}
+                    </DragOverlay>
                 </DndContext>
             )}
 

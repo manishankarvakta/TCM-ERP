@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select";
 import { FiAlertCircle, FiUser, FiInfo, FiActivity, FiTarget } from "react-icons/fi";
 import { createIssue, updateIssue, getProjectTeam } from "@/app/actions/projects/project.action";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useParams } from "next/navigation";
 import { toast } from "sonner";
 import { useState, useEffect } from "react";
@@ -27,7 +28,7 @@ const issueSchema = z.object({
   type: z.enum(["TASK", "BUG", "FEATURE", "IMPROVEMENT"]),
   status: z.enum(["OPEN", "IN_PROGRESS", "CLOSED", "REJECTED"]),
   assigneeId: z.string().optional().nullable(),
-  milestoneId: z.string().min(1, "Milestone is required"),
+  milestoneId: z.string().optional().nullable().or(z.literal("")),
 });
 
 type IssueFormData = z.infer<typeof issueSchema>;
@@ -72,12 +73,12 @@ export default function IssueForm({ milestones = [], defaultMilestoneId, milesto
       type: initialData.type || "TASK",
       status: initialData.status || "OPEN",
       assigneeId: initialData.assigneeId || null,
-      milestoneId: initialData.milestoneId || defaultMilestoneId || milestoneId || "",
+      milestoneId: initialData.milestoneId || defaultMilestoneId || milestoneId || "none",
     } : {
       priority: "NORMAL",
       type: "TASK",
       status: "OPEN",
-      milestoneId: defaultMilestoneId || milestoneId || "",
+      milestoneId: defaultMilestoneId || milestoneId || "none",
     },
   });
 
@@ -89,7 +90,8 @@ export default function IssueForm({ milestones = [], defaultMilestoneId, milesto
         priority: data.priority,
         type: data.type,
         status: data.status,
-        milestoneId: data.milestoneId,
+        milestoneId: (data.milestoneId === "none" || !data.milestoneId) ? undefined : data.milestoneId,
+        projectId: projectId || undefined,
         assigneeId: (data.assigneeId === "none" || !data.assigneeId) ? undefined : data.assigneeId,
       };
 
@@ -117,13 +119,13 @@ export default function IssueForm({ milestones = [], defaultMilestoneId, milesto
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       <div className="space-y-4">
         <div className="grid gap-2">
-          <Label htmlFor="title" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Issue Overview</Label>
+          <Label htmlFor="title" className="text-xs font-bold text-muted-foreground ml-1">Title</Label>
           <div className="relative group">
-            <FiInfo className="absolute left-4 top-3.5 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+            <FiInfo className="absolute left-4 top-3.5 h-4 w-4 text-muted-foreground group-focus-within:text-violet-500 transition-colors z-10" />
             <Input
               id="title"
               placeholder="e.g. Memory Leak in Production"
-              className="pl-11 h-12 bg-muted/20 border-border/40 rounded-xl font-bold focus:ring-2 focus:ring-primary/20 transition-all"
+              className="pl-11 h-12 bg-background border border-border/60 hover:bg-muted/10 rounded-xl font-bold focus:ring-2 focus:ring-violet-500/20 transition-all"
               {...register("title")}
             />
           </div>
@@ -131,46 +133,46 @@ export default function IssueForm({ milestones = [], defaultMilestoneId, milesto
         </div>
 
         <div className="grid gap-2">
-          <Label htmlFor="description" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Mission Specs</Label>
+          <Label htmlFor="description" className="text-xs font-bold text-muted-foreground ml-1">Description</Label>
           <Textarea
             id="description"
             placeholder="Detailed report of the core issue and technical constraints..."
-            className="min-h-[100px] bg-muted/20 border-border/40 rounded-xl font-medium focus:ring-2 focus:ring-primary/20 transition-all resize-none"
+            className="min-h-[100px] bg-background border border-border/60 hover:bg-muted/10 rounded-xl font-medium focus:ring-2 focus:ring-violet-500/20 transition-all resize-none"
             {...register("description")}
           />
         </div>
 
         <div className="grid gap-2">
-          <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Target Milestone</Label>
+          <Label className="text-xs font-bold text-muted-foreground ml-1">Milestone</Label>
           <div className="relative group">
-            <FiTarget className="absolute left-4 top-3.5 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors z-10" />
+            <FiTarget className="absolute left-4 top-3.5 h-4 w-4 text-muted-foreground group-focus-within:text-violet-500 transition-colors z-10" />
             <Select
               onValueChange={(value) => setValue("milestoneId", value)}
-              defaultValue={selectedMilestoneId || undefined}
+              value={selectedMilestoneId || "none"}
             >
-              <SelectTrigger className="pl-11 h-12 bg-muted/20 border-border/40 rounded-xl font-bold">
-                <SelectValue placeholder="Select Milestone" />
+              <SelectTrigger className="pl-11 h-12 bg-background border border-border/60 hover:bg-muted/10 rounded-xl font-bold transition focus-visible:ring-2 focus-visible:ring-violet-500/20">
+                <SelectValue placeholder="Select Milestone (Optional)" />
               </SelectTrigger>
               <SelectContent className="rounded-xl">
+                <SelectItem value="none" className="font-bold text-muted-foreground/60 italic font-medium">No Milestone (Backlog)</SelectItem>
                 {milestones.map(m => (
                   <SelectItem key={m.id} value={m.id} className="font-bold">{m.title}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
-          {errors.milestoneId && <p className="text-[10px] text-destructive font-bold uppercase tracking-wider ml-1">{errors.milestoneId.message}</p>}
         </div>
 
         <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Object Type</Label>
+                <Label className="text-xs font-bold text-muted-foreground ml-1">Type</Label>
                 <div className="relative group">
-                    <FiActivity className="absolute left-4 top-3.5 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors z-10" />
+                    <FiActivity className="absolute left-4 top-3.5 h-4 w-4 text-muted-foreground group-focus-within:text-violet-500 transition-colors z-10" />
                     <Select
                         onValueChange={(value) => setValue("type", value as any)}
                         defaultValue={type}
                     >
-                        <SelectTrigger className="pl-11 h-12 bg-muted/20 border-border/40 rounded-xl font-bold">
+                        <SelectTrigger className="pl-11 h-12 bg-background border border-border/60 hover:bg-muted/10 rounded-xl font-bold transition focus-visible:ring-2 focus-visible:ring-violet-500/20">
                             <SelectValue placeholder="Type" />
                         </SelectTrigger>
                         <SelectContent className="rounded-xl">
@@ -183,14 +185,14 @@ export default function IssueForm({ milestones = [], defaultMilestoneId, milesto
                 </div>
             </div>
             <div className="grid gap-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Threat Level</Label>
+                <Label className="text-xs font-bold text-muted-foreground ml-1">Priority</Label>
                 <div className="relative group">
-                    <FiAlertCircle className="absolute left-4 top-3.5 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors z-10" />
+                    <FiAlertCircle className="absolute left-4 top-3.5 h-4 w-4 text-muted-foreground group-focus-within:text-violet-500 transition-colors z-10" />
                     <Select
                         onValueChange={(value) => setValue("priority", value as any)}
                         defaultValue={priority}
                     >
-                        <SelectTrigger className="pl-11 h-12 bg-muted/20 border-border/40 rounded-xl font-bold">
+                        <SelectTrigger className="pl-11 h-12 bg-background border border-border/60 hover:bg-muted/10 rounded-xl font-bold transition focus-visible:ring-2 focus-visible:ring-violet-500/20">
                             <SelectValue placeholder="Priority" />
                         </SelectTrigger>
                         <SelectContent className="rounded-xl">
@@ -206,32 +208,47 @@ export default function IssueForm({ milestones = [], defaultMilestoneId, milesto
 
         <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Entity Origin</Label>
+                <Label className="text-xs font-bold text-muted-foreground ml-1">Assignee</Label>
                 <div className="relative group">
-                    <FiUser className="absolute left-4 top-3.5 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors z-10" />
+                    <FiUser className="absolute left-4 top-3.5 h-4 w-4 text-muted-foreground group-focus-within:text-violet-500 transition-colors z-10" />
                     <Select
                         onValueChange={(value) => setValue("assigneeId", value)}
                         defaultValue={watch("assigneeId") || "none"}
                     >
-                        <SelectTrigger className="pl-11 h-12 bg-muted/20 border-border/40 rounded-xl font-bold">
+                        <SelectTrigger className="pl-11 h-12 bg-background border border-border/60 hover:bg-muted/10 rounded-xl font-bold transition focus-visible:ring-2 focus-visible:ring-violet-500/20">
                             <SelectValue placeholder="Assignee" />
                         </SelectTrigger>
                         <SelectContent className="rounded-xl">
-                            <SelectItem value="none" className="font-bold text-muted-foreground/60 italic font-medium">Unassigned</SelectItem>
+                            <SelectItem value="none" className="font-bold text-muted-foreground/60 italic font-medium">
+                                <div className="flex items-center gap-2">
+                                    <span className="h-5 w-5 rounded-full bg-muted flex items-center justify-center text-[10px]">?</span>
+                                    <span>Unassigned</span>
+                                </div>
+                            </SelectItem>
                             {users.map(user => (
-                                <SelectItem key={user.id} value={user.id} className="font-bold">{user.name}</SelectItem>
+                                <SelectItem key={user.id} value={user.id} className="font-bold">
+                                    <div className="flex items-center gap-2">
+                                        <Avatar className="h-5 w-5 shrink-0">
+                                            <AvatarImage src={user.image} />
+                                            <AvatarFallback className="text-[8px] bg-primary/10 text-primary">
+                                                {user.name?.charAt(0) || "?"}
+                                            </AvatarFallback>
+                                        </Avatar>
+                                        <span>{user.name}</span>
+                                    </div>
+                                </SelectItem>
                             ))}
                         </SelectContent>
                     </Select>
                 </div>
             </div>
             <div className="grid gap-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Mission Status</Label>
+                <Label className="text-xs font-bold text-muted-foreground ml-1">Status</Label>
                 <Select
                     onValueChange={(value) => setValue("status", value as any)}
                     defaultValue={status}
                 >
-                    <SelectTrigger className="h-12 bg-muted/20 border-border/40 rounded-xl font-bold">
+                    <SelectTrigger className="h-12 bg-background border border-border/60 hover:bg-muted/10 rounded-xl font-bold transition focus-visible:ring-2 focus-visible:ring-violet-500/20">
                         <SelectValue placeholder="Status" />
                     </SelectTrigger>
                     <SelectContent className="rounded-xl">
@@ -250,16 +267,16 @@ export default function IssueForm({ milestones = [], defaultMilestoneId, milesto
           type="button"
           variant="outline"
           onClick={onCancel}
-          className="flex-1 h-12 rounded-xl font-black uppercase text-[10px] tracking-widest border-border/60 hover:bg-muted transition-all"
+          className="flex-1 h-11 rounded-xl font-bold text-xs border border-border/60 text-muted-foreground hover:text-foreground hover:bg-muted/40 cursor-pointer transition-all"
         >
-          Abort
+          Cancel
         </Button>
         <Button
           type="submit"
-          className="flex-1 h-12 rounded-xl font-black uppercase text-[10px] tracking-[0.2em] bg-primary shadow-xl shadow-primary/20 transition-all active:scale-95"
+          className="flex-1 h-11 rounded-xl font-bold text-xs bg-violet-600 hover:bg-violet-750 text-white shadow-sm hover:shadow active:scale-95 cursor-pointer transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           disabled={isSubmitting}
         >
-          {isSubmitting ? "Syncing..." : initialData ? "Update Mission" : "Commit Issue"}
+          {isSubmitting ? "Syncing..." : initialData ? "Save Changes" : "Log Issue"}
         </Button>
       </div>
     </form>

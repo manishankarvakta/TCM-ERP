@@ -37,7 +37,7 @@ const statusMap: Record<string, { label: string; variant: "default" | "secondary
   "CANCELLED": { label: "Cancelled", variant: "destructive" },
 };
 
-export default function ProjectTable({ projects, onEdit, onRefresh }: { projects: any[], onEdit: (p: any) => void, onRefresh: () => void }) {
+export default function ProjectTable({ projects, onEdit, onRefresh, page = 1, limit = 10 }: { projects: any[], onEdit: (p: any) => void, onRefresh: () => void, page?: number, limit?: number }) {
   const handleStatusUpdate = async (id: string, newStatus: string) => {
     try {
       const result = await updateProject(id, { status: newStatus });
@@ -57,6 +57,7 @@ export default function ProjectTable({ projects, onEdit, onRefresh }: { projects
       <Table>
         <TableHeader>
           <TableRow>
+            <TableHead className="w-12 text-center">SL</TableHead>
             <TableHead>Code</TableHead>
             <TableHead>Project Title</TableHead>
             <TableHead>Client</TableHead>
@@ -70,13 +71,16 @@ export default function ProjectTable({ projects, onEdit, onRefresh }: { projects
         <TableBody>
           {projects.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={7} className="h-24 text-center">
+              <TableCell colSpan={9} className="h-24 text-center">
                 No projects found.
               </TableCell>
             </TableRow>
           ) : (
-            projects.map((project) => (
+            projects.map((project, idx) => (
               <TableRow key={project.id}>
+                <TableCell className="text-center font-mono text-xs text-muted-foreground font-bold">
+                  {String((page - 1) * limit + idx + 1).padStart(2, "0")}
+                </TableCell>
                 <TableCell className="font-mono text-xs text-muted-foreground whitespace-nowrap">
                   {project.projectNumber || "-"}
                 </TableCell>

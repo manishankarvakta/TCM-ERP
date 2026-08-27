@@ -176,16 +176,16 @@ export default function MilestoneForm({ projectId, onSuccess, onCancel, initialD
           type="button"
           variant="outline"
           onClick={onCancel}
-          className="flex-1 h-12 rounded-xl font-black uppercase text-[10px] tracking-widest border-border/60 hover:bg-muted transition-all"
+          className="flex-1 h-11 rounded-xl font-bold text-xs border border-border/60 text-muted-foreground hover:text-foreground hover:bg-muted/40 cursor-pointer transition-all"
         >
-          Abort
+          Cancel
         </Button>
         <Button
           type="submit"
-          className="flex-1 h-12 rounded-xl font-black uppercase text-[10px] tracking-[0.2em] bg-primary shadow-lg shadow-primary/20 transition-all active:scale-95"
+          className="flex-1 h-11 rounded-xl font-bold text-xs bg-violet-600 hover:bg-violet-750 text-white shadow-sm hover:shadow active:scale-95 cursor-pointer transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           disabled={isSubmitting}
         >
-          {isSubmitting ? "Syncing..." : initialData ? "Update Mission" : "Launch Phase"}
+          {isSubmitting ? "Syncing..." : initialData ? "Save Changes" : "Create Milestone"}
         </Button>
       </div>
     </form>

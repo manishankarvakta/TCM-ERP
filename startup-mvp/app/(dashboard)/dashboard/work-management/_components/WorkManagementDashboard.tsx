@@ -286,147 +286,162 @@ export default function WorkManagementDashboard({ initialData, currentUser, hide
       </div>
 
       {/* Needs Attention & Recent Activity */}
-      <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
+      <div className="grid gap-6 grid-cols-1 lg:grid-cols-3 items-stretch">
         {/* Needs Attention Column */}
-        <div className="lg:col-span-2 space-y-4">
+        <div className="lg:col-span-2 space-y-4 flex flex-col">
           <h2 className="text-lg font-bold tracking-tight">🔴 Needs Attention</h2>
           
-          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 flex-1">
             {/* Blocked Tasks List */}
-            <div className="rounded-xl border border-border bg-card p-4 space-y-3 shadow-xs">
-              <h3 className="text-sm font-bold text-rose-600 flex items-center gap-1.5">
-                <AlertTriangle className="h-4 w-4" /> Blocked Tasks ({needsAttention.blockedTasks.length})
-              </h3>
+            <div className="rounded-xl border border-border bg-card p-4 space-y-3 shadow-xs flex flex-col justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-rose-600 flex items-center gap-1.5 mb-2.5">
+                  <AlertTriangle className="h-4 w-4" /> Blocked Tasks ({needsAttention.blockedTasks.length})
+                </h3>
 
-              {needsAttention.blockedTasks.length === 0 ? (
-                <div className="flex h-32 flex-col items-center justify-center text-xs text-muted-foreground">
-                  <Check className="h-5 w-5 text-emerald-500 mb-1" />
-                  <p>Great! No blocked tasks.</p>
-                </div>
-              ) : (
-                <div className="space-y-2.5 max-h-48 overflow-y-auto">
-                  {needsAttention.blockedTasks.map((t: any) => (
-                    <div key={t.id} className="text-xs border-b border-border pb-2 last:border-0 last:pb-0">
-                      <Link href={`/dashboard/projects/tasks`} className="font-semibold text-foreground hover:underline block truncate">
-                        {t.title}
-                      </Link>
-                      <div className="flex items-center justify-between text-muted-foreground mt-1">
-                        <span>Project: {t.project}</span>
-                        <span>Owner: {t.assignee}</span>
+                {needsAttention.blockedTasks.length === 0 ? (
+                  <div className="flex h-32 flex-col items-center justify-center text-xs text-muted-foreground">
+                    <Check className="h-5 w-5 text-emerald-500 mb-1" />
+                    <p>Great! No blocked tasks.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2.5 max-h-48 overflow-y-auto pr-1">
+                    {needsAttention.blockedTasks.map((t: any) => (
+                      <div key={t.id} className="text-xs border-b border-border pb-2 last:border-0 last:pb-0">
+                        <Link href={`/dashboard/projects/tasks`} className="font-semibold text-foreground hover:underline block truncate">
+                          {t.title}
+                        </Link>
+                        <div className="flex items-center justify-between text-muted-foreground mt-1">
+                          <span>Project: {t.project}</span>
+                          <span>Owner: {t.assignee}</span>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Overdue Tasks List */}
-            <div className="rounded-xl border border-border bg-card p-4 space-y-3 shadow-xs">
-              <h3 className="text-sm font-bold text-amber-600 flex items-center gap-1.5">
-                <AlertTriangle className="h-4 w-4" /> Overdue Tasks ({needsAttention.overdueTasks.length})
-              </h3>
+            <div className="rounded-xl border border-border bg-card p-4 space-y-3 shadow-xs flex flex-col justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-amber-600 flex items-center gap-1.5 mb-2.5">
+                  <AlertTriangle className="h-4 w-4" /> Overdue Tasks ({needsAttention.overdueTasks.length})
+                </h3>
 
-              {needsAttention.overdueTasks.length === 0 ? (
-                <div className="flex h-32 flex-col items-center justify-center text-xs text-muted-foreground">
-                  <Check className="h-5 w-5 text-emerald-500 mb-1" />
-                  <p>All tasks are on schedule.</p>
-                </div>
-              ) : (
-                <div className="space-y-2.5 max-h-48 overflow-y-auto">
-                  {needsAttention.overdueTasks.map((t: any) => (
-                    <div key={t.id} className="text-xs border-b border-border pb-2 last:border-0 last:pb-0">
-                      <Link href={`/dashboard/projects/tasks`} className="font-semibold text-foreground hover:underline block truncate">
-                        {t.title}
-                      </Link>
-                      <div className="flex items-center justify-between text-muted-foreground mt-1">
-                        <span className="text-rose-600 font-semibold">Due: {t.dueDate}</span>
-                        <span>Assignee: {t.assignee}</span>
+                {needsAttention.overdueTasks.length === 0 ? (
+                  <div className="flex h-32 flex-col items-center justify-center text-xs text-muted-foreground">
+                    <Check className="h-5 w-5 text-emerald-500 mb-1" />
+                    <p>All tasks are on schedule.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2.5 max-h-48 overflow-y-auto pr-1">
+                    {needsAttention.overdueTasks.map((t: any) => (
+                      <div key={t.id} className="text-xs border-b border-border pb-2 last:border-0 last:pb-0">
+                        <Link href={`/dashboard/projects/tasks`} className="font-semibold text-foreground hover:underline block truncate">
+                          {t.title}
+                        </Link>
+                        <div className="flex items-center justify-between text-muted-foreground mt-1">
+                          <span className="text-rose-600 font-semibold">Due: {t.dueDate}</span>
+                          <span>Assignee: {t.assignee}</span>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Missing Daily Updates */}
-            <div className="rounded-xl border border-border bg-card p-4 space-y-3 shadow-xs">
-              <h3 className="text-sm font-bold text-zinc-550 flex items-center gap-1.5">
-                <Clock className="h-4 w-4" /> Missing Today's Updates ({needsAttention.missingUpdates.length})
-              </h3>
+            <div className="rounded-xl border border-border bg-card p-4 space-y-3 shadow-xs flex flex-col justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-zinc-550 flex items-center gap-1.5 mb-2.5">
+                  <Clock className="h-4 w-4" /> Missing Today's Updates ({needsAttention.missingUpdates.length})
+                </h3>
 
-              {needsAttention.missingUpdates.length === 0 ? (
-                <div className="flex h-32 flex-col items-center justify-center text-xs text-muted-foreground">
-                  <Check className="h-5 w-5 text-emerald-500 mb-1" />
-                  <p>All updates submitted today!</p>
-                </div>
-              ) : (
-                <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {needsAttention.missingUpdates.map((emp: any) => (
-                    <div key={emp.id} className="flex items-center justify-between text-xs py-1 border-b border-border last:border-0">
-                      <span className="font-semibold">{emp.name}</span>
-                      <Link href={`/dashboard/employees`} className="text-primary hover:underline text-[10px]">
-                        View Profile
-                      </Link>
-                    </div>
-                  ))}
-                </div>
-              )}
+                {needsAttention.missingUpdates.length === 0 ? (
+                  <div className="flex h-32 flex-col items-center justify-center text-xs text-muted-foreground">
+                    <Check className="h-5 w-5 text-emerald-500 mb-1" />
+                    <p>All updates submitted today!</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                    {needsAttention.missingUpdates.map((emp: any) => (
+                      <div key={emp.id} className="flex items-center justify-between text-xs py-1 border-b border-border last:border-0">
+                        <span className="font-semibold">{emp.name}</span>
+                        <Link href={`/dashboard/employees`} className="text-primary hover:underline text-[10px]">
+                          View Profile
+                        </Link>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* High Workload Alerts */}
-            <div className="rounded-xl border border-border bg-card p-4 space-y-3 shadow-xs">
-              <h3 className="text-sm font-bold text-rose-500 flex items-center gap-1.5">
-                <Activity className="h-4 w-4" /> High Workload ({needsAttention.highWorkload.length})
-              </h3>
+            <div className="rounded-xl border border-border bg-card p-4 space-y-3 shadow-xs flex flex-col justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-rose-500 flex items-center gap-1.5 mb-2.5">
+                  <Activity className="h-4 w-4" /> High Workload ({needsAttention.highWorkload.length})
+                </h3>
 
-              {needsAttention.highWorkload.length === 0 ? (
-                <div className="flex h-32 flex-col items-center justify-center text-xs text-muted-foreground">
-                  <Check className="h-5 w-5 text-emerald-500 mb-1" />
-                  <p>Workloads balanced.</p>
-                </div>
-              ) : (
-                <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {needsAttention.highWorkload.map((w: any) => (
-                    <div key={w.id} className="flex items-center justify-between text-xs py-1 border-b border-border last:border-0">
-                      <span className="font-semibold">{w.name}</span>
-                      <div className="flex items-center gap-1">
-                        <span className="text-rose-600 font-bold">{w.workloadRatio}% Capacity</span>
-                        {w.burnoutRisk && <span className="bg-rose-100 text-rose-700 text-[9px] px-1 rounded">Burnout Risk</span>}
+                {needsAttention.highWorkload.length === 0 ? (
+                  <div className="flex h-32 flex-col items-center justify-center text-xs text-muted-foreground">
+                    <Check className="h-5 w-5 text-emerald-500 mb-1" />
+                    <p>Workloads balanced.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                    {needsAttention.highWorkload.map((w: any) => (
+                      <div key={w.id} className="flex items-center justify-between text-xs py-1 border-b border-border last:border-0">
+                        <span className="font-semibold">{w.name}</span>
+                        <div className="flex items-center gap-1">
+                          <span className="text-rose-600 font-bold">{w.workloadRatio}% Capacity</span>
+                          {w.burnoutRisk && <span className="bg-rose-100 text-rose-700 text-[9px] px-1 rounded">Burnout Risk</span>}
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
 
         {/* Realtime Activity Feed Column */}
-        <div className="space-y-4">
+        <div className="space-y-4 flex flex-col">
           <h2 className="text-lg font-bold tracking-tight">⚡ Realtime Activity</h2>
 
-          <div className="rounded-xl border border-border bg-card p-4 space-y-4 h-[252px] overflow-y-auto shadow-xs">
-            {recentActivity.length === 0 ? (
-              <div className="flex h-full flex-col items-center justify-center text-xs text-muted-foreground">
-                <Inbox className="h-6 w-6 mb-2" />
-                <p>No recent activity logs.</p>
-              </div>
-            ) : (
-              <div className="relative border-l border-zinc-200 pl-4 space-y-4 text-xs">
-                {recentActivity.map((act: any) => (
-                  <div key={act.id} className="relative">
-                    <span className="absolute -left-[21px] top-1 h-2 w-2 rounded-full border border-card bg-primary" />
-                    <div className="text-[10px] text-muted-foreground">
-                      {new Date(act.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+          <div className="rounded-xl border border-border bg-card p-4 shadow-sm flex-1 flex flex-col min-h-[385px]">
+            <div className="overflow-y-auto flex-1 pr-1 space-y-4 max-h-[360px]">
+              {recentActivity.length === 0 ? (
+                <div className="flex h-full flex-col items-center justify-center text-xs text-muted-foreground py-12">
+                  <Inbox className="h-6 w-6 mb-2 text-muted-foreground/60" />
+                  <p>No recent activity logs.</p>
+                </div>
+              ) : (
+                <div className="relative border-l border-zinc-200 dark:border-zinc-800 pl-4 space-y-4 text-xs">
+                  {recentActivity.map((act: any) => (
+                    <div key={act.id} className="relative group">
+                      <span className="absolute -left-[21px] top-1 h-2 w-2 rounded-full border border-card bg-primary group-hover:scale-125 transition-transform" />
+                      <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-0.5">
+                        <span className="font-semibold text-primary/95">{act.actorName}</span>
+                        <span>{new Date(act.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                      </div>
+                      <p className="font-medium text-foreground">
+                        {act.subject}
+                      </p>
+                      {act.description && (
+                        <p className="text-muted-foreground text-[10px] leading-relaxed mt-1 bg-accent/20 dark:bg-zinc-800/40 rounded p-2 border border-border/20">
+                          {act.description}
+                        </p>
+                      )}
                     </div>
-                    <p className="mt-0.5 font-medium text-foreground">
-                      {act.subject}
-                    </p>
-                    {act.description && <p className="text-muted-foreground text-[10px]">{act.description}</p>}
-                  </div>
-                ))}
-              </div>
-            )}
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -440,31 +455,31 @@ export default function WorkManagementDashboard({ initialData, currentUser, hide
             No team members are currently working.
           </div>
         ) : (
-          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
             {teamLiveStatus.map((emp: any) => {
               // Live ticker offset logic
               let activeDurationMs = emp.activeDurationMs;
               return (
-                <div key={emp.id} className="rounded-xl border border-border bg-card p-4 space-y-3 relative overflow-hidden shadow-sm hover:shadow transition">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-full bg-muted overflow-hidden flex items-center justify-center font-bold text-sm text-foreground">
+                <div key={emp.id} className="rounded-xl border border-border bg-card p-3 space-y-2 relative overflow-hidden shadow-xs hover:shadow-sm hover:border-slate-350 dark:hover:border-zinc-700 transition duration-200">
+                  <div className="flex items-center gap-2">
+                    <div className="h-8 w-8 rounded-full bg-muted overflow-hidden flex items-center justify-center font-bold text-xs text-foreground shrink-0">
                       {emp.photo ? (
                         <img src={emp.photo} alt={emp.name} className="h-full w-full object-cover" />
                       ) : (
                         emp.name.split(" ").map((n: string) => n[0]).join("")
                       )}
                     </div>
-                    <div className="min-w-0">
-                      <h3 className="font-bold text-sm truncate">{emp.name}</h3>
-                      <p className="text-[10px] text-muted-foreground truncate">{emp.designation}</p>
+                    <div className="min-w-0 flex-1 leading-tight">
+                      <h3 className="font-extrabold text-[11px] text-foreground truncate" title={emp.name}>{emp.name}</h3>
+                      <p className="text-[9px] text-muted-foreground truncate">{emp.designation || "Employee"}</p>
                     </div>
                   </div>
 
                   {/* Status Indicator Bar */}
-                  <div className="flex items-center justify-between border-t border-border pt-2.5">
-                    <div className="flex items-center gap-1.5">
+                  <div className="flex items-center justify-between border-t border-border/60 pt-2">
+                    <div className="flex items-center gap-1">
                       <span
-                        className={`h-2.5 w-2.5 rounded-full ${
+                        className={`h-2 w-2 rounded-full shrink-0 ${
                           emp.status === "WORKING"
                             ? "bg-emerald-500 animate-pulse"
                             : emp.status === "ON BREAK"
@@ -474,56 +489,51 @@ export default function WorkManagementDashboard({ initialData, currentUser, hide
                             : "bg-zinc-400"
                         }`}
                       />
-                      <span className="text-xs font-bold">
+                      <span className="text-[10px] font-bold text-foreground">
                         {emp.status === "WORKING"
                           ? "Working"
                           : emp.status === "ON BREAK"
                           ? "On Break"
                           : emp.status === "COMPLETED"
                           ? "Completed"
-                          : "Not Started"}
+                          : "Offline"}
                       </span>
                     </div>
 
                     {/* Clock timer */}
-                    <div className="flex items-center gap-1 text-[11px] font-mono text-muted-foreground">
-                      <Clock className="h-3 w-3" />
+                    <div className="flex items-center gap-0.5 text-[9px] font-mono text-muted-foreground font-semibold">
+                      <Clock className="h-3 w-3 text-muted-foreground/80" />
                       <span>{formatDuration(activeDurationMs)}</span>
                     </div>
                   </div>
 
                   {/* Active Context */}
-                  <div className="text-xs space-y-1 pt-1.5 border-t border-border/50">
-                    <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                  <div className="text-[9px] space-y-1 pt-1.5 border-t border-border/40">
+                    <div className="flex items-center justify-between text-muted-foreground">
                       <span>PROJECT</span>
-                      <span className="font-medium text-foreground max-w-[120px] truncate">
-                        {emp.currentProject || "No project"}
+                      <span className="font-bold text-foreground max-w-[80px] truncate" title={emp.currentProject || "No project"}>
+                        {emp.currentProject || "—"}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                    <div className="flex items-center justify-between text-muted-foreground">
                       <span>TASK</span>
-                      <span className="font-medium text-foreground max-w-[120px] truncate">
-                        {emp.currentTask || "No task selected"}
+                      <span className="font-bold text-foreground max-w-[80px] truncate" title={emp.currentTask || "No task active"}>
+                        {emp.currentTask || "—"}
                       </span>
                     </div>
                   </div>
 
                   {/* Task counts */}
-                  <div className="flex flex-col gap-1 text-[10px] bg-accent/30 rounded p-2 mt-1.5 text-muted-foreground">
-                    <div className="flex items-center justify-between font-semibold">
-                      <span>Today's Plan:</span>
-                      <span>{emp.totalPlanned || 0} tasks</span>
-                    </div>
-                    <div className="flex items-center justify-between text-[9px]">
-                      <span>Completed: {emp.completedPlanned || 0}</span>
-                      <span>Blocked: {emp.blockedPlanned || 0}</span>
-                    </div>
+                  <div className="flex items-center justify-between gap-1 text-[9px] bg-accent/20 dark:bg-zinc-800/35 rounded-lg p-1.5 text-muted-foreground">
+                    <span>Plan: <strong className="text-foreground">{emp.totalPlanned || 0}</strong></span>
+                    <span>Done: <strong className="text-emerald-600 dark:text-emerald-450">{emp.completedPlanned || 0}</strong></span>
+                    <span>Block: <strong className="text-rose-600 dark:text-rose-450">{emp.blockedPlanned || 0}</strong></span>
                   </div>
 
                   {/* View My Day link button for manager */}
                   <Link
                     href={`/dashboard/work-management/my-day/${emp.id}`}
-                    className="w-full inline-flex items-center justify-center bg-accent hover:bg-accent/80 text-foreground text-[10px] font-bold py-1.5 px-3 rounded-lg border border-border mt-2.5 transition text-center"
+                    className="w-full h-7 inline-flex items-center justify-center bg-accent/40 hover:bg-accent text-foreground text-[9px] font-bold rounded-lg border border-border mt-1 transition text-center"
                   >
                     View My Day
                   </Link>

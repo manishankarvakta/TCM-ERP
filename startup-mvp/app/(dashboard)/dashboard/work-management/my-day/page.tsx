@@ -8,15 +8,21 @@ export const metadata = {
   description: "Personal daily workspace to plan today's priorities, select focus tasks, and track session times.",
 };
 
-export default async function MyDayPage() {
+export default async function MyDayPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ date?: string }>;
+}) {
   const session = await auth();
 
   if (!session?.user?.id) {
     redirect("/login");
   }
 
+  const { date } = await searchParams;
+
   // Pre-load My Day context for the logged-in employee
-  const initialContext = await getMyDayData();
+  const initialContext = await getMyDayData(date);
 
   return (
     <MyDayView

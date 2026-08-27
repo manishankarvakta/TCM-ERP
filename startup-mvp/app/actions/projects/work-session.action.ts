@@ -495,15 +495,42 @@ export async function switchWorkSessionTask(taskId: string | null, projectId: st
       return { success: false, error: "Work session is not actively running. Start or resume work session first." };
     }
 
+    // Fetch the logs to find the last active log (START or RESUME) to calculate active time spent
+    const logs = await prisma.workSessionLog.findMany({
+      where: { sessionId: ws.id },
+      orderBy: { timestamp: "desc" },
+    });
+
+    const lastActiveLog = logs.find(
+      (log) => log.actionType === "START" || log.actionType === "RESUME"
+    );
+
     const now = new Date();
-    await prisma.workSessionLog.create({
-      data: {
-        sessionId: ws.id,
-        actionType: "RESUME", // Log task switch as RESUME log context
-        timestamp: now,
-        taskId: taskId || null,
-        projectId: projectId || null,
-      },
+    let elapsedMs = 0;
+    if (lastActiveLog) {
+      elapsedMs = now.getTime() - new Date(lastActiveLog.timestamp).getTime();
+    }
+
+    const newActiveTotal = ws.totalActiveMs + Math.max(0, elapsedMs);
+
+    // Update session and log the new transition inside a transaction
+    await prisma.$transaction(async (tx) => {
+      await tx.workSession.update({
+        where: { id: ws.id },
+        data: {
+          totalActiveMs: newActiveTotal,
+        },
+      });
+
+      await tx.workSessionLog.create({
+        data: {
+          sessionId: ws.id,
+          actionType: "RESUME", // Log task switch as RESUME log context
+          timestamp: now,
+          taskId: taskId || null,
+          projectId: projectId || null,
+        },
+      });
     });
 
     broadcastWorkManagementEvent("WORK_SESSION_RESUMED", {
@@ -518,6 +545,114 @@ export async function switchWorkSessionTask(taskId: string | null, projectId: st
   } catch (error: any) {
     console.error("switchWorkSessionTask error:", error);
     return { success: false, error: error.message || "Failed to switch task context" };
+  }
+}
+
+/**
+ * Reopens a completed work session for today
+ */
+export async function reopenWorkSession() {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const userId = session.user.id;
+    const today = await getTodayDhakaDate();
+
+    // Fetch today's completed session
+    const ws = await prisma.workSession.findFirst({
+      where: {
+        userId,
+        date: today,
+        status: "COMPLETED",
+      },
+    });
+
+    if (!ws) {
+      return { success: false, error: "No completed work session found for today." };
+    }
+
+    const now = new Date();
+
+    // Reopen session inside transaction
+    const updatedSession = await prisma.$transaction(async (tx) => {
+      await tx.workSessionLog.create({
+        data: {
+          sessionId: ws.id,
+          actionType: "RESUME",
+          timestamp: now,
+        },
+      });
+
+      return await tx.workSession.update({
+        where: { id: ws.id },
+        data: {
+          status: "ACTIVE",
+          endTime: null,
+        },
+      });
+    });
+
+    // Broadcast resumption
+    broadcastWorkManagementEvent("WORK_SESSION_RESUMED", {
+      userId,
+      sessionId: ws.id,
+      timestamp: now.toISOString(),
+    });
+
+    return { success: true, session: updatedSession };
+  } catch (error: any) {
+    console.error("reopenWorkSession error:", error);
+    return { success: false, error: error.message || "Failed to reopen work session" };
+  }
+}
+
+/**
+ * Fetch historical work sessions for all active team members
+ */
+export async function getAllTeamSessionHistory(page: number = 1, limit: number = 50) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return { success: false, error: "Unauthorized", history: [] };
+    }
+
+    const skip = (page - 1) * limit;
+
+    const history = await prisma.workSession.findMany({
+      orderBy: {
+        date: "desc",
+      },
+      skip,
+      take: limit,
+      include: {
+        User: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            image: true,
+          },
+        },
+      },
+    });
+
+    // Map to plain object serialization for client components
+    const mapped = history.map((ws: any) => ({
+      ...ws,
+      date: ws.date.toISOString(),
+      startTime: ws.startTime?.toISOString() || null,
+      endTime: ws.endTime?.toISOString() || null,
+      createdAt: ws.createdAt.toISOString(),
+      updatedAt: ws.updatedAt.toISOString(),
+    }));
+
+    return { success: true, history: mapped };
+  } catch (error: any) {
+    console.error("getAllTeamSessionHistory error:", error);
+    return { success: false, error: error.message || "Failed to fetch session history", history: [] };
   }
 }
 

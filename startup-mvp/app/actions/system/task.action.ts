@@ -179,6 +179,8 @@ export async function updateTask(
     entityType?: string;
     entityId?: string;
     assigneeId?: string;
+    projectId?: string | null;
+    milestoneId?: string | null;
   }
 ) {
   try {

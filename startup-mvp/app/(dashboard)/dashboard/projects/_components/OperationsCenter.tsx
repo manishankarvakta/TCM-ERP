@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
+import { Progress } from "@/components/ui/progress";
 
 const getSessionStatusDetails = (status: string) => {
   const s = status?.toUpperCase();
@@ -132,8 +133,8 @@ export default function OperationsCenter() {
         getAllMilestones("all"),
       ]);
 
-      if (teamRes.success && teamRes.teamData) {
-        setTeamSummary(teamRes.teamData);
+      if (teamRes.success && teamRes.team) {
+        setTeamSummary(teamRes.team);
       }
       if (issuesRes.success && issuesRes.issues) {
         setIssuesList(issuesRes.issues);
@@ -205,7 +206,7 @@ export default function OperationsCenter() {
         
         {/* Search */}
         <div className="relative w-full sm:w-80 group">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-violet-500 transition-colors" />
           <input
             type="text"
             placeholder={
@@ -214,7 +215,7 @@ export default function OperationsCenter() {
             }
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-background border border-border/80 rounded-full py-2 pl-9 pr-4 text-xs focus:outline-none focus:ring-1 focus:ring-primary shadow-xs transition"
+            className="w-full bg-background border border-border/85 rounded-full py-2 pl-9 pr-4 text-xs focus:outline-none focus:ring-2 focus:ring-violet-500/20 shadow-sm transition-all duration-200"
           />
         </div>
 
@@ -256,7 +257,7 @@ export default function OperationsCenter() {
               getFilteredTeam().map((emp) => {
                 const statusDetails = getSessionStatusDetails(emp.status);
                 return (
-                  <Card key={emp.id} className="border border-border/60 hover:border-slate-350 dark:hover:border-zinc-700 transition shadow-xs flex flex-col justify-between">
+                  <Card key={emp.id} className="border border-border/60 hover:shadow-md hover:border-violet-500/35 transition-all duration-300 hover:-translate-y-0.5 flex flex-col justify-between">
                     
                     {/* Card Header Profile */}
                     <div className="p-4 border-b border-border/40 flex items-start justify-between gap-3">
@@ -424,8 +425,11 @@ export default function OperationsCenter() {
             ) : (
               getFilteredMilestones().map((m) => {
                 const totalIssues = m.Issues?.length || 0;
+                const completedIssues = m.Issues?.filter((i: any) => ["CLOSED", "COMPLETED", "RESOLVED", "DONE"].includes(i.status?.toUpperCase())).length || 0;
+                const progressPercentage = totalIssues > 0 ? Math.round((completedIssues / totalIssues) * 100) : 0;
+                
                 return (
-                  <Card key={m.id} className="border border-border/60 hover:border-slate-350 dark:hover:border-zinc-700 transition shadow-xs flex flex-col justify-between">
+                  <Card key={m.id} className="border border-border/60 hover:shadow-md hover:border-violet-500/35 transition-all duration-300 hover:-translate-y-0.5 flex flex-col justify-between">
                     
                     {/* Header */}
                     <div className="p-4 border-b border-border/40 space-y-1">
@@ -461,6 +465,17 @@ export default function OperationsCenter() {
                           <p className="font-extrabold text-foreground mt-0.5 uppercase tracking-wide text-[10px]">{m.status.toLowerCase()}</p>
                         </div>
                       </div>
+
+                      {/* Dynamic Progress Bar */}
+                      {totalIssues > 0 && (
+                        <div className="space-y-1.5 border-t border-border/40 pt-3">
+                          <div className="flex justify-between items-center text-[10px] font-bold text-muted-foreground">
+                            <span>Task Progress:</span>
+                            <span className="text-violet-600 font-extrabold">{completedIssues}/{totalIssues} ({progressPercentage}%)</span>
+                          </div>
+                          <Progress value={progressPercentage} className="h-1.5 bg-muted/50" indicatorClassName="bg-violet-600" />
+                        </div>
+                      )}
 
                     </div>
 

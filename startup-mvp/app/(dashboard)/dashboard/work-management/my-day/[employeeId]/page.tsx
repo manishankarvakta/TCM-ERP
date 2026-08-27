@@ -12,9 +12,12 @@ interface Props {
   params: Promise<{
     employeeId: string;
   }>;
+  searchParams: Promise<{
+    date?: string;
+  }>;
 }
 
-export default async function EmployeeMyDayPage({ params }: Props) {
+export default async function EmployeeMyDayPage({ params, searchParams }: Props) {
   const session = await auth();
 
   if (!session?.user?.id) {
@@ -28,9 +31,10 @@ export default async function EmployeeMyDayPage({ params }: Props) {
   }
 
   const { employeeId } = await params;
+  const { date } = await searchParams;
 
   // Pre-load targeted employee's daily planning details
-  const initialContext = await getEmployeeMyDayData(employeeId);
+  const initialContext = await getEmployeeMyDayData(employeeId, date);
 
   if (!initialContext.success) {
     redirect("/dashboard/work-management/team");

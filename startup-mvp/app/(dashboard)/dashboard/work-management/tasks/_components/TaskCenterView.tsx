@@ -18,7 +18,9 @@ import {
   Trash2,
   MessageSquare,
   Sliders,
+  ChevronDown,
 } from "lucide-react";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
   Dialog,
   DialogContent,
@@ -69,6 +71,7 @@ export default function TaskCenterView({ initialData, currentUser }: Props) {
   const [taskEstimatedHours, setTaskEstimatedHours] = useState("");
   const [isMoreOptionsOpen, setIsMoreOptionsOpen] = useState(false);
   const [milestonesList, setMilestonesList] = useState<any[]>([]);
+  const [isAssigneeDropdownOpen, setIsAssigneeDropdownOpen] = useState(false);
 
   // Fetch milestones on load
   useEffect(() => {
@@ -559,44 +562,44 @@ export default function TaskCenterView({ initialData, currentUser }: Props) {
 
       {/* Task Creation Modal Form Popup */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent className="sm:max-w-[480px] border border-border bg-card p-6 shadow-2xl text-xs max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-[480px] border border-border bg-card p-6 shadow-2xl text-sm max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-base font-bold text-foreground">Create Central Task</DialogTitle>
-            <DialogDescription className="text-[11px] text-muted-foreground">
+            <DialogTitle className="text-lg font-bold text-foreground">Create Central Task</DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
               Define a new central task, project relation, priority, and assignees.
             </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleCreateTaskSubmit} className="space-y-4 text-xs mt-2">
+          <form onSubmit={handleCreateTaskSubmit} className="space-y-4 text-sm mt-3">
             <div className="space-y-1">
-              <label className="font-semibold text-muted-foreground">Task Title *</label>
+              <label className="font-semibold text-muted-foreground text-xs uppercase">Task Title *</label>
               <input
                 type="text"
                 required
                 placeholder="E.g., SSL Payment Callback Setup"
                 value={taskTitle}
                 onChange={(e) => setTaskTitle(e.target.value)}
-                className="w-full rounded-lg border border-border bg-background py-2 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary shadow-xs transition"
+                className="w-full rounded-lg border border-border bg-background py-2.5 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary shadow-xs transition"
               />
             </div>
 
             <div className="space-y-1">
-              <label className="font-semibold text-muted-foreground">Description</label>
+              <label className="font-semibold text-muted-foreground text-xs uppercase">Description</label>
               <textarea
                 placeholder="Task context details..."
                 value={taskDesc}
                 onChange={(e) => setTaskDesc(e.target.value)}
-                className="w-full rounded-lg border border-border bg-background py-2 px-3 text-xs h-20 focus:outline-none focus:ring-1 focus:ring-primary shadow-xs transition"
+                className="w-full rounded-lg border border-border bg-background py-2.5 px-3 text-sm h-20 focus:outline-none focus:ring-1 focus:ring-primary shadow-xs transition"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
-                <label className="font-semibold text-muted-foreground">Priority</label>
+                <label className="font-semibold text-muted-foreground text-xs uppercase">Priority</label>
                 <select
                   value={taskPriority}
                   onChange={(e) => setTaskPriority(e.target.value)}
-                  className="w-full rounded-lg border border-border bg-background py-2 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary shadow-xs transition"
+                  className="w-full h-[38px] rounded-lg border border-border bg-background py-2 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary shadow-xs transition"
                 >
                   <option value="low">Low</option>
                   <option value="medium">Medium</option>
@@ -606,51 +609,112 @@ export default function TaskCenterView({ initialData, currentUser }: Props) {
               </div>
 
               <div className="space-y-1">
-                <label className="font-semibold text-muted-foreground">Due Date</label>
+                <label className="font-semibold text-muted-foreground text-xs uppercase">Due Date</label>
                 <input
                   type="date"
                   value={taskDueDate}
                   onChange={(e) => setTaskDueDate(e.target.value)}
-                  className="w-full rounded-lg border border-border bg-background py-2 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary shadow-xs transition"
+                  className="w-full h-[38px] rounded-lg border border-border bg-background py-2 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary shadow-xs transition"
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="font-semibold text-muted-foreground">Assignee</label>
-                <select
-                  value={taskAssignee}
-                  onChange={(e) => setTaskAssignee(e.target.value)}
-                  className="w-full rounded-lg border border-border bg-background py-2 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary shadow-xs transition"
+              {/* Assignee Custom Select with Image */}
+              <div className="space-y-1 relative">
+                <label className="font-semibold text-muted-foreground text-xs uppercase">Assignee</label>
+                
+                {/* Custom Select Trigger Button */}
+                <button
+                  type="button"
+                  onClick={() => setIsAssigneeDropdownOpen(!isAssigneeDropdownOpen)}
+                  className="w-full rounded-lg border border-border bg-background py-2.5 px-3 text-sm flex items-center justify-between shadow-xs transition hover:bg-muted/40 cursor-pointer h-[38px]"
                 >
-                  <option value="">Unassigned</option>
-                  {employees.map((emp: any) => (
-                    <option key={emp.id} value={emp.userId || ""}>
-                      {emp.name}
-                    </option>
-                  ))}
-                </select>
+                  {(() => {
+                    const selectedAssigneeObj = employees.find((emp: any) => emp.userId === taskAssignee);
+                    return selectedAssigneeObj ? (
+                      <div className="flex items-center gap-2 overflow-hidden">
+                        <div className="h-5 w-5 rounded-full overflow-hidden bg-muted flex items-center justify-center shrink-0 border border-border">
+                          {selectedAssigneeObj.photo ? (
+                            <img src={selectedAssigneeObj.photo} alt={selectedAssigneeObj.name} className="h-full w-full object-cover" />
+                          ) : (
+                            <span className="text-[9px] font-bold">{selectedAssigneeObj.name.charAt(0)}</span>
+                          )}
+                        </div>
+                        <span className="font-semibold text-foreground text-xs truncate">{selectedAssigneeObj.name}</span>
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground text-xs">Unassigned</span>
+                    );
+                  })()}
+                  <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+                </button>
+
+                {/* Dropdown Menu */}
+                {isAssigneeDropdownOpen && (
+                  <>
+                    {/* Invisible overlay to close on click outside */}
+                    <div className="fixed inset-0 z-40" onClick={() => setIsAssigneeDropdownOpen(false)} />
+                    
+                    <div className="absolute left-0 right-0 mt-1 max-h-60 overflow-y-auto rounded-lg border border-border bg-card shadow-lg z-50 p-1 divide-y divide-border/40 animate-in fade-in-50 slide-in-from-top-1 duration-150">
+                      <div
+                        onClick={() => {
+                          setTaskAssignee("");
+                          setIsAssigneeDropdownOpen(false);
+                        }}
+                        className="flex items-center gap-2 px-2.5 py-2 hover:bg-muted text-xs cursor-pointer font-semibold text-muted-foreground rounded-md transition"
+                      >
+                        <div className="h-5 w-5 rounded-full bg-muted flex items-center justify-center shrink-0">
+                          <User className="h-3 w-3" />
+                        </div>
+                        <span>Unassigned</span>
+                      </div>
+                      
+                      {employees.map((emp: any) => (
+                        <div
+                          key={emp.id}
+                          onClick={() => {
+                            setTaskAssignee(emp.userId || "");
+                            setIsAssigneeDropdownOpen(false);
+                          }}
+                          className={`flex items-center gap-2 px-2.5 py-2 hover:bg-muted text-xs cursor-pointer rounded-md transition ${taskAssignee === emp.userId ? "bg-accent/50 font-bold" : ""}`}
+                        >
+                          <div className="h-5 w-5 rounded-full overflow-hidden bg-muted flex items-center justify-center shrink-0 border border-border">
+                            {emp.photo ? (
+                              <img src={emp.photo} alt={emp.name} className="h-full w-full object-cover" />
+                            ) : (
+                              <span className="text-[9px] font-bold">{emp.name.charAt(0)}</span>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-foreground truncate">{emp.name}</p>
+                            <p className="text-[9px] text-muted-foreground truncate leading-none mt-0.5">{emp.designation || "Employee"}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
 
+              {/* Searchable Select for Project Relation */}
               <div className="space-y-1">
-                <label className="font-semibold text-muted-foreground">Project Relation</label>
-                <select
-                  value={taskProjId}
-                  onChange={(e) => {
-                    setTaskProjId(e.target.value);
+                <label className="font-semibold text-muted-foreground text-xs uppercase">Project Relation</label>
+                <SearchableSelect
+                  options={[
+                    { label: "General Work (No Project)", value: "none" },
+                    ...projects.map((p: any) => ({ label: p.title, value: p.id }))
+                  ]}
+                  value={taskProjId || "none"}
+                  onChange={(val) => {
+                    const mappedVal = val === "none" ? "" : val;
+                    setTaskProjId(mappedVal);
                     setTaskMilestoneId("");
                     setTaskParentId("");
                   }}
-                  className="w-full rounded-lg border border-border bg-background py-2 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary shadow-xs transition"
-                >
-                  <option value="">General Work (No Project)</option>
-                  {projects.map((p: any) => (
-                    <option key={p.id} value={p.id}>
-                      {p.title}
-                    </option>
-                  ))}
-                </select>
+                  placeholder="Select Project"
+                  className="w-full h-[38px] text-xs"
+                />
               </div>
             </div>
 

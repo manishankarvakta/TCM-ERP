@@ -177,7 +177,8 @@ export async function getProjects(
   sortBy: string = "createdAt",
   sortOrder: "asc" | "desc" = "desc",
   dateFrom?: string,
-  dateTo?: string
+  dateTo?: string,
+  priority: string = "all"
 ) {
   try {
     const session = await auth();
@@ -195,6 +196,10 @@ export async function getProjects(
 
     if (status && status !== "all") {
       where.status = status;
+    }
+
+    if (priority && priority !== "all") {
+      where.priority = priority;
     }
 
     if (dateFrom || dateTo) {
@@ -483,7 +488,8 @@ export async function deleteMilestone(id: string) {
 export async function createIssue(input: {
   title: string;
   description?: string;
-  milestoneId: string;
+  milestoneId?: string;
+  projectId?: string;
   priority?: string;
   type?: string;
   assigneeId?: string;
@@ -498,8 +504,36 @@ export async function createIssue(input: {
       return { success: false, error: "Permission Denied: projects.issues.create" };
     }
 
+    let targetMilestoneId = input.milestoneId;
+
+    if (!targetMilestoneId) {
+      if (!input.projectId) {
+        return { success: false, error: "Either milestoneId or projectId is required." };
+      }
+      
+      // Look for a default "Backlog" milestone
+      let backlogMilestone = await prisma.milestone.findFirst({
+        where: {
+          projectId: input.projectId,
+          title: "Backlog",
+        },
+      });
+
+      if (!backlogMilestone) {
+        // Create one automatically!
+        backlogMilestone = await prisma.milestone.create({
+          data: {
+            title: "Backlog",
+            status: "PLANNED",
+            projectId: input.projectId,
+          },
+        });
+      }
+      targetMilestoneId = backlogMilestone.id;
+    }
+
     const milestone = await prisma.milestone.findUnique({
-      where: { id: input.milestoneId },
+      where: { id: targetMilestoneId },
       select: { projectId: true, startDate: true, dueDate: true }
     });
 
@@ -512,7 +546,7 @@ export async function createIssue(input: {
       data: {
         title: input.title,
         description: input.description,
-        milestoneId: input.milestoneId,
+        milestoneId: targetMilestoneId,
         priority: input.priority,
         type: input.type,
         assigneeId: input.assigneeId,
@@ -555,6 +589,7 @@ export async function updateIssue(
   input: {
     title?: string;
     description?: string;
+    milestoneId?: string;
     status?: any; // IssueStatus
     priority?: string;
     type?: string;
