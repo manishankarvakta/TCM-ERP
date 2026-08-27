@@ -41,6 +41,7 @@ import {
 import { getAccountsForJournal } from "../../_actions/journal.action";
 import { createVoucher, postVoucher } from "../../../../vouchers/_actions/voucher.action";
 import { getBasePathFromPathname } from "@/lib/route-utils-client";
+import { getTodayInTimezone } from "@/lib/timezone-utils";
 import { VoucherType } from "@prisma/client";
 
 // Voucher line schema
@@ -156,7 +157,7 @@ export default function JournalVoucherForm() {
   } = useForm<JournalVoucherFormData>({
     resolver: zodResolver(journalVoucherSchema as any),
     defaultValues: {
-      date: new Date().toISOString().split("T")[0],
+      date: getTodayInTimezone(),
       reference: "",
       description: "",
       lines: [

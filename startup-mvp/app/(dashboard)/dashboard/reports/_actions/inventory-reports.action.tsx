@@ -4,6 +4,8 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/permissions";
 import { Prisma, ItemType, StockTransactionType } from "@prisma/client";
+import { getPreferencesAction } from "@/app/(dashboard)/dashboard/settings/_actions/preferences.action";
+import { getStartOfDayInTimezone, getEndOfDayInTimezone } from "@/lib/timezone-utils";
 
 /**
  * Get Stock Summary Report
@@ -172,6 +174,9 @@ export async function getStockLedger(
       };
     }
 
+    const prefsResult = await getPreferencesAction();
+    const timeZone = prefsResult?.preferences?.timezone || "Asia/Dhaka";
+
     const where: Prisma.StockLedgerWhereInput = {
       ...(filters.itemId ? { itemId: filters.itemId } : {}),
       ...(filters.warehouseId ? { warehouseId: filters.warehouseId } : {}),
@@ -181,10 +186,8 @@ export async function getStockLedger(
       ...(filters.dateFrom || filters.dateTo
         ? {
             createdAt: {
-              ...(filters.dateFrom ? { gte: new Date(filters.dateFrom) } : {}),
-              ...(filters.dateTo
-                ? { lte: new Date(new Date(filters.dateTo).setHours(23, 59, 59, 999)) }
-                : {}),
+              ...(filters.dateFrom ? { gte: getStartOfDayInTimezone(filters.dateFrom, timeZone) } : {}),
+              ...(filters.dateTo ? { lte: getEndOfDayInTimezone(filters.dateTo, timeZone) } : {}),
             },
           }
         : {}),
@@ -310,6 +313,9 @@ export async function getRawMaterialConsumption(filters: {
       };
     }
 
+    const prefsResult = await getPreferencesAction();
+    const timeZone = prefsResult?.preferences?.timezone || "Asia/Dhaka";
+
     const where: Prisma.StockLedgerWhereInput = {
       item: {
         itemType: ItemType.RAW_MATERIAL,
@@ -320,10 +326,8 @@ export async function getRawMaterialConsumption(filters: {
       ...(filters.dateFrom || filters.dateTo
         ? {
             createdAt: {
-              ...(filters.dateFrom ? { gte: new Date(filters.dateFrom) } : {}),
-              ...(filters.dateTo
-                ? { lte: new Date(new Date(filters.dateTo).setHours(23, 59, 59, 999)) }
-                : {}),
+              ...(filters.dateFrom ? { gte: getStartOfDayInTimezone(filters.dateFrom, timeZone) } : {}),
+              ...(filters.dateTo ? { lte: getEndOfDayInTimezone(filters.dateTo, timeZone) } : {}),
             },
           }
         : {}),

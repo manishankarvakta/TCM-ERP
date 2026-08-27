@@ -214,7 +214,14 @@ export default function AdjustmentDetails({ adjustment }: AdjustmentDetailsProps
             {adjustment.notes && (
               <div className="mt-4 print:mt-2 text-left">
                 <p className="text-xs font-semibold uppercase text-slate-500">Note / Terms:</p>
-                <p className="text-sm print:text-xs text-slate-700 mt-1 whitespace-pre-wrap">{adjustment.notes}</p>
+                {adjustment.notes.includes("<") ? (
+                  <div
+                    className="text-sm print:text-xs text-slate-700 mt-1 prose prose-sm max-w-none dark:prose-invert [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_h2]:text-base [&_h2]:font-bold [&_h3]:text-sm [&_h3]:font-semibold [&_table]:w-full [&_table]:border-collapse [&_table]:my-2 [&_th]:border [&_th]:border-slate-300 [&_th]:p-1.5 [&_th]:bg-slate-100 [&_td]:border [&_td]:border-slate-300 [&_td]:p-1.5"
+                    dangerouslySetInnerHTML={{ __html: adjustment.notes }}
+                  />
+                ) : (
+                  <p className="text-sm print:text-xs text-slate-700 mt-1 whitespace-pre-wrap">{adjustment.notes}</p>
+                )}
               </div>
             )}
           </CardContent>

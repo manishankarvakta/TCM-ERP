@@ -4,6 +4,8 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { hasPermission } from "@/lib/permissions";
+import { getPreferencesAction } from "@/app/(dashboard)/dashboard/settings/_actions/preferences.action";
+import { getEndOfDayInTimezone } from "@/lib/timezone-utils";
 
 /**
  * Helper function to find control account by name
@@ -88,10 +90,12 @@ export async function getAccountsReceivable(asOfDate?: Date | string, includeAgi
       };
     }
 
-    // Convert asOfDate and set to end of day
+    const prefsResult = await getPreferencesAction();
+    const timeZone = prefsResult?.preferences?.timezone || "Asia/Dhaka";
+
+    // Convert asOfDate and set to end of day in target timezone
     const reportDate = asOfDate ? (typeof asOfDate === "string" ? new Date(asOfDate) : asOfDate) : new Date();
-    const endOfDay = new Date(reportDate);
-    endOfDay.setHours(23, 59, 59, 999);
+    const endOfDay = typeof asOfDate === "string" ? getEndOfDayInTimezone(asOfDate, timeZone) : new Date(reportDate.setHours(23, 59, 59, 999));
 
     // Get all customer COAs (child accounts of AR parent)
     // This includes all accounts where parentId = AR account ID
@@ -362,10 +366,12 @@ export async function getAccountsPayable(asOfDate?: Date | string, includeAging:
       };
     }
 
-    // Convert asOfDate and set to end of day
+    const prefsResult = await getPreferencesAction();
+    const timeZone = prefsResult?.preferences?.timezone || "Asia/Dhaka";
+
+    // Convert asOfDate and set to end of day in target timezone
     const reportDate = asOfDate ? (typeof asOfDate === "string" ? new Date(asOfDate) : asOfDate) : new Date();
-    const endOfDay = new Date(reportDate);
-    endOfDay.setHours(23, 59, 59, 999);
+    const endOfDay = typeof asOfDate === "string" ? getEndOfDayInTimezone(asOfDate, timeZone) : new Date(reportDate.setHours(23, 59, 59, 999));
 
     // Get all supplier COAs (child accounts of AP parent)
     // This includes all accounts where parentId = AP account ID

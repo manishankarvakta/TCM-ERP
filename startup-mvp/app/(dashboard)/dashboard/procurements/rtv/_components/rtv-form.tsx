@@ -8,6 +8,7 @@ import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import SupplierDialog from "@/app/(dashboard)/dashboard/procurements/purchases/_components/supplierDialog";
 import {
@@ -441,12 +442,19 @@ export default function RTVForm({ suppliers, warehouses, items, purchase }: any)
               {errors.date && <p className="text-sm text-destructive">{errors.date.message}</p>}
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-2 col-span-1 md:col-span-2">
               <Label htmlFor="notes">Notes</Label>
-              <Input
-                placeholder="Reason or notes"
-                {...register("notes")}
-                disabled={loading}
+              <Controller
+                name="notes"
+                control={control}
+                render={({ field }) => (
+                  <RichTextEditor
+                    value={field.value || ""}
+                    onChange={field.onChange}
+                    disabled={loading}
+                    placeholder="Reason or notes..."
+                  />
+                )}
               />
             </div>
           </div>

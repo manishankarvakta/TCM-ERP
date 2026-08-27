@@ -4,6 +4,8 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Prisma, CashBankAccountType } from "@prisma/client";
 import { hasPermission } from "@/lib/permissions";
+import { getPreferencesAction } from "@/app/(dashboard)/dashboard/settings/_actions/preferences.action";
+import { getStartOfDayInTimezone, getEndOfDayInTimezone } from "@/lib/timezone-utils";
 
 /**
  * Get Cash ledger entries derived from JournalEntry
@@ -93,17 +95,26 @@ export async function getCashLedger(
       };
     }
 
+    const prefsResult = await getPreferencesAction();
+    const timeZone = prefsResult?.preferences?.timezone || "Asia/Dhaka";
+
     // Build date filter for JournalEntry
     const journalEntryDateFilter: Prisma.DateTimeFilter = {};
     if (filters?.dateFrom) {
-      const dateFrom = typeof filters.dateFrom === "string" ? new Date(filters.dateFrom) : filters.dateFrom;
-      journalEntryDateFilter.gte = dateFrom;
+      if (typeof filters.dateFrom === "string") {
+        journalEntryDateFilter.gte = getStartOfDayInTimezone(filters.dateFrom, timeZone);
+      } else {
+        journalEntryDateFilter.gte = filters.dateFrom;
+      }
     }
     if (filters?.dateTo) {
-      const dateTo = typeof filters.dateTo === "string" ? new Date(filters.dateTo) : filters.dateTo;
-      // Set to end of day
-      dateTo.setHours(23, 59, 59, 999);
-      journalEntryDateFilter.lte = dateTo;
+      if (typeof filters.dateTo === "string") {
+        journalEntryDateFilter.lte = getEndOfDayInTimezone(filters.dateTo, timeZone);
+      } else {
+        const dateTo = new Date(filters.dateTo);
+        dateTo.setHours(23, 59, 59, 999);
+        journalEntryDateFilter.lte = dateTo;
+      }
     }
 
     // Query JournalEntryLine filtered by Cash account IDs and date range
@@ -351,17 +362,26 @@ export async function getBankLedger(
       };
     }
 
+    const prefsResult = await getPreferencesAction();
+    const timeZone = prefsResult?.preferences?.timezone || "Asia/Dhaka";
+
     // Build date filter for JournalEntry
     const journalEntryDateFilter: Prisma.DateTimeFilter = {};
     if (filters?.dateFrom) {
-      const dateFrom = typeof filters.dateFrom === "string" ? new Date(filters.dateFrom) : filters.dateFrom;
-      journalEntryDateFilter.gte = dateFrom;
+      if (typeof filters.dateFrom === "string") {
+        journalEntryDateFilter.gte = getStartOfDayInTimezone(filters.dateFrom, timeZone);
+      } else {
+        journalEntryDateFilter.gte = filters.dateFrom;
+      }
     }
     if (filters?.dateTo) {
-      const dateTo = typeof filters.dateTo === "string" ? new Date(filters.dateTo) : filters.dateTo;
-      // Set to end of day
-      dateTo.setHours(23, 59, 59, 999);
-      journalEntryDateFilter.lte = dateTo;
+      if (typeof filters.dateTo === "string") {
+        journalEntryDateFilter.lte = getEndOfDayInTimezone(filters.dateTo, timeZone);
+      } else {
+        const dateTo = new Date(filters.dateTo);
+        dateTo.setHours(23, 59, 59, 999);
+        journalEntryDateFilter.lte = dateTo;
+      }
     }
 
     // Query JournalEntryLine filtered by Bank account IDs and date range

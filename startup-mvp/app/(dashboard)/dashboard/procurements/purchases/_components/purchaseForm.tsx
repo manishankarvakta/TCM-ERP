@@ -31,6 +31,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { FiAlertCircle, FiPlus, FiTrash2, FiSearch } from "react-icons/fi";
 import { createPurchase, updatePurchase } from "../_actions/purchase.action";
 import { getItemVariants } from "../../../master/items/_actions/item.action";
@@ -653,7 +654,18 @@ export default function PurchaseForm({
 
                 <div className="space-y-2">
                   <Label htmlFor="notes">Notes</Label>
-                  <Textarea id="notes" rows={3} {...register("notes")} disabled={loading} />
+                  <Controller
+                    name="notes"
+                    control={control}
+                    render={({ field }) => (
+                      <RichTextEditor
+                        value={field.value || ""}
+                        onChange={field.onChange}
+                        disabled={loading}
+                        placeholder="Purchase notes..."
+                      />
+                    )}
+                  />
                   {errors.notes && <p className="text-sm text-destructive">{errors.notes.message}</p>}
                 </div>
               </div>

@@ -4,6 +4,8 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/permissions";
 import { Prisma, ItemType, SaleStatus } from "@prisma/client";
+import { getPreferencesAction } from "@/app/(dashboard)/dashboard/settings/_actions/preferences.action";
+import { getStartOfDayInTimezone, getEndOfDayInTimezone } from "@/lib/timezone-utils";
 
 /**
  * Get Revenue by Client Report
@@ -35,6 +37,9 @@ export async function getRevenueByClient(filters: {
       };
     }
 
+    const prefsResult = await getPreferencesAction();
+    const timeZone = prefsResult?.preferences?.timezone || "Asia/Dhaka";
+
     const where: Prisma.SaleWhereInput = {
       status: SaleStatus.COMPLETED,
       isTrash: false,
@@ -43,14 +48,8 @@ export async function getRevenueByClient(filters: {
       ...(filters.dateFrom || filters.dateTo
         ? {
             date: {
-              ...(filters.dateFrom ? { gte: new Date(filters.dateFrom) } : {}),
-              ...(filters.dateTo
-                ? {
-                    lte: new Date(
-                      new Date(filters.dateTo).setHours(23, 59, 59, 999)
-                    ),
-                  }
-                : {}),
+              ...(filters.dateFrom ? { gte: getStartOfDayInTimezone(filters.dateFrom, timeZone) } : {}),
+              ...(filters.dateTo ? { lte: getEndOfDayInTimezone(filters.dateTo, timeZone) } : {}),
             },
           }
         : {}),
@@ -214,6 +213,9 @@ export async function getRevenueByItem(filters: {
       };
     }
 
+    const prefsResult = await getPreferencesAction();
+    const timeZone = prefsResult?.preferences?.timezone || "Asia/Dhaka";
+
     const where: Prisma.SaleItemWhereInput = {
       sale: {
         status: SaleStatus.COMPLETED,
@@ -223,14 +225,8 @@ export async function getRevenueByItem(filters: {
         ...(filters.dateFrom || filters.dateTo
           ? {
               date: {
-                ...(filters.dateFrom ? { gte: new Date(filters.dateFrom) } : {}),
-                ...(filters.dateTo
-                  ? {
-                      lte: new Date(
-                        new Date(filters.dateTo).setHours(23, 59, 59, 999)
-                      ),
-                    }
-                  : {}),
+                ...(filters.dateFrom ? { gte: getStartOfDayInTimezone(filters.dateFrom, timeZone) } : {}),
+                ...(filters.dateTo ? { lte: getEndOfDayInTimezone(filters.dateTo, timeZone) } : {}),
               },
             }
           : {}),
@@ -466,14 +462,15 @@ export async function getSalesTrends(filters: {
       };
     }
 
+    const prefsResult = await getPreferencesAction();
+    const timeZone = prefsResult?.preferences?.timezone || "Asia/Dhaka";
+
     const where: Prisma.SaleWhereInput = {
       status: SaleStatus.COMPLETED,
       isTrash: false,
       date: {
-        gte: new Date(filters.dateFrom),
-        lte: new Date(
-          new Date(filters.dateTo).setHours(23, 59, 59, 999)
-        ),
+        gte: getStartOfDayInTimezone(filters.dateFrom, timeZone),
+        lte: getEndOfDayInTimezone(filters.dateTo, timeZone),
       },
       ...(filters.clientId ? { clientId: filters.clientId } : {}),
       ...(filters.warehouseId ? { warehouseId: filters.warehouseId } : {}),

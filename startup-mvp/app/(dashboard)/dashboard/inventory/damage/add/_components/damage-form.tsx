@@ -2,13 +2,14 @@
 
 import React, { useEffect, useState, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { useForm, useFieldArray, useWatch } from "react-hook-form";
+import { useForm, useFieldArray, useWatch, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import {
   Select,
   SelectContent,
@@ -19,6 +20,7 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Plus, Trash2, Search } from "lucide-react";
 import { createDamage } from "../../_actions/damage.action";
+import { getTodayInTimezone, formatDateToYYYYMMDDInTimezone } from "@/lib/timezone-utils";
 import { getStock, getWarehouseStocks } from "../../../stock/_actions/stock.action";
 import { getItemVariants } from "../../../../master/items/_actions/item.action";
 import {
@@ -85,7 +87,7 @@ export default function DamageForm({ warehouses, items, userContext, initialData
     resolver: zodResolver(damageSchema),
     defaultValues: {
       warehouseId: initialData?.warehouseId || userContext?.defaultWarehouseId || (warehouses.length > 0 ? warehouses[0].id : ""),
-      date: initialData?.date ? new Date(initialData.date).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
+      date: initialData?.date ? formatDateToYYYYMMDDInTimezone(initialData.date) : getTodayInTimezone(),
       notes: initialData?.notes || "",
       items: initialData?.items?.length > 0 
         ? initialData.items.map((i: any) => ({
@@ -383,7 +385,17 @@ export default function DamageForm({ warehouses, items, userContext, initialData
 
           <div className="col-span-1 md:col-span-2 space-y-2">
             <Label>Notes</Label>
-            <Textarea {...form.register("notes")} placeholder="Reason for damage..." />
+            <Controller
+              name="notes"
+              control={form.control}
+              render={({ field }) => (
+                <RichTextEditor
+                  value={field.value || ""}
+                  onChange={field.onChange}
+                  placeholder="Reason for damage..."
+                />
+              )}
+            />
           </div>
         </CardContent>
       </Card>

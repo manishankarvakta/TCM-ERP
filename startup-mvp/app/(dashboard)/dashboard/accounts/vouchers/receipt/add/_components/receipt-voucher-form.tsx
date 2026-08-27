@@ -25,6 +25,7 @@ import { getBasePathFromPathname } from "@/lib/route-utils-client";
 import { VoucherType } from "@prisma/client";
 import { format } from "date-fns";
 import { PaymentAccountType } from "@/lib/payment-account-config";
+import { getTodayInTimezone } from "@/lib/timezone-utils";
 
 // Form validation schema
 const receiptVoucherSchema = z.object({
@@ -151,7 +152,7 @@ export default function ReceiptVoucherForm() {
   } = useForm<ReceiptVoucherFormData>({
     resolver: zodResolver(receiptVoucherSchema),
     defaultValues: {
-      date: new Date().toISOString().split("T")[0],
+      date: getTodayInTimezone(),
       clientId: "",
       receiveAccountId: "",
       amount: 0,

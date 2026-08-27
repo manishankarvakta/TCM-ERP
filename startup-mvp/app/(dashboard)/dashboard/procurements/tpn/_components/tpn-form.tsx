@@ -2,13 +2,14 @@
 
 import React, { useEffect, useState, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { useForm, useFieldArray, useWatch } from "react-hook-form";
+import { useForm, useFieldArray, useWatch, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import {
   Select,
   SelectContent,
@@ -367,7 +368,17 @@ export default function TpnForm({ warehouses, items, user }: TpnFormProps) {
 
           <div className="col-span-1 md:col-span-3 space-y-2">
             <Label>Notes</Label>
-            <Textarea {...form.register("notes")} placeholder="Reason for transfer..." />
+            <Controller
+              name="notes"
+              control={form.control}
+              render={({ field }) => (
+                <RichTextEditor
+                  value={field.value || ""}
+                  onChange={field.onChange}
+                  placeholder="Reason for transfer..."
+                />
+              )}
+            />
           </div>
         </CardContent>
       </Card>

@@ -25,6 +25,8 @@ import { getBasePathFromPathname } from "@/lib/route-utils-client";
 import { VoucherType } from "@prisma/client";
 import { PaymentAccountType } from "@/lib/payment-account-config";
 
+import { getTodayInTimezone } from "@/lib/timezone-utils";
+
 // Form validation schema with refinement for From ≠ To
 const contraVoucherSchema = z.object({
   fromAccountId: z.string().min(1, "From account is required"),
@@ -98,7 +100,7 @@ export default function ContraVoucherForm() {
   } = useForm<ContraVoucherFormData>({
     resolver: zodResolver(contraVoucherSchema),
     defaultValues: {
-      date: new Date().toISOString().split("T")[0],
+      date: getTodayInTimezone(),
       fromAccountId: "",
       toAccountId: "",
       amount: 0,

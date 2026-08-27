@@ -2,13 +2,14 @@
 
 import React, { useEffect, useState, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { useForm, useFieldArray, useWatch } from "react-hook-form";
+import { useForm, useFieldArray, useWatch, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import {
   Select,
   SelectContent,
@@ -19,6 +20,7 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Plus, Trash2, Search } from "lucide-react";
 import { createAdjustment } from "../../_actions/adjustment.action";
+import { getTodayInTimezone } from "@/lib/timezone-utils";
 import { getStock, getWarehouseStocks } from "../../../stock/_actions/stock.action";
 import { getItemVariants } from "../../../../master/items/_actions/item.action";
 import {
@@ -85,7 +87,7 @@ export default function AdjustmentForm({ warehouses, items, userContext }: Adjus
     resolver: zodResolver(adjustmentSchema),
     defaultValues: {
       warehouseId: userContext?.defaultWarehouseId || (warehouses.length > 0 ? warehouses[0].id : ""),
-      date: new Date().toISOString().split("T")[0],
+      date: getTodayInTimezone(),
       notes: "",
       items: [{ itemId: "", variantId: null, quantity: 0, unitRate: 0, description: "", amount: 0 }],
     },
@@ -376,7 +378,17 @@ export default function AdjustmentForm({ warehouses, items, userContext }: Adjus
 
           <div className="col-span-1 md:col-span-2 space-y-2">
             <Label>Notes</Label>
-            <Textarea {...form.register("notes")} placeholder="Reason for adjustment..." />
+            <Controller
+              name="notes"
+              control={form.control}
+              render={({ field }) => (
+                <RichTextEditor
+                  value={field.value || ""}
+                  onChange={field.onChange}
+                  placeholder="Reason for adjustment..."
+                />
+              )}
+            />
           </div>
         </CardContent>
       </Card>

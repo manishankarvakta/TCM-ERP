@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { FiAlertCircle, FiSave, FiCheckCircle } from "react-icons/fi";
@@ -279,7 +280,18 @@ export default function CreateGRNForm({ warehouses, allowPurchaseSelect, initial
 
                 <div className="space-y-2">
                   <Label>Notes</Label>
-                  <Textarea {...register("notes")} disabled={loading} rows={2} />
+                  <Controller
+                    name="notes"
+                    control={control}
+                    render={({ field }) => (
+                      <RichTextEditor
+                        value={field.value || ""}
+                        onChange={field.onChange}
+                        disabled={loading}
+                        placeholder="GRN notes..."
+                      />
+                    )}
+                  />
                   {errors.notes && <p className="text-sm text-destructive">{errors.notes.message}</p>}
                 </div>
               </div>

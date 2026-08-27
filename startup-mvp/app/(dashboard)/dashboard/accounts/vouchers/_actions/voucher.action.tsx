@@ -9,6 +9,8 @@ import { hasPermission } from "@/lib/permissions";
 import { createUserLog, LogAction } from "@/lib/user-log";
 import { isControlAccount } from "./accounting-helpers";
 import { isPeriodLocked } from "../../periods/_actions/period.action";
+import { getPreferencesAction } from "@/app/(dashboard)/dashboard/settings/_actions/preferences.action";
+import { getStartOfDayInTimezone, getEndOfDayInTimezone } from "@/lib/timezone-utils";
 
 /**
  * Generate unique voucher number
@@ -199,17 +201,17 @@ export async function listVouchers(
       where.type = type as any;
     }
 
-    // Date range filter
+    // Date range filter in target timezone
     if (dateFrom || dateTo) {
+      const prefsResult = await getPreferencesAction();
+      const timeZone = prefsResult?.preferences?.timezone || "Asia/Dhaka";
+
       where.date = {};
       if (dateFrom) {
-        where.date.gte = typeof dateFrom === "string" ? new Date(dateFrom) : dateFrom;
+        where.date.gte = typeof dateFrom === "string" ? getStartOfDayInTimezone(dateFrom, timeZone) : dateFrom;
       }
       if (dateTo) {
-        const toDate = typeof dateTo === "string" ? new Date(dateTo) : dateTo;
-        // Set to end of day
-        toDate.setHours(23, 59, 59, 999);
-        where.date.lte = toDate;
+        where.date.lte = typeof dateTo === "string" ? getEndOfDayInTimezone(dateTo, timeZone) : dateTo;
       }
     }
 

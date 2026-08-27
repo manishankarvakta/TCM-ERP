@@ -38,6 +38,7 @@ import {
   FiCopy 
 } from "react-icons/fi";
 import { getAccountsForExpenses } from "../../_actions/expenses.action";
+import { getTodayInTimezone } from "@/lib/timezone-utils";
 import { createVoucher, postVoucher } from "../../../../vouchers/_actions/voucher.action";
 import { getBasePathFromPathname } from "@/lib/route-utils-client";
 import { VoucherType } from "@prisma/client";
@@ -90,7 +91,7 @@ export default function ExpensesVoucherForm() {
   } = useForm<ExpenseVoucherFormData>({
     resolver: zodResolver(expenseVoucherSchema as any),
     defaultValues: {
-      date: new Date().toISOString().split("T")[0],
+      date: getTodayInTimezone(),
       reference: "",
       description: "",
       creditAccountId: "",

@@ -23,6 +23,7 @@ import { getEmployees } from "../../../employees/_actions/employee.action";
 import { getLeaveTypes } from "../types/_actions/leave-type.action";
 import { useToast } from "@/hooks/use-toast";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import { getTodayInTimezone } from "@/lib/timezone-utils";
 import { differenceInDays } from "date-fns";
 
 const leaveApplicationSchema = z.object({
@@ -72,8 +73,8 @@ export default function LeaveApplicationForm() {
     defaultValues: {
       employeeId: "",
       leaveTypeId: "",
-      startDate: new Date().toISOString().split("T")[0],
-      endDate: new Date().toISOString().split("T")[0],
+      startDate: getTodayInTimezone(),
+      endDate: getTodayInTimezone(),
       reason: "",
     },
   });

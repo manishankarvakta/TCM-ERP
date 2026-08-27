@@ -48,22 +48,15 @@ interface DayBookDashboardClientProps {
   currentUserId: string;
 }
 
+import { getTodayInTimezone } from "@/lib/timezone-utils";
+
 export default function DayBookDashboardClient({
   warehouses,
   isAdmin,
   defaultWarehouseId,
   currentUserId,
 }: DayBookDashboardClientProps) {
-  // Initialize date in Dhaka time GMT+6
-  const getDhakaTodayStr = () => {
-    const d = new Date();
-    const utc = d.getTime() + d.getTimezoneOffset() * 60000;
-    const dhakaOffset = 6 * 3600000; // GMT+6 in ms
-    const dhakaDate = new Date(utc + dhakaOffset);
-    return dhakaDate.toISOString().split("T")[0];
-  };
-
-  const [date, setDate] = useState<string>(getDhakaTodayStr());
+  const [date, setDate] = useState<string>(getTodayInTimezone());
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string>(
     isAdmin ? "all" : defaultWarehouseId
   );

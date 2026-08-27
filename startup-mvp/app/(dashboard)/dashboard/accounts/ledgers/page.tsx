@@ -1,6 +1,8 @@
 import React from "react";
 import { getAccountLedger } from "./_actions/ledger.action";
 import { getChartOfAccounts } from "../chart-of-accounts/_actions/chart-of-accounts.action";
+import { getPreferencesAction } from "../../settings/_actions/preferences.action";
+import { getTodayInTimezone } from "@/lib/timezone-utils";
 import LedgerView from "./_components/ledger-view";
 import PageGuard from "@/components/permissions/page-guard";
 import { auth } from "@/lib/auth";
@@ -18,8 +20,12 @@ export default async function AccountLedgerPage({ searchParams }: LedgersPagePro
   const params = await searchParams;
   const accountId = params.accountId || "";
   
-  // Default date will be current date (today)
-  const today = new Date().toISOString().split("T")[0];
+  // Get preferences for timezone
+  const prefsResult = await getPreferencesAction();
+  const timeZone = prefsResult?.preferences?.timezone || "Asia/Dhaka";
+
+  // Default date will be current date in target timezone
+  const today = getTodayInTimezone(timeZone);
   const dateFrom = params.dateFrom || today;
   const dateTo = params.dateTo || today;
 

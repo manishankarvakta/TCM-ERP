@@ -8,6 +8,7 @@ import { auth } from "@/lib/auth";
 import { hasPermission } from "@/lib/permissions";
 import BiometricSyncButton from "./_components/biometric-sync-button";
 import { getPayrollSettings } from "@/lib/payroll-settings";
+import { getTodayInTimezone } from "@/lib/timezone-utils";
 
 interface AttendancePageProps {
   searchParams: Promise<{
@@ -43,8 +44,8 @@ export default async function AttendancePage({ searchParams }: AttendancePagePro
   const lineId = params.lineId || undefined;
   const skill = params.skill || undefined;
   
-  // Set default date range if not provided (e.g. today)
-  const today = new Date().toISOString().split("T")[0];
+  // Set default date range if not provided (e.g. today in app timezone)
+  const today = getTodayInTimezone();
   const fromDate = params.fromDate || today;
   const toDate = params.toDate || today;
   const status = params.status || undefined;

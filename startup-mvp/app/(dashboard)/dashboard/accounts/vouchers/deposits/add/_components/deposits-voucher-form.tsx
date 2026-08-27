@@ -22,6 +22,7 @@ import { FiAlertCircle, FiLoader, FiSave, FiTrendingUp, FiSearch } from "react-i
 import { getContraAccounts, getAccountBalance } from "../../../contra/_actions/contra.action";
 import { createVoucher, postVoucher } from "../../../../vouchers/_actions/voucher.action";
 import { getBasePathFromPathname } from "@/lib/route-utils-client";
+import { getTodayInTimezone } from "@/lib/timezone-utils";
 import { VoucherType } from "@prisma/client";
 
 // Form validation schema with refinement for From ≠ To
@@ -98,7 +99,7 @@ export default function DepositsVoucherForm() {
   } = useForm<DepositVoucherFormData>({
     resolver: zodResolver(depositVoucherSchema),
     defaultValues: {
-      date: new Date().toISOString().split("T")[0],
+      date: getTodayInTimezone(),
       fromAccountId: "",
       toAccountId: "",
       amount: 0,

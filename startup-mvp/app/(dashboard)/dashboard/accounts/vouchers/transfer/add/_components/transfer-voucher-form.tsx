@@ -24,6 +24,7 @@ import { createVoucher, postVoucher } from "../../../_actions/voucher.action";
 import { getBasePathFromPathname } from "@/lib/route-utils-client";
 import { VoucherType } from "@prisma/client";
 import { PaymentAccountType } from "@/lib/payment-account-config";
+import { getTodayInTimezone } from "@/lib/timezone-utils";
 
 // Form validation schema with refinement for From ≠ To
 const transferVoucherSchema = z.object({
@@ -97,7 +98,7 @@ export default function TransferVoucherForm() {
   } = useForm<TransferVoucherFormData>({
     resolver: zodResolver(transferVoucherSchema),
     defaultValues: {
-      date: new Date().toISOString().split("T")[0],
+      date: getTodayInTimezone(),
       fromAccountId: "",
       toAccountId: "",
       amount: 0,
