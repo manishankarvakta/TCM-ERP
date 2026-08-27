@@ -2597,6 +2597,21 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                       </tr>
                     ))}
                   </tbody>
+                  <tfoot className="bg-muted/40 border-t-2 border-border font-bold">
+                    <tr>
+                      <td colSpan={2} className="py-3 px-4 text-left">
+                        <span className="text-xs text-muted-foreground font-medium">Total Line Items: </span>
+                        <span className="text-sm font-bold text-foreground">{sortedCart.length}</span>
+                      </td>
+                      <td className="py-3 px-4 text-center text-foreground font-bold text-sm">
+                        {sortedCart.reduce((acc, item) => acc + (item.isReturnItem ? -item.cartQuantity : item.cartQuantity), 0)}
+                      </td>
+                      <td className="py-3 px-4 text-right text-muted-foreground text-xs font-semibold">Subtotal:</td>
+                      <td className="py-3 px-4 text-right font-bold text-foreground text-sm">
+                        ৳{subTotal.toFixed(2)}
+                      </td>
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
             </div>
@@ -2738,9 +2753,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                           setCardAmount(0);
                           setMfsAmount(0);
                         } else {
-                          setCashAmount(grandTotal);
-                          setCardAmount(0);
-                          setMfsAmount(0);
+                          setCashAmount(Math.max(0, roundedGrandTotal - (cardAmount + mfsAmount)));
                         }
                       }}
                       className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
@@ -2816,7 +2829,13 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                         <Input
                           type="number"
                           value={cardAmount || ""}
-                          onChange={(e) => setCardAmount(Number(e.target.value) || 0)}
+                          onChange={(e) => {
+                            const newCard = Number(e.target.value) || 0;
+                            setCardAmount(newCard);
+                            if (!isDueSale) {
+                              setCashAmount(Math.max(0, roundedGrandTotal - (newCard + mfsAmount)));
+                            }
+                          }}
                           className="h-9 text-xs font-medium pl-6 bg-background text-right w-full"
                           placeholder="0"
                         />
@@ -2847,7 +2866,13 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                         <Input
                           type="number"
                           value={mfsAmount || ""}
-                          onChange={(e) => setMfsAmount(Number(e.target.value) || 0)}
+                          onChange={(e) => {
+                            const newMfs = Number(e.target.value) || 0;
+                            setMfsAmount(newMfs);
+                            if (!isDueSale) {
+                              setCashAmount(Math.max(0, roundedGrandTotal - (cardAmount + newMfs)));
+                            }
+                          }}
                           className="h-9 text-xs font-medium pl-6 bg-background text-right w-full"
                           placeholder="0"
                         />
