@@ -127,26 +127,40 @@ export default function LeadKanban({ initialLeads, canCreate, onRefresh }: Props
     setActiveId(event.active.id as string);
   };
 
-  const [unqualifiedLead, setUnqualifiedLead] = useState<{ id: string } | null>(null);
-  const [closingReason, setClosingReason] = useState<string>("");
+  // Status Update Dialog States
+  const [statusUpdateLead, setStatusUpdateLead] = useState<{ id: string; name: string; newStatus: LeadStatus } | null>(null);
+  const [statusNote, setStatusNote] = useState<string>("");
+  const [statusClosingReason, setStatusClosingReason] = useState<string>("");
 
-  const handleUnqualifiedSubmit = async () => {
-    if (!unqualifiedLead || !closingReason.trim()) {
+  const handleStatusSubmit = async () => {
+    if (!statusUpdateLead) return;
+    if (!statusNote.trim()) {
+      toast.error("Note is required");
+      return;
+    }
+    if (statusUpdateLead.newStatus === LeadStatus.UNQUALIFIED && !statusClosingReason.trim()) {
       toast.error("Closing reason is required");
       return;
     }
 
     const prevLeads = [...leads];
+    // Optimistic Update
     setLeads((prev) =>
-      prev.map((l) => l.id === unqualifiedLead.id ? { ...l, status: LeadStatus.UNQUALIFIED } : l)
+      prev.map((l) => l.id === statusUpdateLead.id ? { ...l, status: statusUpdateLead.newStatus } : l)
     );
 
     try {
-      const result = await updateLeadStatus(unqualifiedLead.id, LeadStatus.UNQUALIFIED, closingReason);
+      const result = await updateLeadStatus(
+        statusUpdateLead.id,
+        statusUpdateLead.newStatus,
+        statusNote,
+        statusUpdateLead.newStatus === LeadStatus.UNQUALIFIED ? statusClosingReason : undefined
+      );
       if (result.success) {
-        toast.success("Lead moved to Unqualified");
-        setUnqualifiedLead(null);
-        setClosingReason("");
+        toast.success(`Lead moved to ${STAGE_LABELS[statusUpdateLead.newStatus]}`);
+        setStatusUpdateLead(null);
+        setStatusNote("");
+        setStatusClosingReason("");
         onRefresh();
       } else {
         throw new Error(result.error);
@@ -157,7 +171,7 @@ export default function LeadKanban({ initialLeads, canCreate, onRefresh }: Props
     }
   };
 
-  const handleDragEnd = async (event: DragEndEvent) => {
+  const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over) {
       setActiveId(null);
@@ -182,39 +196,17 @@ export default function LeadKanban({ initialLeads, canCreate, onRefresh }: Props
       return;
     }
 
-    if (newStatus === LeadStatus.UNQUALIFIED) {
-      setUnqualifiedLead({ id: currentActiveId });
-      setClosingReason("");
-      setActiveId(null);
-      return;
-    }
-
     if (newStatus === LeadStatus.CONVERTED) {
       setConversionLead({ id: currentActiveId, name: activeLead.name });
       setActiveId(null);
       return;
     }
 
-    // Optimistic Update
-    const prevLeads = [...leads];
-    setLeads((prev) =>
-      prev.map((l) => l.id === currentActiveId ? { ...l, status: newStatus } : l)
-    );
-
+    // Open status update dialog
+    setStatusUpdateLead({ id: currentActiveId, name: activeLead.name, newStatus });
+    setStatusNote("");
+    setStatusClosingReason("");
     setActiveId(null);
-
-    try {
-      const result = await updateLeadStatus(currentActiveId, newStatus as LeadStatus);
-      if (result.success) {
-        toast.success(`Lead moved to ${STAGE_LABELS[newStatus as LeadStatus]}`);
-        onRefresh();
-      } else {
-        throw new Error(result.error);
-      }
-    } catch (error: any) {
-      toast.error(error.message || "Failed to move lead");
-      setLeads(prevLeads);
-    }
   };
 
   if (leads.length === 0) {
@@ -259,25 +251,42 @@ export default function LeadKanban({ initialLeads, canCreate, onRefresh }: Props
         </DragOverlay>
       </DndContext>
 
-      <Dialog open={!!unqualifiedLead} onOpenChange={(open) => !open && setUnqualifiedLead(null)}>
+      <Dialog open={!!statusUpdateLead} onOpenChange={(open) => !open && setStatusUpdateLead(null)}>
           <DialogContent className="sm:max-w-sm">
               <DialogHeader>
-                  <DialogTitle>Lead Closing Reason</DialogTitle>
+                  <DialogTitle>Update Lead Status</DialogTitle>
               </DialogHeader>
               <div className="grid gap-4 py-4">
+                  <div className="text-sm font-medium">
+                      Lead: <span className="font-semibold">{statusUpdateLead?.name}</span>
+                  </div>
+                  <div className="text-sm font-medium">
+                      Changing status to: <Badge variant={statusUpdateLead ? (statusUpdateLead.newStatus === LeadStatus.UNQUALIFIED ? "destructive" : statusUpdateLead.newStatus === LeadStatus.QUALIFIED ? "success" : "default") : "default"}>{statusUpdateLead ? STAGE_LABELS[statusUpdateLead.newStatus] : ""}</Badge>
+                  </div>
+                  {statusUpdateLead?.newStatus === LeadStatus.UNQUALIFIED && (
+                      <div className="grid gap-2">
+                          <Label htmlFor="kanbanClosingReason">Why is this lead unqualified? *</Label>
+                          <Textarea 
+                              id="kanbanClosingReason" 
+                              value={statusClosingReason} 
+                              onChange={(e) => setStatusClosingReason(e.target.value)}
+                              placeholder="e.g. Budget constraint, lost to competitor, no response..."
+                          />
+                      </div>
+                  )}
                   <div className="grid gap-2">
-                      <Label htmlFor="closingReason">Why is this lead unqualified? *</Label>
+                      <Label htmlFor="kanbanStatusNote">Note / Comment *</Label>
                       <Textarea 
-                          id="closingReason" 
-                          value={closingReason} 
-                          onChange={(e) => setClosingReason(e.target.value)}
-                          placeholder="e.g. Budget constraint, lost to competitor, no response..."
+                          id="kanbanStatusNote" 
+                          value={statusNote} 
+                          onChange={(e) => setStatusNote(e.target.value)}
+                          placeholder="Provide a mandatory note for this status change..."
                       />
                   </div>
               </div>
               <DialogFooter>
-                  <Button variant="outline" onClick={() => setUnqualifiedLead(null)}>Cancel</Button>
-                  <Button onClick={handleUnqualifiedSubmit}>Submit</Button>
+                  <Button variant="outline" onClick={() => setStatusUpdateLead(null)}>Cancel</Button>
+                  <Button onClick={handleStatusSubmit}>Submit</Button>
               </DialogFooter>
           </DialogContent>
       </Dialog>

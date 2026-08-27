@@ -106,42 +106,42 @@ export default function LeadTable({
   const [isBulkActionLoading, setIsBulkActionLoading] = useState(false);
   const [deleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false);
 
-  // Unqualified Lead States
-  const [unqualifiedLead, setUnqualifiedLead] = useState<{ id: string } | null>(null);
-  const [closingReason, setClosingReason] = useState<string>("");
+  // Status Update Dialog States
+  const [statusUpdateLead, setStatusUpdateLead] = useState<{ id: string; name: string; newStatus: LeadStatus } | null>(null);
+  const [statusNote, setStatusNote] = useState<string>("");
+  const [statusClosingReason, setStatusClosingReason] = useState<string>("");
 
-  const handleStatusUpdate = async (leadId: string, newStatus: LeadStatus) => {
-    if (newStatus === LeadStatus.UNQUALIFIED) {
-      setUnqualifiedLead({ id: leadId });
-      setClosingReason("");
-      return;
-    }
-
-    try {
-      const result = await updateLeadStatus(leadId, newStatus);
-      if (result.success) {
-        toast.success(`Status updated to ${statusMap[newStatus].label}`);
-        onRefresh();
-      } else {
-        toast.error(result.error || "Failed to update status");
-      }
-    } catch (error) {
-      toast.error("An error occurred");
-    }
+  const handleStatusUpdate = (leadId: string, newStatus: LeadStatus) => {
+    const lead = leads.find(l => l.id === leadId);
+    if (!lead) return;
+    setStatusUpdateLead({ id: leadId, name: lead.name, newStatus });
+    setStatusNote("");
+    setStatusClosingReason("");
   };
 
-  const handleUnqualifiedSubmit = async () => {
-    if (!unqualifiedLead || !closingReason.trim()) {
+  const handleStatusSubmit = async () => {
+    if (!statusUpdateLead) return;
+    if (!statusNote.trim()) {
+      toast.error("Note is required");
+      return;
+    }
+    if (statusUpdateLead.newStatus === LeadStatus.UNQUALIFIED && !statusClosingReason.trim()) {
       toast.error("Closing reason is required");
       return;
     }
 
     try {
-      const result = await updateLeadStatus(unqualifiedLead.id, LeadStatus.UNQUALIFIED, closingReason);
+      const result = await updateLeadStatus(
+        statusUpdateLead.id,
+        statusUpdateLead.newStatus,
+        statusNote,
+        statusUpdateLead.newStatus === LeadStatus.UNQUALIFIED ? statusClosingReason : undefined
+      );
       if (result.success) {
-        toast.success("Lead marked as Unqualified");
-        setUnqualifiedLead(null);
-        setClosingReason("");
+        toast.success(`Status updated successfully`);
+        setStatusUpdateLead(null);
+        setStatusNote("");
+        setStatusClosingReason("");
         onRefresh();
       } else {
         toast.error(result.error || "Failed to update status");
@@ -596,25 +596,42 @@ export default function LeadTable({
               </DialogContent>
           </Dialog>
 
-          <Dialog open={!!unqualifiedLead} onOpenChange={(open) => !open && setUnqualifiedLead(null)}>
+          <Dialog open={!!statusUpdateLead} onOpenChange={(open) => !open && setStatusUpdateLead(null)}>
               <DialogContent className="sm:max-w-sm">
                   <DialogHeader>
-                      <DialogTitle>Lead Closing Reason</DialogTitle>
+                      <DialogTitle>Update Lead Status</DialogTitle>
                   </DialogHeader>
                   <div className="grid gap-4 py-4">
+                      <div className="text-sm font-medium">
+                          Lead: <span className="font-semibold">{statusUpdateLead?.name}</span>
+                      </div>
+                      <div className="text-sm font-medium">
+                          Changing status to: <Badge variant={statusUpdateLead ? (statusMap[statusUpdateLead.newStatus].variant as any) : "default"}>{statusUpdateLead ? statusMap[statusUpdateLead.newStatus].label : ""}</Badge>
+                      </div>
+                      {statusUpdateLead?.newStatus === LeadStatus.UNQUALIFIED && (
+                          <div className="grid gap-2">
+                              <Label htmlFor="tableClosingReason">Why is this lead unqualified? *</Label>
+                              <Textarea 
+                                  id="tableClosingReason" 
+                                  value={statusClosingReason} 
+                                  onChange={(e) => setStatusClosingReason(e.target.value)}
+                                  placeholder="e.g. Budget constraint, lost to competitor, no response..."
+                              />
+                          </div>
+                      )}
                       <div className="grid gap-2">
-                          <Label htmlFor="closingReason">Why is this lead unqualified? *</Label>
+                          <Label htmlFor="tableStatusNote">Note / Comment *</Label>
                           <Textarea 
-                              id="closingReason" 
-                              value={closingReason} 
-                              onChange={(e) => setClosingReason(e.target.value)}
-                              placeholder="e.g. Budget constraint, lost to competitor, no response..."
+                              id="tableStatusNote" 
+                              value={statusNote} 
+                              onChange={(e) => setStatusNote(e.target.value)}
+                              placeholder="Provide a mandatory note for this status change..."
                           />
                       </div>
                   </div>
                   <DialogFooter>
-                      <Button variant="outline" onClick={() => setUnqualifiedLead(null)}>Cancel</Button>
-                      <Button onClick={handleUnqualifiedSubmit}>Submit</Button>
+                      <Button variant="outline" onClick={() => setStatusUpdateLead(null)}>Cancel</Button>
+                      <Button onClick={handleStatusSubmit}>Submit</Button>
                   </DialogFooter>
               </DialogContent>
           </Dialog>

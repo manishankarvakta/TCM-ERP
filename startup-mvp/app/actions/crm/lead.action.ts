@@ -608,7 +608,7 @@ export async function updateLead(leadId: string, input: {
  * Update lead status
  * Rule: status must use enum
  */
-export async function updateLeadStatus(leadId: string, status: LeadStatus, closingReason?: string) {
+export async function updateLeadStatus(leadId: string, status: LeadStatus, note: string, closingReason?: string) {
   try {
     const session = await auth();
     if (!session?.user) return { success: false, error: "Unauthorized" };
@@ -619,17 +619,43 @@ export async function updateLeadStatus(leadId: string, status: LeadStatus, closi
       return { success: false, error: "Permission Denied: crm.leads.edit" };
     }
 
+    if (!note || !note.trim()) {
+      return { success: false, error: "Note is required when changing lead status" };
+    }
+
     if (status === "UNQUALIFIED" && (!closingReason || !closingReason.trim())) {
       return { success: false, error: "Closing reason is required when marking a lead as unqualified" };
     }
 
-    const lead = await prisma.lead.update({
-      where: { id: leadId },
-      data: { 
-        status,
-        closingReason: status === "UNQUALIFIED" ? closingReason : null,
-      },
+    const result = await prisma.$transaction(async (tx) => {
+      const oldLead = await tx.lead.findUnique({
+        where: { id: leadId },
+        select: { status: true }
+      });
+
+      const lead = await tx.lead.update({
+        where: { id: leadId },
+        data: { 
+          status,
+          closingReason: status === "UNQUALIFIED" ? closingReason : null,
+        },
+      });
+
+      const newNote = await tx.note.create({
+        data: {
+          title: `Status changed to ${status}`,
+          content: note,
+          entityType: "lead",
+          entityId: leadId,
+          leadId: leadId,
+          userId: session.user.id,
+        }
+      });
+
+      return { lead, oldStatus: oldLead?.status, newNote };
     });
+
+    const { lead, oldStatus, newNote } = result;
 
     await logItemUpdated(session.user.id, "Lead", leadId, ["status"], lead.name, { status });
 
@@ -644,11 +670,22 @@ export async function updateLeadStatus(leadId: string, status: LeadStatus, closi
       metadata: { 
         changes: [{
           field: "status",
-          from: lead.status === status ? "Unknown" : "Old Status",
+          from: oldStatus || "Unknown",
           to: status
         }],
         closingReason: closingReason || undefined,
+        noteId: newNote.id,
        }
+    });
+
+    // Also emit NOTE_CREATED system event so it appears on timeline activity ledger
+    await emitSystemEvent({
+      entityType: "lead",
+      entityId: leadId,
+      eventType: "NOTE_CREATED",
+      actorId: session.user.id,
+      description: `Status change note: ${note}`,
+      metadata: { noteId: newNote.id }
     });
     
     // Create system notification

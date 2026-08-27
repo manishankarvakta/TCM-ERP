@@ -49,45 +49,37 @@ const statusLabels: Record<LeadStatus, string> = {
 export function LeadStatusBadge({ leadId, currentStatus }: LeadStatusBadgeProps) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
-  const [unqualifiedOpen, setUnqualifiedOpen] = useState(false);
+  const [statusUpdateOpen, setStatusUpdateOpen] = useState(false);
+  const [selectedStatus, setSelectedStatus] = useState<LeadStatus | null>(null);
+  const [note, setNote] = useState("");
   const [closingReason, setClosingReason] = useState("");
 
   const handleStatusChange = (newStatus: LeadStatus) => {
     if (newStatus === currentStatus) return;
-
-    if (newStatus === "UNQUALIFIED") {
-      setUnqualifiedOpen(true);
-      setClosingReason("");
-      return;
-    }
-
-    startTransition(async () => {
-      try {
-        const result = await updateLeadStatus(leadId, newStatus);
-        if (result.success) {
-          toast.success(`Status updated to ${statusLabels[newStatus] || newStatus}`);
-          router.refresh();
-        } else {
-          toast.error(result.error || "Failed to update status");
-        }
-      } catch (error) {
-        toast.error("An error occurred while updating status");
-      }
-    });
+    setSelectedStatus(newStatus);
+    setNote("");
+    setClosingReason("");
+    setStatusUpdateOpen(true);
   };
 
-  const handleUnqualifiedSubmit = () => {
-    if (!closingReason.trim()) {
+  const handleSubmitStatusChange = () => {
+    if (!selectedStatus) return;
+    if (!note.trim()) {
+      toast.error("Note is required");
+      return;
+    }
+    if (selectedStatus === "UNQUALIFIED" && !closingReason.trim()) {
       toast.error("Closing reason is required");
       return;
     }
 
     startTransition(async () => {
       try {
-        const result = await updateLeadStatus(leadId, "UNQUALIFIED", closingReason);
+        const result = await updateLeadStatus(leadId, selectedStatus, note, closingReason || undefined);
         if (result.success) {
-          toast.success("Lead marked as Unqualified");
-          setUnqualifiedOpen(false);
+          toast.success(`Status updated to ${statusLabels[selectedStatus] || selectedStatus}`);
+          setStatusUpdateOpen(false);
+          setNote("");
           setClosingReason("");
           router.refresh();
         } else {
@@ -135,25 +127,39 @@ export function LeadStatusBadge({ leadId, currentStatus }: LeadStatusBadgeProps)
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <Dialog open={unqualifiedOpen} onOpenChange={(open) => !open && setUnqualifiedOpen(false)}>
+      <Dialog open={statusUpdateOpen} onOpenChange={(open) => !open && setStatusUpdateOpen(false)}>
           <DialogContent className="sm:max-w-sm">
               <DialogHeader>
-                  <DialogTitle>Lead Closing Reason</DialogTitle>
+                  <DialogTitle>Update Lead Status</DialogTitle>
               </DialogHeader>
               <div className="grid gap-4 py-4">
+                  <div className="text-sm font-medium">
+                      Changing status to: <Badge variant={selectedStatus ? (statusColors[selectedStatus] || "default") : "default"}>{selectedStatus ? (statusLabels[selectedStatus] || selectedStatus) : ""}</Badge>
+                  </div>
+                  {selectedStatus === "UNQUALIFIED" && (
+                      <div className="grid gap-2">
+                          <Label htmlFor="badgeClosingReason">Why is this lead unqualified? *</Label>
+                          <Textarea 
+                              id="badgeClosingReason" 
+                              value={closingReason} 
+                              onChange={(e) => setClosingReason(e.target.value)}
+                              placeholder="e.g. Budget constraint, lost to competitor, no response..."
+                          />
+                      </div>
+                  )}
                   <div className="grid gap-2">
-                      <Label htmlFor="badgeClosingReason">Why is this lead unqualified? *</Label>
+                      <Label htmlFor="badgeStatusNote">Note / Comment *</Label>
                       <Textarea 
-                          id="badgeClosingReason" 
-                          value={closingReason} 
-                          onChange={(e) => setClosingReason(e.target.value)}
-                          placeholder="e.g. Budget constraint, lost to competitor, no response..."
+                          id="badgeStatusNote" 
+                          value={note} 
+                          onChange={(e) => setNote(e.target.value)}
+                          placeholder="Provide a mandatory note for this status change..."
                       />
                   </div>
               </div>
               <DialogFooter>
-                  <Button variant="outline" onClick={() => setUnqualifiedOpen(false)}>Cancel</Button>
-                  <Button onClick={handleUnqualifiedSubmit} disabled={isPending}>Submit</Button>
+                  <Button variant="outline" onClick={() => setStatusUpdateOpen(false)}>Cancel</Button>
+                  <Button onClick={handleSubmitStatusChange} disabled={isPending}>Submit</Button>
               </DialogFooter>
           </DialogContent>
       </Dialog>
