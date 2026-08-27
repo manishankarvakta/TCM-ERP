@@ -71,11 +71,11 @@ export default function SystemEventForm({
       title: initialData?.title || initialData?.subject || "",
       eventType: (initialData?.eventType || initialData?.metadata?.eventType || "MEETING").toString().toUpperCase(),
       startDate: (initialData?.startTime || initialData?.dueDate)
-        ? format(new Date(initialData.startTime || initialData.dueDate), "yyyy-MM-dd")
-        : format(new Date(), "yyyy-MM-dd"),
+        ? format(new Date(initialData.startTime || initialData.dueDate), "yyyy-MM-dd'T'HH:mm")
+        : format(new Date(), "yyyy-MM-dd'T'HH:mm"),
       endDate: (initialData?.endTime || initialData?.completedAt)
-        ? format(new Date(initialData.endTime || initialData.completedAt), "yyyy-MM-dd")
-        : format(new Date(), "yyyy-MM-dd"),
+        ? format(new Date(initialData.endTime || initialData.completedAt), "yyyy-MM-dd'T'HH:mm")
+        : format(new Date(), "yyyy-MM-dd'T'HH:mm"),
       allDay: initialData?.allDay || initialData?.metadata?.allDay || false,
       attendees: initialData?.attendees || initialData?.metadata?.attendees || [],
       location: initialData?.location || initialData?.metadata?.location || "",
@@ -100,11 +100,11 @@ export default function SystemEventForm({
         title: initialData.title || initialData.subject || "",
         eventType: normalizedType,
         startDate: (initialData.startTime || initialData.dueDate)
-          ? format(new Date(initialData.startTime || initialData.dueDate), "yyyy-MM-dd")
-          : format(new Date(), "yyyy-MM-dd"),
+          ? format(new Date(initialData.startTime || initialData.dueDate), "yyyy-MM-dd'T'HH:mm")
+          : format(new Date(), "yyyy-MM-dd'T'HH:mm"),
         endDate: (initialData.endTime || initialData.completedAt)
-          ? format(new Date(initialData.endTime || initialData.completedAt), "yyyy-MM-dd")
-          : format(new Date(), "yyyy-MM-dd"),
+          ? format(new Date(initialData.endTime || initialData.completedAt), "yyyy-MM-dd'T'HH:mm")
+          : format(new Date(), "yyyy-MM-dd'T'HH:mm"),
         allDay: initialData.allDay || initialData.metadata?.allDay || false,
         attendees: initialData.attendees || initialData.metadata?.attendees || [],
         location: initialData.location || initialData.metadata?.location || "",
@@ -125,10 +125,16 @@ export default function SystemEventForm({
 
     startTransition(async () => {
       try {
+        const start = new Date(data.startDate);
+        let end = new Date(data.endDate);
+        if (start.getTime() === end.getTime()) {
+          end = new Date(start.getTime() + 60 * 60 * 1000); // Default to 1 hour duration
+        }
+
         const payload = {
           ...data,
-          startDate: new Date(data.startDate + "T00:00:00"),
-          endDate: new Date(data.endDate + "T23:59:59"),
+          startDate: start,
+          endDate: end,
         };
 
         if (initialData?.id) {
@@ -239,7 +245,7 @@ export default function SystemEventForm({
           </Label>
           <Input
             id="startDate"
-            type="date"
+            type="datetime-local"
             {...register("startDate", {
               onChange: (e) => {
                 setValue("endDate", e.target.value);
