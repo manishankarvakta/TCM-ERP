@@ -189,6 +189,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
     control,
     watch,
     setValue,
+    getValues,
   } = useForm<any>({
     resolver: zodResolver(itemFormSchema),
     defaultValues: initialData
@@ -445,10 +446,30 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
 
   const addImage = (url: string) => {
     if (!url) return;
-    const newImages = [...watchedImages, url];
-    setValue("images", newImages);
-    if (!watchedFeaturedImage) {
-      setValue("featuredImage", url);
+    const currentImages = getValues("images") || [];
+    if (currentImages.includes(url)) return;
+    const newImages = [...currentImages, url].slice(0, 6);
+    setValue("images", newImages, { shouldDirty: true, shouldValidate: true });
+    if (!getValues("featuredImage") && newImages.length > 0) {
+      setValue("featuredImage", newImages[0], { shouldDirty: true, shouldValidate: true });
+    }
+  };
+
+  const addMultipleImages = (urls: string[]) => {
+    const validUrls = urls.filter((u) => Boolean(u) && typeof u === "string");
+    if (validUrls.length === 0) return;
+
+    const currentImages: string[] = getValues("images") || [];
+    const existingSet = new Set(currentImages);
+    const toAdd = validUrls.filter((u) => !existingSet.has(u));
+    if (toAdd.length === 0) return;
+
+    const combined = [...currentImages, ...toAdd].slice(0, 6);
+    setValue("images", combined, { shouldDirty: true, shouldValidate: true });
+
+    const currentFeatured = getValues("featuredImage");
+    if (!currentFeatured && combined.length > 0) {
+      setValue("featuredImage", combined[0], { shouldDirty: true, shouldValidate: true });
     }
   };
 
@@ -834,7 +855,9 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                         <MediaSelector
                           label=""
                           value=""
-                          onChange={(url) => addImage(url || "")}
+                          onChange={(url) => addMultipleImages(url ? [url] : [])}
+                          onChangeMultiple={(urls) => addMultipleImages(urls)}
+                          multiple={true}
                           allowedTypes={["image/*"]}
                           previewStyle="square"
                         />

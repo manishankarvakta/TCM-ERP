@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import Link from "next/link";
-import { FiSearch, FiX, FiBox, FiPackage, FiZoomIn } from "react-icons/fi";
+import { FiSearch, FiX, FiBox, FiPackage, FiZoomIn, FiChevronLeft, FiChevronRight } from "react-icons/fi";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import {
@@ -39,8 +39,8 @@ interface Stock {
   lastUpdated: Date;
   item: {
     id: string;
-    name: string;
     code: string;
+    name: string;
     images: any;
     featuredImage: string | null;
     unit: {
@@ -73,9 +73,8 @@ interface StocksListClientProps {
   initialSearch: string;
   initialItemId?: string;
   initialWarehouseId?: string;
-  items?: Array<{ id: string; name: string; code: string }>;
-  warehouses?: Array<{ id: string; name: string; code: string }>;
-  isNormalUser?: boolean;
+  items: { id: string; name: string; code: string }[];
+  warehouses: { id: string; name: string; code: string }[];
 }
 
 export default function StocksListClient({
@@ -84,9 +83,8 @@ export default function StocksListClient({
   initialSearch,
   initialItemId,
   initialWarehouseId,
-  items = [],
-  warehouses = [],
-  isNormalUser = false,
+  items,
+  warehouses,
 }: StocksListClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -94,7 +92,39 @@ export default function StocksListClient({
   const [itemFilter, setItemFilter] = useState(initialItemId || "all");
   const [warehouseFilter, setWarehouseFilter] = useState(initialWarehouseId || "all");
   const [isPending, startTransition] = useTransition();
-  const [previewImage, setPreviewImage] = useState<{ src: string; name: string; code: string } | null>(null);
+  const [previewImage, setPreviewImage] = useState<{
+    images: string[];
+    currentIndex: number;
+    name: string;
+    code: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!previewImage || previewImage.images.length <= 1) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "ArrowLeft") {
+        setPreviewImage((prev) =>
+          prev
+            ? {
+                ...prev,
+                currentIndex: (prev.currentIndex - 1 + prev.images.length) % prev.images.length,
+              }
+            : null
+        );
+      } else if (e.key === "ArrowRight") {
+        setPreviewImage((prev) =>
+          prev
+            ? {
+                ...prev,
+                currentIndex: (prev.currentIndex + 1) % prev.images.length,
+              }
+            : null
+        );
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [previewImage]);
 
   const handleSearch = (value: string) => {
     setSearch(value);
@@ -356,8 +386,18 @@ export default function StocksListClient({
                             <button
                               type="button"
                               onClick={() => {
-                                const imgSrc = stock.item.featuredImage || stock.item.images[0];
-                                setPreviewImage({ src: imgSrc, name: stock.item.name, code: stock.item.code });
+                                const rawImages = Array.isArray(stock.item.images) ? stock.item.images : [];
+                                const itemImages = Array.from(
+                                  new Set([stock.item.featuredImage, ...rawImages].filter((img): img is string => Boolean(img)))
+                                );
+                                const fallbackSrc = stock.item.featuredImage || rawImages[0];
+                                const allImages = itemImages.length > 0 ? itemImages : fallbackSrc ? [fallbackSrc] : [];
+                                setPreviewImage({
+                                  images: allImages,
+                                  currentIndex: 0,
+                                  name: stock.item.name,
+                                  code: stock.item.code,
+                                });
                               }}
                               className="w-full h-full relative block focus:outline-none focus:ring-2 focus:ring-primary/20 rounded overflow-hidden cursor-pointer"
                               title="Click to view photo"
@@ -453,24 +493,96 @@ export default function StocksListClient({
       )}
 
       <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)}>
-        <DialogContent className="max-w-lg p-0 overflow-hidden bg-card border shadow-xl">
+        <DialogContent className="max-w-xl p-0 overflow-hidden bg-card border shadow-xl">
           <DialogHeader className="p-4 border-b bg-muted/30">
             <DialogTitle className="text-base font-semibold flex items-center justify-between gap-2 pr-6">
-              <span className="truncate">{previewImage?.name}</span>
-              {previewImage?.code && (
-                <span className="text-xs font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded uppercase">
-                  {previewImage.code}
+              <div className="flex items-center gap-2 truncate">
+                <span className="truncate">{previewImage?.name}</span>
+                {previewImage?.code && (
+                  <span className="text-xs font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded uppercase">
+                    {previewImage.code}
+                  </span>
+                )}
+              </div>
+              {previewImage && previewImage.images.length > 1 && (
+                <span className="text-xs text-muted-foreground font-normal shrink-0">
+                  {previewImage.currentIndex + 1} / {previewImage.images.length}
                 </span>
               )}
             </DialogTitle>
           </DialogHeader>
-          <div className="p-4 flex items-center justify-center bg-black/5 min-h-[280px] max-h-[70vh] overflow-auto">
-            {previewImage?.src && (
-              <img
-                src={previewImage.src}
-                alt={previewImage?.name || "Item photo"}
-                className="max-w-full max-h-[60vh] object-contain rounded-lg shadow-sm"
-              />
+          <div className="relative p-4 flex flex-col items-center justify-center bg-black/5 min-h-[300px]">
+            {previewImage && previewImage.images[previewImage.currentIndex] && (
+              <div className="relative w-full flex items-center justify-center min-h-[260px] max-h-[60vh]">
+                <img
+                  src={previewImage.images[previewImage.currentIndex]}
+                  alt={`${previewImage.name} photo ${previewImage.currentIndex + 1}`}
+                  className="max-w-full max-h-[58vh] object-contain rounded-lg shadow-sm transition-all duration-200"
+                />
+              </div>
+            )}
+
+            {previewImage && previewImage.images.length > 1 && (
+              <>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="icon"
+                  onClick={() =>
+                    setPreviewImage((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            currentIndex: (prev.currentIndex - 1 + prev.images.length) % prev.images.length,
+                          }
+                        : null
+                    )
+                  }
+                  className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full w-9 h-9 bg-background/80 hover:bg-background shadow border text-foreground transition-all cursor-pointer"
+                  title="Previous image (Left Arrow)"
+                >
+                  <FiChevronLeft className="h-5 w-5" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="icon"
+                  onClick={() =>
+                    setPreviewImage((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            currentIndex: (prev.currentIndex + 1) % prev.images.length,
+                          }
+                        : null
+                    )
+                  }
+                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full w-9 h-9 bg-background/80 hover:bg-background shadow border text-foreground transition-all cursor-pointer"
+                  title="Next image (Right Arrow)"
+                >
+                  <FiChevronRight className="h-5 w-5" />
+                </Button>
+              </>
+            )}
+
+            {previewImage && previewImage.images.length > 1 && (
+              <div className="flex items-center justify-center gap-2 mt-4 max-w-full overflow-x-auto p-1">
+                {previewImage.images.map((img, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setPreviewImage((prev) => (prev ? { ...prev, currentIndex: idx } : null))}
+                    className={cn(
+                      "w-12 h-12 rounded-md border overflow-hidden transition-all shrink-0 focus:outline-none cursor-pointer",
+                      idx === previewImage.currentIndex
+                        ? "ring-2 ring-primary border-transparent scale-105"
+                        : "opacity-60 hover:opacity-100 border-border"
+                    )}
+                  >
+                    <img src={img} alt={`Thumbnail ${idx + 1}`} className="w-full h-full object-cover" />
+                  </button>
+                ))}
+              </div>
             )}
           </div>
         </DialogContent>
