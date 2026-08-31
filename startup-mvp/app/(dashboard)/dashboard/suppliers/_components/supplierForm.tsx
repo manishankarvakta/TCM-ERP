@@ -17,8 +17,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { FiAlertCircle } from "react-icons/fi";
+import { SearchableSelect } from "@/components/ui/searchable-select";
+import { Badge } from "@/components/ui/badge";
+import { FiAlertCircle, FiPackage } from "react-icons/fi";
+import { X } from "lucide-react";
 import { createSupplier, updateSupplier, getWarehousesForSupplier } from "../_actions/supplier.action";
+import { getItemsForPurchase } from "@/app/(dashboard)/dashboard/procurements/purchases/_actions/purchase.action";
 import MediaSelector from "@/components/MediaSelector";
 import { getBasePathFromPathname } from "@/lib/route-utils-client";
 import DocumentSection, { DocumentItem } from "@/components/documents/documentSection";
@@ -37,6 +41,7 @@ const supplierFormSchema = z.object({
   openingBalance: z.string().optional().or(z.literal("")),
   status: z.enum(["active", "inactive"]),
   warehouseId: z.string().optional().or(z.literal("")),
+  itemIds: z.array(z.string()).default([]),
 });
 
 type SupplierFormData = z.infer<typeof supplierFormSchema>;
@@ -59,8 +64,14 @@ interface SupplierFormProps {
     openingBalance?: any;
     status: string;
     warehouseId?: string | null;
+    suppliedItems?: Array<{
+      id: string;
+      name: string;
+      code: string;
+    }>;
   };
 }
+
 
 export default function SupplierForm({ mode, initialData }: SupplierFormProps) {
   const router = useRouter();
@@ -68,6 +79,7 @@ export default function SupplierForm({ mode, initialData }: SupplierFormProps) {
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [warehouses, setWarehouses] = useState<Array<{ id: string; name: string; code: string }>>([]);
+  const [itemsList, setItemsList] = useState<Array<{ id: string; code: string; name: string; description?: string; unit?: string }>>([]);
   const [documents, setDocuments] = useState<DocumentItem[]>(
     Array.isArray(initialData?.documents) ? initialData.documents : []
   );
@@ -77,9 +89,10 @@ export default function SupplierForm({ mode, initialData }: SupplierFormProps) {
     handleSubmit,
     formState: { errors },
     setValue,
+    getValues,
     watch,
   } = useForm<SupplierFormData>({
-    resolver: zodResolver(supplierFormSchema),
+    resolver: zodResolver(supplierFormSchema) as any,
     defaultValues: initialData
       ? {
           name: initialData.name || "",
@@ -95,6 +108,7 @@ export default function SupplierForm({ mode, initialData }: SupplierFormProps) {
           openingBalance: initialData.openingBalance?.toString() || "0",
           status: (initialData.status === "trash" ? "active" : initialData.status) as "active" | "inactive",
           warehouseId: initialData.warehouseId || "",
+          itemIds: initialData.suppliedItems ? initialData.suppliedItems.map(i => i.id) : [],
         }
       : {
           name: "",
@@ -110,20 +124,27 @@ export default function SupplierForm({ mode, initialData }: SupplierFormProps) {
           openingBalance: "0",
           status: "active",
           warehouseId: "",
+          itemIds: [],
         },
   });
 
   useEffect(() => {
-    async function loadWarehouses() {
-      const res = await getWarehousesForSupplier();
-      if (res.success && res.warehouses) {
-        setWarehouses(res.warehouses);
-        if (mode === "create" && res.defaultWarehouseId && !watch("warehouseId")) {
-          setValue("warehouseId", res.defaultWarehouseId);
+    async function loadData() {
+      const [whRes, itemsRes] = await Promise.all([
+        getWarehousesForSupplier(),
+        getItemsForPurchase(),
+      ]);
+      if (whRes.success && whRes.warehouses) {
+        setWarehouses(whRes.warehouses);
+        if (mode === "create" && whRes.defaultWarehouseId && !watch("warehouseId")) {
+          setValue("warehouseId", whRes.defaultWarehouseId);
         }
       }
+      if (itemsRes.success && itemsRes.items) {
+        setItemsList(itemsRes.items as any);
+      }
     }
-    loadWarehouses();
+    loadData();
   }, []);
 
   const onSubmit = async (data: SupplierFormData) => {
@@ -147,6 +168,7 @@ export default function SupplierForm({ mode, initialData }: SupplierFormProps) {
           openingBalance: data.openingBalance ? parseFloat(data.openingBalance) : 0,
           status: data.status,
           warehouseId: data.warehouseId || undefined,
+          itemIds: data.itemIds || [],
         });
 
         if (!result.success) {
@@ -172,7 +194,9 @@ export default function SupplierForm({ mode, initialData }: SupplierFormProps) {
           openingBalance: data.openingBalance ? parseFloat(data.openingBalance) : undefined,
           status: data.status,
           warehouseId: data.warehouseId || undefined,
+          itemIds: data.itemIds || [],
         });
+
 
         if (!result.success) {
           throw new Error(result.error || "Failed to update supplier");
@@ -200,7 +224,7 @@ export default function SupplierForm({ mode, initialData }: SupplierFormProps) {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)}>
+          <form onSubmit={handleSubmit(onSubmit as any)}>
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
               {/* Left Column - Form Fields (3 parts) */}
               <div className="lg:col-span-3 space-y-4">
@@ -408,6 +432,7 @@ export default function SupplierForm({ mode, initialData }: SupplierFormProps) {
                   </div>
                 </div>
               </div>
+
 
               {/* Right Column - Image (1 part) */}
               <div className="lg:col-span-1">

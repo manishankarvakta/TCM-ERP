@@ -558,8 +558,7 @@ export default function SuppliersListClient({
                   aria-label="Select all"
                 />
               </TableHead>
-              <TableHead className="print:w-[12%] whitespace-nowrap">Supplier Code</TableHead>
-              <TableHead className="print:w-[18%] whitespace-nowrap">Supplier</TableHead>
+              <TableHead className="min-w-[260px] print:w-[30%] whitespace-nowrap">Supplier</TableHead>
               <TableHead className="print:w-[22%]">Email</TableHead>
               <TableHead className="print:w-[15%] whitespace-nowrap">Phone</TableHead>
               <TableHead className="print:w-[18%]">Company</TableHead>
@@ -572,7 +571,7 @@ export default function SuppliersListClient({
           <TableBody>
             {initialSuppliers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                   {isTrash ? "No trashed suppliers found" : "No suppliers found"}
                 </TableCell>
               </TableRow>
@@ -590,18 +589,21 @@ export default function SuppliersListClient({
                         aria-label={`Select ${supplier.name || supplier.email}`}
                       />
                     </TableCell>
-                    <TableCell className="text-muted-foreground print:text-black whitespace-nowrap">
-                      {supplier.supplierCode || "-"}
-                    </TableCell>
                     <TableCell className="print:whitespace-nowrap">
                       <div className="flex items-center gap-3">
                         <Avatar className="h-8 w-8 print:hidden">
                           <AvatarImage src={supplier.image || undefined} alt={supplier.name || supplier.email} />
                           <AvatarFallback>{getInitials(supplier.name, supplier.email)}</AvatarFallback>
                         </Avatar>
-                        <span className="font-medium">{supplier.name || "No name"}</span>
+                        <div className="flex flex-col">
+                          <span className="font-medium">{supplier.name || "No name"}</span>
+                          {supplier.supplierCode && (
+                            <span className="text-xs text-muted-foreground font-mono">{supplier.supplierCode}</span>
+                          )}
+                        </div>
                       </div>
                     </TableCell>
+
                     <TableCell className="text-muted-foreground print:text-black">{supplier.email}</TableCell>
                     <TableCell className="text-muted-foreground print:text-black whitespace-nowrap">{supplier.phone || "-"}</TableCell>
                     <TableCell className="text-muted-foreground print:text-black">{supplier.company || "-"}</TableCell>

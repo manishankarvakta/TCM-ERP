@@ -66,15 +66,16 @@ export function SearchableSelect({
   };
 
   const defaultRenderOption = (option: SearchableSelectOption) => (
-    <div className="flex items-center gap-2">
-      <span className="truncate">{option.label}</span>
+    <div className="flex items-center gap-2 overflow-hidden w-full max-w-full">
+      <span className="truncate flex-1 min-w-0">{option.label}</span>
       {option.description && (
-        <span className="text-xs text-muted-foreground truncate">
+        <span className="text-xs text-muted-foreground truncate flex-shrink-0">
           ({option.description})
         </span>
       )}
     </div>
   );
+
 
   React.useEffect(() => {
     if (open) {

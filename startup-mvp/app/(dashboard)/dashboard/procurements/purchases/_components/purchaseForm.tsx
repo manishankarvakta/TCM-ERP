@@ -99,6 +99,7 @@ interface PurchaseFormProps {
     unitPrice: number;
     stock: number;
     unit: string;
+    supplierIds?: string[];
     variants?: Array<{
       id: string;
       sku: string;
@@ -260,21 +261,6 @@ export default function PurchaseForm({
     );
   }, [localSuppliers, supplierSearch]);
 
-  const filteredItemsForSelect = useMemo(() => {
-    if (!itemSearch) return items;
-    const searchLower = itemSearch.toLowerCase();
-    return items.filter(
-      (item) =>
-        item.code.toLowerCase().includes(searchLower) ||
-        item.description.toLowerCase().includes(searchLower) ||
-        (item.barcode && item.barcode.toLowerCase().includes(searchLower)) ||
-        item.variants?.some(v => 
-          (v.sku && v.sku.toLowerCase().includes(searchLower)) ||
-          (v.barcode && v.barcode.toLowerCase().includes(searchLower))
-        )
-    );
-  }, [items, itemSearch]);
-
   const defaultItems =
     initialData?.items.map((item) => ({
       itemId: item.itemId || "",
@@ -333,6 +319,31 @@ export default function PurchaseForm({
           items: defaultItems,
         },
   });
+
+  const watchedSupplierId = watch("supplierId");
+
+  const filteredItemsForSelect = useMemo(() => {
+    let list = items;
+    if (watchedSupplierId) {
+      list = list.filter((item: any) => {
+        return item.supplierIds && item.supplierIds.includes(watchedSupplierId);
+      });
+    }
+
+    if (!itemSearch) return list;
+    const searchLower = itemSearch.toLowerCase();
+    return list.filter(
+      (item) =>
+        item.code.toLowerCase().includes(searchLower) ||
+        item.description.toLowerCase().includes(searchLower) ||
+        (item.barcode && item.barcode.toLowerCase().includes(searchLower)) ||
+        item.variants?.some(v => 
+          (v.sku && v.sku.toLowerCase().includes(searchLower)) ||
+          (v.barcode && v.barcode.toLowerCase().includes(searchLower))
+        )
+    );
+  }, [items, itemSearch, watchedSupplierId]);
+
 
   const { fields, append, prepend, remove } = useFieldArray({
     control,

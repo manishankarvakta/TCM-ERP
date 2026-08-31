@@ -162,6 +162,11 @@ export async function getItemsForPurchase() {
             symbol: true,
           },
         },
+        suppliers: {
+          select: {
+            id: true,
+          },
+        },
         variants: {
           select: {
             id: true,
@@ -193,6 +198,7 @@ export async function getItemsForPurchase() {
           unitPrice: item.costPrice ? Number(item.costPrice) : 0,
           stock: totalStock,
           unit: item.unit.symbol,
+          supplierIds: (item as any).suppliers ? ((item as any).suppliers as any[]).map((s) => s.id) : [],
           variants: (item as any).variants ? ((item as any).variants as any[]).map((v) => ({
             id: v.id,
             sku: v.sku,
@@ -203,6 +209,7 @@ export async function getItemsForPurchase() {
           })) : [],
         };
       }),
+
     };
   } catch (error) {
     console.error("getItemsForPurchase error:", error);

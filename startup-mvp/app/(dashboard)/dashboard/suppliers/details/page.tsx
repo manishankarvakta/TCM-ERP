@@ -3,13 +3,23 @@ import { getSupplierById } from "../_actions/supplier.action";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import Link from "next/link";
-import { FiArrowLeft, FiEdit, FiImage, FiBook } from "react-icons/fi";
+import { FiArrowLeft, FiEdit, FiImage, FiBook, FiPackage } from "react-icons/fi";
 import { format } from "date-fns";
 import { notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { hasPermission } from "@/lib/permissions";
 import DocumentSection from "@/components/documents/documentSection";
+
+import SupplierProductsControl from "../_components/supplierProductsControl";
 
 interface SupplierDetailsPageProps {
   searchParams: Promise<{
@@ -173,6 +183,13 @@ export default async function SupplierDetailsPage({ searchParams }: SupplierDeta
         </CardContent>
       </Card>
 
+      {/* Supplied Products Interactive Control Section */}
+      <SupplierProductsControl
+        supplierId={supplier.id}
+        supplierName={supplier.name || supplier.company || "Supplier"}
+        initialItems={(supplier as any).suppliedItems || []}
+      />
+
       {/* Supplier Attached Documents Section */}
       <DocumentSection
         documents={Array.isArray((supplier as any).documents) ? (supplier as any).documents : []}
@@ -183,4 +200,6 @@ export default async function SupplierDetailsPage({ searchParams }: SupplierDeta
     </div>
   );
 }
+
+
 

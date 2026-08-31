@@ -19,9 +19,10 @@ import {
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { FiAlertCircle, FiPlus, FiTrash2 } from "react-icons/fi";
+import { FiAlertCircle, FiPlus, FiTrash2, FiUsers } from "react-icons/fi";
 import { createItem, updateItem, getActiveCategories, getActiveUnits } from "../_actions/item.action";
 import { getActiveBrands } from "../../brands/_actions/brand.action";
+import { getSuppliersForPurchase } from "@/app/(dashboard)/dashboard/procurements/purchases/_actions/purchase.action";
 import { ItemType } from "@prisma/client";
 import MediaSelector from "@/components/MediaSelector";
 import { Badge } from "@/components/ui/badge";
@@ -61,6 +62,7 @@ const itemFormSchema = z.object({
   featuredImage: z.string().optional().nullable(),
   sizes: z.array(z.string()).default([]),
   colors: z.array(z.string()).default([]),
+  supplierIds: z.array(z.string()).default([]),
   isEnableEcom: z.boolean().default(false),
   status: z.enum(["active", "inactive"]),
   isVatEnabled: z.boolean().default(false),
@@ -102,6 +104,12 @@ interface ItemFormProps {
     featuredImage?: string | null;
     sizes: string[];
     colors: string[];
+    suppliers?: Array<{
+      id: string;
+      name: string | null;
+      supplierCode: string | null;
+      company: string | null;
+    }>;
     isEnableEcom: boolean;
     status: string;
     isVatEnabled?: boolean;
@@ -125,6 +133,7 @@ interface ItemFormProps {
   };
 }
 
+
 interface Category {
   id: string;
   name: string;
@@ -144,6 +153,13 @@ interface Unit {
   details: string;
 }
 
+interface SupplierOption {
+  id: string;
+  name: string | null;
+  supplierCode: string | null;
+  company: string | null;
+}
+
 export default function ItemForm({ mode, initialData }: ItemFormProps) {
   const router = useRouter();
   const [error, setError] = useState<string>("");
@@ -151,6 +167,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
+  const [suppliersList, setSuppliersList] = useState<SupplierOption[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   
   // State for sizes and colors input strings
@@ -211,6 +228,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
           featuredImage: initialData.featuredImage || null,
           sizes: initialData.sizes ?? [],
           colors: initialData.colors ?? [],
+          supplierIds: initialData.suppliers ? initialData.suppliers.map(s => s.id) : [],
           isEnableEcom: initialData.isEnableEcom || false,
           status: (initialData.status === "active" || initialData.status === "inactive") 
             ? initialData.status as "active" | "inactive"
@@ -241,6 +259,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
           featuredImage: null,
           sizes: [],
           colors: [],
+          supplierIds: [],
           isEnableEcom: false,
           status: "active",
           isVatEnabled: false,
@@ -250,6 +269,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
           promoEndsAt: "",
         },
   });
+
 
   const watchedItemType = watch("itemType");
   const watchedImages = watch("images") || [];
@@ -315,14 +335,15 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
     }
   }, [watchedSizes, watchedColors, watch("name")]);
 
-  // Fetch categories, brands and units
+  // Fetch categories, brands, units and suppliers
   useEffect(() => {
     async function fetchData() {
       try {
-        const [categoriesResult, brandsResult, unitsResult] = await Promise.all([
+        const [categoriesResult, brandsResult, unitsResult, suppliersResult] = await Promise.all([
           getActiveCategories(),
           getActiveBrands(),
           getActiveUnits(),
+          getSuppliersForPurchase(),
         ]);
 
         if (categoriesResult.success) {
@@ -342,6 +363,10 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
               setValue("unitId", pcsUnit.id);
             }
           }
+        }
+
+        if (suppliersResult.success && suppliersResult.suppliers) {
+          setSuppliersList(suppliersResult.suppliers as any);
         }
       } catch (err) {
         console.error("Error fetching data:", err);
@@ -378,6 +403,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
         featuredImage: data.featuredImage,
         sizes: (data.itemType === "RETAIL" || data.itemType === "READY_PRODUCT") ? data.sizes : [],
         colors: (data.itemType === "RETAIL" || data.itemType === "READY_PRODUCT") ? data.colors : [],
+        supplierIds: data.supplierIds || [],
         isEnableEcom: data.isEnableEcom,
         status: data.status,
         isVatEnabled: data.isVatEnabled,
@@ -669,6 +695,64 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                       />
                     </div>
                   </div>
+
+                  {/* Associated Suppliers */}
+                  <div className="space-y-3 border-t pt-4 mt-2">
+                    <div className="flex items-center gap-2 text-primary font-semibold">
+                      <FiUsers className="h-4 w-4" />
+                      <h3>Associated Suppliers (Optional)</h3>
+                    </div>
+                    <div className="bg-muted/30 p-4 rounded-xl border border-border/50 space-y-3">
+                      <p className="text-xs text-muted-foreground">
+                        Select one or more suppliers that supply this product. In the Purchase screen, selecting a supplier will automatically filter the product list to show only products connected to that supplier.
+                      </p>
+                      <SearchableSelect
+                        options={suppliersList
+                          .filter(s => !(watch("supplierIds") || []).includes(s.id))
+                          .map(s => ({
+                            label: `${s.name || "Unnamed Supplier"}${s.company ? ` (${s.company})` : ""}${s.supplierCode ? ` [${s.supplierCode}]` : ""}`,
+                            value: s.id
+                          }))
+                        }
+                        value={null}
+                        onValueChange={(selectedId) => {
+                          if (selectedId) {
+                            const current = getValues("supplierIds") || [];
+                            if (!current.includes(selectedId)) {
+                              setValue("supplierIds", [...current, selectedId], { shouldDirty: true });
+                            }
+                          }
+                        }}
+                        placeholder="Search & select supplier..."
+                        searchPlaceholder="Search suppliers..."
+                        disabled={loading}
+                      />
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        {(watch("supplierIds") || []).map((supId: string) => {
+                          const sup = suppliersList.find(s => s.id === supId);
+                          return (
+                            <Badge key={supId} variant="default" className="flex items-center gap-2 py-1 px-3 text-xs bg-primary text-primary-foreground">
+                              <span>{sup ? `${sup.name || "Supplier"}${sup.company ? ` (${sup.company})` : ""}` : supId}</span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const current = getValues("supplierIds") || [];
+                                  setValue("supplierIds", current.filter((id: string) => id !== supId), { shouldDirty: true });
+                                }}
+                                className="hover:text-destructive-foreground transition-colors ml-1"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </button>
+                            </Badge>
+                          );
+                        })}
+                        {(watch("supplierIds") || []).length === 0 && (
+                          <p className="text-xs text-muted-foreground italic">No suppliers assigned yet.</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
 
                   {/* Pricing */}
                   <div className="space-y-4 border-t pt-4">

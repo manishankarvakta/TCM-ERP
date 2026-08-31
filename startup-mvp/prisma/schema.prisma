@@ -422,6 +422,7 @@ model Item {
   inventoryDamageItems           InventoryDamageItem[]
   inventoryCountEntries          InventoryCountEntry[]
   inventoryAddStockEntries       InventoryAddStockEntry[]
+  suppliers                      Supplier[]                      @relation("ItemSuppliers")
 
   @@index([code])
   @@index([name])
@@ -710,6 +711,7 @@ model Supplier {
   VoucherLine      VoucherLine[]
   returnToVendors  ReturnToVendor[]
   documents        Json?
+  suppliedItems    Item[]             @relation("ItemSuppliers")
 
   @@index([status])
   @@index([createdBy])

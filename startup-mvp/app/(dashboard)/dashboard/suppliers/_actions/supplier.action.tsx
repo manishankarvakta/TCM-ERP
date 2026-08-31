@@ -303,9 +303,28 @@ export async function getSupplierById(supplierId: string) {
             type: true,
           },
         },
+        suppliedItems: {
+          where: { isTrash: false },
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            itemType: true,
+            costPrice: true,
+            salesPrice: true,
+            status: true,
+            unit: {
+              select: {
+                symbol: true,
+              },
+            },
+          },
+          orderBy: { name: "asc" },
+        },
         createdAt: true,
         updatedAt: true,
       },
+
     });
 
     if (!supplier) {
@@ -447,6 +466,7 @@ export async function createSupplier(input: {
   openingBalance?: number;
   status?: "active" | "inactive";
   warehouseId?: string | null;
+  itemIds?: string[];
 }) {
   try {
     const session = await auth();
@@ -620,6 +640,9 @@ export async function createSupplier(input: {
           createdBy: session.user.id,
           chartOfAccountId: chartOfAccount.id,
           warehouseId: targetWarehouseId,
+          suppliedItems: input.itemIds && input.itemIds.length > 0 ? {
+            connect: input.itemIds.map((id) => ({ id })),
+          } : undefined,
         },
         select: {
           id: true,
@@ -742,6 +765,7 @@ export async function updateSupplier(input: {
   openingBalance?: number;
   status?: "active" | "inactive";
   warehouseId?: string | null;
+  itemIds?: string[];
 }) {
   try {
     const session = await auth();
@@ -946,6 +970,12 @@ export async function updateSupplier(input: {
 
       if (chartOfAccountId && chartOfAccountId !== existingSupplier.chartOfAccountId) {
         updateData.ChartOfAccount = { connect: { id: chartOfAccountId } };
+      }
+
+      if (input.itemIds !== undefined) {
+        updateData.suppliedItems = {
+          set: input.itemIds.map((id) => ({ id })),
+        };
       }
 
       // Update supplier
@@ -1675,6 +1705,75 @@ export async function getAllSuppliersForExport(
     };
   }
 }
+
+/**
+ * Add products to a supplier's suppliedItems relation
+ */
+export async function addSupplierProducts(supplierId: string, itemIds: string[]) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    if (!supplierId || !itemIds || itemIds.length === 0) {
+      return { success: false, error: "Supplier ID and at least one item ID are required" };
+    }
+
+    await prisma.supplier.update({
+      where: { id: supplierId },
+      data: {
+        suppliedItems: {
+          connect: itemIds.map((id) => ({ id })),
+        },
+      },
+    });
+
+    revalidateBothPaths("suppliers");
+    return { success: true };
+  } catch (error) {
+    console.error("addSupplierProducts error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to add products to supplier",
+    };
+  }
+}
+
+/**
+ * Remove a product from a supplier's suppliedItems relation
+ */
+export async function removeSupplierProduct(supplierId: string, itemId: string) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    if (!supplierId || !itemId) {
+      return { success: false, error: "Supplier ID and Item ID are required" };
+    }
+
+    await prisma.supplier.update({
+      where: { id: supplierId },
+      data: {
+        suppliedItems: {
+          disconnect: { id: itemId },
+        },
+      },
+    });
+
+    revalidateBothPaths("suppliers");
+    return { success: true };
+  } catch (error) {
+    console.error("removeSupplierProduct error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to remove product from supplier",
+    };
+  }
+}
+
 
 
 

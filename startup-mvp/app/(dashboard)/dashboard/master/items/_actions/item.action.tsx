@@ -221,7 +221,8 @@ export async function getItems(
   limit: number = 10,
   search: string = "",
   status: "active" | "inactive" | "trash" | "all" = "all",
-  itemType?: ItemType
+  itemType?: ItemType,
+  supplierId?: string
 ) {
   try {
     const session = await auth();
@@ -290,6 +291,15 @@ export async function getItems(
       where.itemType = itemType;
     }
 
+    // Filter by supplierId
+    if (supplierId && supplierId !== "all") {
+      where.suppliers = {
+        some: {
+          id: supplierId,
+        },
+      };
+    }
+
     // Get total count
     const total = await prisma.item.count({ where });
 
@@ -352,7 +362,16 @@ export async function getItems(
             details: true,
           },
         },
+        suppliers: {
+          select: {
+            id: true,
+            name: true,
+            supplierCode: true,
+            company: true,
+          },
+        },
       },
+
       orderBy: {
         createdAt: "desc",
       },
@@ -471,6 +490,14 @@ export async function getItemById(itemId: string) {
             id: true,
             symbol: true,
             details: true,
+          },
+        },
+        suppliers: {
+          select: {
+            id: true,
+            name: true,
+            supplierCode: true,
+            company: true,
           },
         },
         creator: {
@@ -842,6 +869,7 @@ export async function createItem(input: {
   barcode?: string | null;
   isPromo?: boolean;
   promoEndsAt?: Date | string | null;
+  supplierIds?: string[];
   variants?: Array<{
     sku: string;
     barcode?: string | null;
@@ -1017,6 +1045,9 @@ export async function createItem(input: {
         promoEndsAt: input.promoEndsAt ? new Date(input.promoEndsAt) : null,
         isTrash: false,
         createdBy: session.user.id,
+        suppliers: input.supplierIds && input.supplierIds.length > 0 ? {
+          connect: input.supplierIds.map((id) => ({ id })),
+        } : undefined,
         variants: input.variants && input.variants.length > 0 ? {
           create: await Promise.all(input.variants.map(async (v) => ({
             sku: v.sku,
@@ -1189,6 +1220,7 @@ export async function updateItem(input: {
   barcode?: string | null;
   isPromo?: boolean;
   promoEndsAt?: Date | string | null;
+  supplierIds?: string[];
   variants?: Array<{
     id?: string;
     sku: string;
@@ -1382,6 +1414,7 @@ export async function updateItem(input: {
       barcode: finalBarcode,
       isPromo: input.isPromo ?? false,
       promoEndsAt: input.promoEndsAt ? new Date(input.promoEndsAt) : null,
+      suppliers: input.supplierIds ? { set: input.supplierIds.map((id) => ({ id })) } : undefined,
     };
 
     if (input.status !== undefined) {

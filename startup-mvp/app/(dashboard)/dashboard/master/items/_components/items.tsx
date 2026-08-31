@@ -85,6 +85,12 @@ interface Item {
     symbol: string;
     details: string;
   };
+  suppliers?: Array<{
+    id: string;
+    name: string | null;
+    supplierCode: string | null;
+    company: string | null;
+  }>;
 }
 
 interface Pagination {
@@ -529,6 +535,15 @@ export default function ItemsListClient({
                       <div className="flex flex-col">
                         <span className="font-medium text-foreground">{item.name}</span>
                         <span className="text-xs font-mono text-muted-foreground uppercase">{item.code}</span>
+                        {item.suppliers && item.suppliers.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1 print:hidden">
+                            {item.suppliers.map((s) => (
+                              <Badge key={s.id} variant="outline" className="text-[10px] py-0 px-1.5 bg-blue-50 text-blue-700 border-blue-200">
+                                {s.name || s.company || "Supplier"}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </TableCell>
                     <TableCell className="print:whitespace-nowrap">{getItemTypeBadge(item.itemType)}</TableCell>
