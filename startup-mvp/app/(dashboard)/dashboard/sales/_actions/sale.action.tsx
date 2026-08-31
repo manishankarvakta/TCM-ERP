@@ -1818,32 +1818,42 @@ export async function getSaleByNumber(saleNumber: string) {
       return { success: false, error: "Sale not found", sale: null };
     }
 
-    // Find all return sales for this sale to compute already-returned quantities
-    const originalSuffix = saleNumber.replace(/^SAL-/, "").replace(/^RET-/, "");
+    // Find all return sales and stock ledgers for this sale to compute already-returned quantities
     const returnSales = await prisma.sale.findMany({
       where: {
-        saleNumber: {
-          startsWith: "RET-"
-        },
-        OR: [
-          { saleNumber: { contains: originalSuffix } }
-        ],
+        orderType: "RETURN",
         status: "COMPLETED",
+        OR: [
+          { notes: { contains: sale.saleNumber } },
+          { clientId: sale.clientId }
+        ]
       },
-      include: {
-        items: true
-      }
+      include: { items: true }
     });
 
-    const itemsWithRemaining = sale.items.map((item) => {
-      let returnedQty = 0;
-      for (const retSale of returnSales) {
-        const retItem = retSale.items.find(ri => 
-          ri.itemId === item.itemId && 
-          (item.variantId ? ri.variantId === item.variantId : !ri.variantId)
-        );
-        if (retItem) {
-          returnedQty += Math.abs(Number(retItem.quantity));
+    const itemsWithRemaining = await Promise.all(sale.items.map(async (item) => {
+      // Query stockLedger for returns linked to this sale ID
+      const ledgerSum = await prisma.stockLedger.aggregate({
+        where: {
+          referenceType: "SALE_RETURN",
+          referenceId: sale.id,
+          ...(item.variantId ? { variantId: item.variantId } : { itemId: item.itemId })
+        },
+        _sum: { quantity: true }
+      });
+
+      let returnedQty = Math.abs(Number(ledgerSum._sum.quantity || 0));
+
+      // Fallback check on return sales notes if stockLedger was 0
+      if (returnedQty === 0) {
+        for (const retSale of returnSales) {
+          const retItem = retSale.items.find(ri => 
+            ri.itemId === item.itemId && 
+            (item.variantId ? ri.variantId === item.variantId : !ri.variantId)
+          );
+          if (retItem) {
+            returnedQty += Math.abs(Number(retItem.quantity));
+          }
         }
       }
 
@@ -1858,7 +1868,7 @@ export async function getSaleByNumber(saleNumber: string) {
         unitPrice: Number(item.unitPrice),
         amount: Number(item.amount),
       };
-    });
+    }));
 
     return {
       success: true,
@@ -3101,7 +3111,12 @@ export async function voidSale(saleId: string) {
   }
 }
 
-export async function processSaleReturn(saleId: string | null, returnItems: { itemId: string, variantId?: string, quantity: number, unitPrice?: number }[], selectedWarehouseId?: string) {
+export async function processSaleReturn(
+  saleId: string | null, 
+  returnItems: { itemId: string, variantId?: string, quantity: number, unitPrice?: number }[], 
+  selectedWarehouseId?: string,
+  refundMode: "AR_OFFSET_FIRST" | "CASH_PAID_ONLY" = "AR_OFFSET_FIRST"
+) {
   try {
     const session = await auth();
     if (!session?.user) {
@@ -3310,6 +3325,53 @@ export async function processSaleReturn(saleId: string | null, returnItems: { it
           i.itemId === ret.itemId && 
           (ret.variantId ? i.variantId === ret.variantId : !i.variantId)
         ) : null;
+
+        if (originalSale) {
+          if (!originalItemForDiscount) {
+            return { success: false, error: `Item ${itemDescription} is not part of original invoice ${originalSale.saleNumber}` };
+          }
+
+          // Calculate prior returns for this item on originalSale via stockLedger & sale records
+          const priorReturnedLedger = await tx.stockLedger.aggregate({
+            where: {
+              referenceType: "SALE_RETURN",
+              referenceId: originalSale.id,
+              ...(ret.variantId ? { variantId: ret.variantId } : { itemId: ret.itemId })
+            },
+            _sum: { quantity: true }
+          });
+
+          let totalPriorReturned = Math.abs(Number(priorReturnedLedger._sum.quantity || 0));
+
+          // Fallback check on return sales notes if stockLedger was not present
+          if (totalPriorReturned === 0) {
+            const priorReturnSales = await tx.sale.findMany({
+              where: {
+                notes: { contains: originalSale.saleNumber },
+                orderType: "RETURN",
+                status: "COMPLETED"
+              },
+              include: { items: true }
+            });
+            for (const prs of priorReturnSales) {
+              for (const pri of prs.items) {
+                if (pri.itemId === ret.itemId && (ret.variantId ? pri.variantId === ret.variantId : !pri.variantId)) {
+                  totalPriorReturned += Math.abs(Number(pri.quantity));
+                }
+              }
+            }
+          }
+
+          const origQty = Number(originalItemForDiscount.quantity);
+          const maxAvailable = Math.max(0, origQty - totalPriorReturned);
+
+          if (ret.quantity > maxAvailable) {
+            return {
+              success: false,
+              error: `Cannot return ${ret.quantity} units of ${itemDescription}. Only ${maxAvailable} units available to return (${totalPriorReturned} units already returned on invoice ${originalSale.saleNumber}).`
+            };
+          }
+        }
         
         const itemFullUnitPrice = originalItemForDiscount ? Number(originalItemForDiscount.unitPrice) : itemUnitPrice;
         const itemCouponDiscount = originalItemForDiscount ? (itemFullUnitPrice * couponRatio) : 0;
@@ -3402,26 +3464,97 @@ export async function processSaleReturn(saleId: string | null, returnItems: { it
         }
       }
 
-      const returnSaleNumber = await generateReturnSaleNumber(tx);
+      // Calculate Client Outstanding AR Due (First Priority Offset)
+      let clientNetDue = 0;
+      if (clientId) {
+        const isWalkway = clientId === "cmrl9t294000ecke2jw5ogbxf";
+        if (!isWalkway) {
+          const dbClient = await tx.client.findUnique({
+            where: { id: clientId },
+            select: { id: true, name: true, openingBalance: true, chartOfAccountId: true }
+          });
+          if (dbClient?.chartOfAccountId) {
+            const journalSum = await tx.journalEntryLine.aggregate({
+              where: { chartOfAccountId: dbClient.chartOfAccountId },
+              _sum: { debitAmount: true, creditAmount: true }
+            });
+            const debit = Number(journalSum._sum.debitAmount || 0);
+            const credit = Number(journalSum._sum.creditAmount || 0);
+            clientNetDue += (debit - credit);
 
-      // Check if cash refund should be paid out (only if original sale had payment details, or if it is walkway client)
-      let shouldRefundCash = false;
-      if (originalSale) {
-        const paymentDetails = originalSale.paymentDetails as any;
-        if (paymentDetails) {
-          const cashAmt = Number(paymentDetails.cashAmount || 0);
-          const cardAmt = Number(paymentDetails.cardAmount || 0);
-          const mfsAmt = Number(paymentDetails.mfsAmount || 0);
-          if (cashAmt + cardAmt + mfsAmt > 0) {
-            shouldRefundCash = true;
+            const hasOpening = await tx.journalEntryLine.findFirst({
+              where: {
+                chartOfAccountId: dbClient.chartOfAccountId,
+                description: { contains: "opening balance", mode: "insensitive" }
+              }
+            });
+            if (Number(dbClient.openingBalance || 0) > 0 && !hasOpening) {
+              clientNetDue += Number(dbClient.openingBalance || 0);
+            }
           }
         }
-      } else {
-        const isWalkway = !clientId || clientId === "cmrl9t294000ecke2jw5ogbxf";
-        if (isWalkway) {
-          shouldRefundCash = true;
+      }
+
+      // Calculate original paid amount at checkout
+      let totalOrigPaid = 0;
+      let origCash = 0;
+      let origCard = 0;
+      let origMfs = 0;
+      let origCashAcctId: string | null = null;
+      let origCardAcctId: string | null = null;
+      let origMfsAcctId: string | null = null;
+
+      if (originalSale) {
+        const details = originalSale.paymentDetails as any;
+        if (details) {
+          origCash = Number(details.cashAmount || 0);
+          origCard = Number(details.cardAmount || 0);
+          origMfs = Number(details.mfsAmount || 0);
+          totalOrigPaid = origCash + origCard + origMfs;
+          origCashAcctId = details.cashAccountId || null;
+          origCardAcctId = details.cardAccountId || null;
+          origMfsAcctId = details.mfsAccountId || null;
         }
       }
+
+      let arOffset = 0;
+      let remainingRefundPayout = 0;
+
+      if (refundMode === "CASH_PAID_ONLY") {
+        // Cash Refund Mode: Refund up to what customer actually paid at checkout (totalOrigPaid)
+        remainingRefundPayout = Math.min(totalRefund, totalOrigPaid > 0 ? totalOrigPaid : totalRefund);
+        remainingRefundPayout = Math.max(0, Number(remainingRefundPayout.toFixed(2)));
+        arOffset = Math.max(0, Number((totalRefund - remainingRefundPayout).toFixed(2)));
+      } else {
+        // Default Mode (AR_OFFSET_FIRST): Priority 1 is offsetting AR Due debt first
+        arOffset = Math.min(totalRefund, Math.max(0, clientNetDue));
+        remainingRefundPayout = Math.max(0, Number((totalRefund - arOffset).toFixed(2)));
+      }
+
+      // Multi-channel payout calculation for remaining refund
+      let refundCashAmt = 0;
+      let refundCardAmt = 0;
+      let refundMfsAmt = 0;
+
+      if (remainingRefundPayout > 0) {
+        if (totalOrigPaid > 0) {
+          const ratio = Math.min(1, remainingRefundPayout / totalOrigPaid);
+          refundCashAmt = Number((origCash * ratio).toFixed(2));
+          refundCardAmt = Number((origCard * ratio).toFixed(2));
+          refundMfsAmt = Number((origMfs * ratio).toFixed(2));
+
+          // Adjust rounding difference to cash
+          const sumSplit = refundCashAmt + refundCardAmt + refundMfsAmt;
+          const splitDiff = Number((remainingRefundPayout - sumSplit).toFixed(2));
+          if (splitDiff !== 0) {
+            refundCashAmt = Number((refundCashAmt + splitDiff).toFixed(2));
+          }
+        } else {
+          refundCashAmt = remainingRefundPayout;
+        }
+      }
+
+      const returnSaleNumber = await generateReturnSaleNumber(tx);
 
       const returnSale = await tx.sale.create({
         data: {
@@ -3431,15 +3564,23 @@ export async function processSaleReturn(saleId: string | null, returnItems: { it
           date: new Date(),
           status: "COMPLETED",
           orderType: "RETURN",
+          notes: originalSale ? `Return for sale ${originalSale.saleNumber}` : "Void Return",
           subTotal: -totalRefund,
           grandTotal: -totalRefund,
           createdBy: session.user.id,
-          paymentDetails: shouldRefundCash ? {
-            cashAmount: totalRefund,
+          paymentDetails: remainingRefundPayout > 0 ? {
+            cashAmount: refundCashAmt,
+            cardAmount: refundCardAmt,
+            mfsAmount: refundMfsAmt,
+            arOffsetAmount: arOffset,
+            changeAmount: 0
+          } : {
+            cashAmount: 0,
             cardAmount: 0,
             mfsAmount: 0,
+            arOffsetAmount: arOffset,
             changeAmount: 0
-          } : undefined,
+          },
           items: {
             create: newSaleItems.map(i => ({
               itemId: i.itemId,
@@ -3483,10 +3624,7 @@ export async function processSaleReturn(saleId: string | null, returnItems: { it
         }
       }
 
-
-
       const warehouseCashAccountId = await getWarehouseCashAccount(warehouseId, tx);
-      const creditAccountId = shouldRefundCash && warehouseCashAccountId ? warehouseCashAccountId : arAccountId;
       const debitAccountId = salesRevenueAccountId || arAccountId;
 
       if (debitAccountId && arAccountId) {
@@ -3497,7 +3635,7 @@ export async function processSaleReturn(saleId: string | null, returnItems: { it
           {
             lineNumber: 1,
             chartOfAccountId: debitAccountId,
-            clientId: undefined, // remove to avoid statement pollution
+            clientId: undefined,
             debitAmount: Number(totalFullRevenueToDebit.toFixed(2)),
             creditAmount: 0,
             description: `Sales Return (Debit Revenue)`
@@ -3508,7 +3646,9 @@ export async function processSaleReturn(saleId: string | null, returnItems: { it
             clientId: clientId || undefined,
             debitAmount: 0,
             creditAmount: Number(totalRefund.toFixed(2)),
-            description: `Sales Return (Credit AR)`
+            description: arOffset > 0 
+              ? `Sales Return (Credit AR - Offset Due: ৳${arOffset.toFixed(2)})` 
+              : `Sales Return (Credit AR)`
           }
         ];
 
@@ -3597,26 +3737,97 @@ export async function processSaleReturn(saleId: string | null, returnItems: { it
           throw new Error(postInvoiceResult.error || "Failed to post return invoice voucher");
         }
 
-        // Create Voucher 2: Refund Payment (PAYMENT) - if cash refund was paid out
-        if (creditAccountId && creditAccountId !== arAccountId) {
-          const paymentLines = [
+        // Create Voucher 2: Refund Payment (PAYMENT) - if remaining payout > 0
+        if (remainingRefundPayout > 0) {
+          const paymentLines: any[] = [
             {
               lineNumber: 1,
-              chartOfAccountId: arAccountId, // Debit Client AR to clear the credit balance
+              chartOfAccountId: arAccountId, // Debit Client AR to clear credit balance
               clientId: clientId || undefined,
-              debitAmount: Number(totalRefund.toFixed(2)),
+              debitAmount: Number(remainingRefundPayout.toFixed(2)),
               creditAmount: 0,
-              description: `Refund for Sales Return (Debit AR)`
-            },
-            {
-              lineNumber: 2,
-              chartOfAccountId: creditAccountId, // Credit Cash/Bank account
-              clientId: undefined,
-              debitAmount: 0,
-              creditAmount: Number(totalRefund.toFixed(2)),
-              description: `Cash Refund for Sales Return (Credit Cash)`
+              description: `Refund payout for Sales Return (Debit AR)`
             }
           ];
+
+          let pLineNum = 2;
+
+          // Cash Refund Line
+          if (refundCashAmt > 0) {
+            const cashAcctId = origCashAcctId || warehouseCashAccountId;
+            if (cashAcctId) {
+              paymentLines.push({
+                lineNumber: pLineNum++,
+                chartOfAccountId: cashAcctId,
+                clientId: undefined,
+                debitAmount: 0,
+                creditAmount: Number(refundCashAmt.toFixed(2)),
+                description: `Cash Refund for Sales Return (Credit Cash)`
+              });
+            }
+          }
+
+          // Card Refund Line
+          if (refundCardAmt > 0) {
+            let cardAcctId = origCardAcctId;
+            if (!cardAcctId) {
+              try {
+                const allSettings = await (await import("@/lib/accounting-settings")).getAccountingOperationSettings();
+                cardAcctId = allSettings?.contra?.fromAccountId || null;
+              } catch (_) {}
+            }
+            if (cardAcctId) {
+              paymentLines.push({
+                lineNumber: pLineNum++,
+                chartOfAccountId: cardAcctId,
+                clientId: undefined,
+                debitAmount: 0,
+                creditAmount: Number(refundCardAmt.toFixed(2)),
+                description: `Card/Bank Refund for Sales Return (Credit Bank)`
+              });
+            } else if (warehouseCashAccountId) {
+              // Fallback to cash if no card account mapped
+              paymentLines.push({
+                lineNumber: pLineNum++,
+                chartOfAccountId: warehouseCashAccountId,
+                clientId: undefined,
+                debitAmount: 0,
+                creditAmount: Number(refundCardAmt.toFixed(2)),
+                description: `Card Refund (Cash Fallback) for Sales Return`
+              });
+            }
+          }
+
+          // MFS Refund Line
+          if (refundMfsAmt > 0) {
+            let mfsAcctId = origMfsAcctId;
+            if (!mfsAcctId) {
+              try {
+                const allSettings = await (await import("@/lib/accounting-settings")).getAccountingOperationSettings();
+                mfsAcctId = allSettings?.contra?.fromAccountId || null;
+              } catch (_) {}
+            }
+            if (mfsAcctId) {
+              paymentLines.push({
+                lineNumber: pLineNum++,
+                chartOfAccountId: mfsAcctId,
+                clientId: undefined,
+                debitAmount: 0,
+                creditAmount: Number(refundMfsAmt.toFixed(2)),
+                description: `MFS/bKash Refund for Sales Return (Credit MFS)`
+              });
+            } else if (warehouseCashAccountId) {
+              // Fallback to cash if no MFS account mapped
+              paymentLines.push({
+                lineNumber: pLineNum++,
+                chartOfAccountId: warehouseCashAccountId,
+                clientId: undefined,
+                debitAmount: 0,
+                creditAmount: Number(refundMfsAmt.toFixed(2)),
+                description: `MFS Refund (Cash Fallback) for Sales Return`
+              });
+            }
+          }
 
           const paymentVoucherResult = await createVoucher({
             date: new Date(),

@@ -415,6 +415,8 @@ export default function POSComponent({ items, clients: initialClients, warehouse
   const [returnSaleDetails, setReturnSaleDetails] = useState<any>(null);
   const [returnSearchError, setReturnSearchError] = useState<string | null>(null);
   const [returnItemsState, setReturnItemsState] = useState<{itemId: string, variantId?: string, maxQty: number, returnQty: number}[]>([]);
+  const [isFullReturnChecked, setIsFullReturnChecked] = useState(false);
+  const [refundMode, setRefundMode] = useState<"AR_OFFSET_FIRST" | "CASH_PAID_ONLY">("AR_OFFSET_FIRST");
   const [barcodeInput, setBarcodeInput] = useState('');
   const [isFetchingSale, setIsFetchingSale] = useState(false);
   const [isVoiding, setIsVoiding] = useState(false);
@@ -1512,13 +1514,28 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     setIsFetchingSale(false);
   };
 
+  const handleToggleFullReturn = (checked: boolean) => {
+    setIsFullReturnChecked(checked);
+    if (checked && returnSaleDetails?.items) {
+      setReturnItemsState(prev => prev.map(i => ({ ...i, returnQty: i.maxQty })));
+    } else if (!checked) {
+      setReturnItemsState(prev => prev.map(i => ({ ...i, returnQty: 0 })));
+    }
+  };
+
   const handleUpdateReturnQty = (itemId: string, qty: number, variantId?: string) => {
-    setReturnItemsState(prev => prev.map(i => {
-      if (i.itemId === itemId && (variantId ? i.variantId === variantId : !i.variantId)) {
-        return { ...i, returnQty: Math.min(Math.max(0, qty), i.maxQty) };
-      }
-      return i;
-    }));
+    setReturnItemsState(prev => {
+      const updated = prev.map(i => {
+        if (i.itemId === itemId && (variantId ? i.variantId === variantId : !i.variantId)) {
+          return { ...i, returnQty: Math.min(Math.max(0, qty), i.maxQty) };
+        }
+        return i;
+      });
+      // Auto-check full return if all items are at maxQty, else uncheck
+      const isAllMax = updated.length > 0 && updated.every(i => i.returnQty === i.maxQty && i.maxQty > 0);
+      setIsFullReturnChecked(isAllMax);
+      return updated;
+    });
   };
 
 
@@ -1571,15 +1588,25 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     
     setIsReturning(true);
     try {
-      const res = await processSaleReturn(returnSaleDetails.id, selectedItems);
+      const res = await processSaleReturn(returnSaleDetails.id, selectedItems, undefined, refundMode);
       if(res.success && res.returnSale) {
         const saleNum = res.returnSale.saleNumber;
         const saleId = res.returnSale.id;
         const refundAmt = Number(res.returnSale.grandTotal);
+        const details = (res.returnSale as any).paymentDetails;
+        const arOffset = Number(details?.arOffsetAmount || 0);
+
         setCompletedSaleNumber(saleNum);
         setCompletedSaleId(saleId || '');
         setChangeAmount(Math.abs(refundAmt));
-        toast({ title: "Return Processed", description: `Return ${saleNum} created.` });
+        
+        toast({ 
+          title: "Return Processed Successfully", 
+          description: arOffset > 0 
+            ? `Return ${saleNum}: ৳${arOffset.toFixed(2)} adjusted against Client Due, ৳${(Math.abs(refundAmt) - arOffset).toFixed(2)} refunded.` 
+            : `Return ${saleNum} created for ৳${Math.abs(refundAmt).toFixed(2)}.`
+        });
+        
         setIsReturnModalOpen(false);
         setActionSaleNumber('');
         setReturnSaleDetails(null);
@@ -3481,9 +3508,9 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                 )
               ) : (
                 <div className="space-y-4 mb-4">
-                  {/* Selected Sale Header Summary Card with Back Button */}
-                  <div className="flex items-center justify-between p-3.5 bg-muted/30 border border-border rounded-xl shadow-sm">
-                    <div className="flex items-center gap-3">
+                  {/* Selected Sale Header Summary Card with Back Button & Return Full Invoice Checkbox */}
+                  <div className="flex items-center justify-between p-3.5 bg-muted/30 border border-border rounded-xl shadow-sm gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
                       <Button
                         variant="outline"
                         size="sm"
@@ -3491,54 +3518,125 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                         onClick={() => {
                           setReturnSaleDetails(null);
                           setReturnItemsState([]);
+                          setIsFullReturnChecked(false);
                         }}
                       >
                         <FaArrowLeft className="w-3.5 h-3.5" /> Back to Invoices
                       </Button>
-                      <div>
+                      <div className="min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="font-extrabold text-base text-foreground">{returnSaleDetails.saleNumber}</span>
-                          <span className="text-xs font-bold px-2 py-0.5 bg-primary/10 text-primary border border-primary/20 rounded">
+                          <span className="text-xs font-bold px-2 py-0.5 bg-primary/10 text-primary border border-primary/20 rounded shrink-0">
                             ৳{Number(returnSaleDetails.grandTotal).toFixed(2)}
                           </span>
                         </div>
-                        <p className="text-xs text-muted-foreground mt-0.5">
+                        <p className="text-xs text-muted-foreground mt-0.5 truncate">
                           Customer: <span className="font-semibold text-foreground">{returnSaleDetails.client?.name || "Walk-in Customer"}</span> • Date: {new Date(returnSaleDetails.createdAt).toLocaleDateString()}
                         </p>
                       </div>
+                    </div>
+
+                    {/* Right side: Refund Method Selector & Return Full Invoice Checkbox */}
+                    <div className="flex items-center gap-2.5 shrink-0 flex-wrap justify-end">
+                      <div className="flex items-center bg-muted/60 p-1 border border-border rounded-lg gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setRefundMode("AR_OFFSET_FIRST")}
+                          className={`px-2.5 py-1 text-xs font-bold rounded-md transition-all ${
+                            refundMode === "AR_OFFSET_FIRST" 
+                              ? "bg-background text-foreground shadow-xs border border-border/80" 
+                              : "text-muted-foreground hover:text-foreground"
+                          }`}
+                          title="Adjusts client due debt first before cash refund"
+                        >
+                          Client Due Adjust (Default)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setRefundMode("CASH_PAID_ONLY")}
+                          className={`px-2.5 py-1 text-xs font-bold rounded-md transition-all ${
+                            refundMode === "CASH_PAID_ONLY" 
+                              ? "bg-primary text-primary-foreground shadow-xs" 
+                              : "text-muted-foreground hover:text-foreground"
+                          }`}
+                          title="Refunds customer paid amount in cash/channels (Max: Paid Amount)"
+                        >
+                          Cash Refund (Paid Amount)
+                        </button>
+                      </div>
+
+                      <label className="flex items-center gap-2 px-3 py-1.5 bg-background border border-primary/40 hover:border-primary rounded-lg cursor-pointer transition-all shadow-xs shrink-0 select-none">
+                        <input
+                          type="checkbox"
+                          checked={isFullReturnChecked}
+                          onChange={(e) => handleToggleFullReturn(e.target.checked)}
+                          className="h-4 w-4 rounded border-primary text-primary focus:ring-primary accent-primary cursor-pointer"
+                        />
+                        <span className="text-xs font-bold text-foreground">Return Full Invoice</span>
+                      </label>
                     </div>
                   </div>
 
                   {/* SS2: Sale Items */}
                   <div className="border rounded-xl p-4 bg-muted/10">
-                    <p className="font-bold text-sm mb-3">Sale Items (Select Quantities to Return)</p>
+                    {returnItemsState.length > 0 && returnItemsState.every(i => i.maxQty === 0) && (
+                      <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-xl text-destructive text-xs font-bold mb-3 flex items-center gap-2">
+                        <FaExclamationTriangle className="w-4 h-4 shrink-0" />
+                        <span>All items on this invoice have already been fully returned. Duplicate returns are disabled.</span>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="font-bold text-sm">Sale Items (Select Quantities to Return)</p>
+                      <span className="text-xs text-muted-foreground font-medium">Available = Purchased - Returned</span>
+                    </div>
                     <div className="max-h-[30vh] overflow-y-auto flex flex-col gap-2">
                       {returnSaleDetails.items.map((item: any) => {
                         const state = returnItemsState.find(i => i.itemId === item.itemId && (item.variantId ? i.variantId === item.variantId : !i.variantId));
+                        const origQty = item.originalQuantity ?? Number(item.quantity);
+                        const retQty = Number(item.returnedQuantity || 0);
+                        const availQty = state?.maxQty ?? Math.max(0, origQty - retQty);
+                        const isItemFullyReturned = availQty === 0;
+
                         return (
-                          <div key={item.id} className="flex items-center justify-between bg-background border rounded-lg p-3 shadow-sm hover:border-primary/20 transition-all">
+                          <div key={item.id} className={`flex items-center justify-between border rounded-lg p-3 shadow-sm transition-all ${isItemFullyReturned ? 'bg-muted/40 opacity-75 border-destructive/20' : 'bg-background hover:border-primary/20'}`}>
                             <div className="flex-1 min-w-0 pr-4">
-                              <p className="text-sm font-semibold text-foreground">{item.description}</p>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                Purchased: {item.originalQuantity ?? item.quantity}
-                                {Number(item.returnedQuantity || 0) > 0 && ` (Returned: ${item.returnedQuantity})`}
-                                {` | ৳${item.unitPrice}`}
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm font-semibold text-foreground">{item.description}</p>
+                                {isItemFullyReturned ? (
+                                  <span className="text-[10px] font-bold px-2 py-0.5 bg-destructive/10 text-destructive border border-destructive/20 rounded shrink-0">
+                                    Fully Returned
+                                  </span>
+                                ) : retQty > 0 ? (
+                                  <span className="text-[10px] font-bold px-2 py-0.5 bg-amber-500/10 text-amber-600 border border-amber-500/20 rounded shrink-0">
+                                    Partially Returned ({retQty})
+                                  </span>
+                                ) : null}
+                              </div>
+                              <p className="text-xs text-muted-foreground mt-1 flex items-center gap-2 flex-wrap">
+                                <span>Purchased: <strong className="text-foreground">{origQty}</strong></span>
+                                <span>•</span>
+                                <span>Returned: <strong className={retQty > 0 ? "text-destructive" : "text-foreground"}>{retQty}</strong></span>
+                                <span>•</span>
+                                <span>Available to Return: <strong className={availQty > 0 ? "text-primary" : "text-muted-foreground"}>{availQty}</strong></span>
+                                <span>•</span>
+                                <span>৳{item.unitPrice}</span>
                               </p>
                             </div>
                             <div className="flex items-center gap-3 w-[128px] shrink-0 justify-end">
-                              <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => handleUpdateReturnQty(item.itemId, (state?.returnQty || 0) - 1, item.variantId)}>-</Button>
+                              <Button size="icon" variant="outline" className="h-7 w-7" disabled={isItemFullyReturned || (state?.returnQty || 0) <= 0} onClick={() => handleUpdateReturnQty(item.itemId, (state?.returnQty || 0) - 1, item.variantId)}>-</Button>
                               <input
                                 type="number"
                                 min="0"
-                                max={state?.maxQty || 9999}
+                                max={availQty}
+                                disabled={isItemFullyReturned}
                                 value={state?.returnQty ?? 0}
                                 onChange={(e) => {
                                   const val = parseInt(e.target.value, 10);
                                   handleUpdateReturnQty(item.itemId, isNaN(val) ? 0 : val, item.variantId);
                                 }}
-                                className="text-sm font-semibold w-14 text-center text-foreground bg-background border border-border/80 rounded-md outline-none focus:border-primary/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none py-0.5 px-0.5 m-0"
+                                className="text-sm font-semibold w-14 text-center text-foreground bg-background border border-border/80 rounded-md outline-none focus:border-primary/50 disabled:bg-muted disabled:text-muted-foreground [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none py-0.5 px-0.5 m-0"
                               />
-                              <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => handleUpdateReturnQty(item.itemId, (state?.returnQty || 0) + 1, item.variantId)}>+</Button>
+                              <Button size="icon" variant="outline" className="h-7 w-7" disabled={isItemFullyReturned || (state?.returnQty || 0) >= availQty} onClick={() => handleUpdateReturnQty(item.itemId, (state?.returnQty || 0) + 1, item.variantId)}>+</Button>
                             </div>
                           </div>
                         );
