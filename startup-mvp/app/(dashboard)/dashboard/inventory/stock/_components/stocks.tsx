@@ -75,6 +75,7 @@ interface StocksListClientProps {
   initialWarehouseId?: string;
   items: { id: string; name: string; code: string }[];
   warehouses: { id: string; name: string; code: string }[];
+  isNormalUser?: boolean;
 }
 
 export default function StocksListClient({
@@ -85,6 +86,7 @@ export default function StocksListClient({
   initialWarehouseId,
   items,
   warehouses,
+  isNormalUser = false,
 }: StocksListClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();

@@ -360,16 +360,21 @@ export async function parseAndValidateCsvAction(
               mappedData[field.key] = parsedDate.toISOString().split("T")[0];
             }
           } else if (field.type === "enum" && field.enumValues) {
-            const lowerVal = String(val).toLowerCase();
-            const isValidEnum = field.enumValues.some((ev) => ev.toLowerCase() === lowerVal);
-            if (!isValidEnum) {
-              errors.push({
-                rowIndex: index + 1,
-                fieldKey: field.key,
-                fieldLabel: field.label,
-                message: `'${field.label}' must be one of [${field.enumValues.join(", ")}]`,
-                value: val,
-              });
+            const rawValStr = String(val).trim();
+            if (rawValStr !== "") {
+              const normalizedVal = rawValStr.toUpperCase().replace(/[-\s]+/g, "_");
+              const isValidEnum = field.enumValues.some(
+                (ev) => ev.toUpperCase().replace(/[-\s]+/g, "_") === normalizedVal
+              );
+              if (!isValidEnum && field.required) {
+                errors.push({
+                  rowIndex: index + 1,
+                  fieldKey: field.key,
+                  fieldLabel: field.label,
+                  message: `'${field.label}' must be one of [${field.enumValues.join(", ")}]`,
+                  value: val,
+                });
+              }
             }
           }
         }
@@ -800,15 +805,35 @@ export async function executeImportAction(
             }
           }
 
-          const existing = await prisma.item.findFirst({
-            where: {
-              OR: [
-                row.code ? { code: row.code } : {},
-                row.barcode ? { barcode: row.barcode } : {},
-                { name: { equals: row.name, mode: "insensitive" } },
-              ],
-            },
-          });
+          let parsedItemType: ItemType = ItemType.READY_PRODUCT;
+          if (row.itemType) {
+            const rawType = String(row.itemType).toUpperCase().trim().replace(/[-\s]+/g, "_");
+            if (Object.values(ItemType).includes(rawType as ItemType)) {
+              parsedItemType = rawType as ItemType;
+            }
+          }
+
+          const codeVal = row.code !== undefined && row.code !== null && String(row.code).trim() !== "" ? String(row.code).trim() : null;
+          const barcodeVal = row.barcode !== undefined && row.barcode !== null && String(row.barcode).trim() !== "" ? String(row.barcode).trim() : null;
+
+          const itemOrConditions: Prisma.ItemWhereInput[] = [];
+          if (codeVal) {
+            itemOrConditions.push({ code: codeVal });
+          }
+          if (barcodeVal) {
+            itemOrConditions.push({ barcode: barcodeVal });
+          }
+          if (row.name && String(row.name).trim() !== "") {
+            itemOrConditions.push({ name: { equals: String(row.name).trim(), mode: "insensitive" } });
+          }
+
+          const existing = itemOrConditions.length > 0
+            ? await prisma.item.findFirst({
+                where: {
+                  OR: itemOrConditions,
+                },
+              })
+            : null;
 
           if (existing) {
             if (duplicateStrategy === "skip") {
@@ -818,14 +843,14 @@ export async function executeImportAction(
             await prisma.item.update({
               where: { id: existing.id },
               data: {
+                ...(codeVal ? { code: codeVal } : {}),
+                ...(barcodeVal ? { barcode: barcodeVal } : {}),
                 salesPrice: row.salesPrice ? Number(row.salesPrice) : existing.salesPrice,
                 costPrice: row.costPrice ? Number(row.costPrice) : existing.costPrice,
                 wholesalePrice: row.wholesalePrice ? Number(row.wholesalePrice) : existing.wholesalePrice,
                 wholesaleDiscountAmount: row.wholesaleDiscountAmount ? Number(row.wholesaleDiscountAmount) : existing.wholesaleDiscountAmount,
                 discount: row.discount ? Number(row.discount) : existing.discount,
                 description: row.description || existing.description,
-                barcode: row.barcode || existing.barcode,
-                fit: row.fit || existing.fit,
                 featuredImage: row.featuredImage || existing.featuredImage,
                 isEnableEcom: row.isEnableEcom === "true" || row.isEnableEcom === true ? true : existing.isEnableEcom,
                 trackInventory: row.trackInventory === "true" || row.trackInventory === true ? true : existing.trackInventory,
@@ -834,31 +859,33 @@ export async function executeImportAction(
                 categoryId: categoryId || existing.categoryId,
                 subCategoryId: subCategoryId || existing.subCategoryId,
                 status: row.status === "inactive" ? "inactive" : existing.status,
+                itemType: row.itemType ? parsedItemType : existing.itemType,
               },
             });
             updatedCount++;
             continue;
           }
 
+          const finalCode = codeVal || `ITM-${Date.now().toString().slice(-6)}-${Math.floor(100 + Math.random() * 900)}`;
+
           await prisma.item.create({
             data: {
-              name: row.name,
-              code: row.code || `ITM-${Date.now().toString().slice(-6)}`,
+              name: String(row.name).trim(),
+              code: finalCode,
+              barcode: barcodeVal,
               salesPrice: row.salesPrice ? Number(row.salesPrice) : 0,
               costPrice: row.costPrice ? Number(row.costPrice) : 0,
               wholesalePrice: row.wholesalePrice ? Number(row.wholesalePrice) : null,
               wholesaleDiscountAmount: row.wholesaleDiscountAmount ? Number(row.wholesaleDiscountAmount) : null,
               discount: row.discount ? Number(row.discount) : null,
               description: row.description || null,
-              barcode: row.barcode || null,
-              fit: row.fit || null,
               featuredImage: row.featuredImage || null,
               isEnableEcom: row.isEnableEcom === "true" || row.isEnableEcom === true,
               trackInventory: row.trackInventory === "true" || row.trackInventory === true,
               isVatEnabled: row.isVatEnabled === "true" || row.isVatEnabled === true,
               vatPercentage: row.vatPercentage ? Number(row.vatPercentage) : 0,
               status: row.status === "inactive" ? "inactive" : "active",
-              itemType: ItemType.READY_PRODUCT,
+              itemType: parsedItemType,
               categoryId,
               subCategoryId,
               brandId,
@@ -868,15 +895,20 @@ export async function executeImportAction(
           });
           createdCount++;
         } else if (config.targetModel === "Employee") {
-          const existing = await prisma.employee.findFirst({
-            where: {
-              OR: [
-                row.employeeCode ? { employeeCode: row.employeeCode } : {},
-                row.email ? { email: row.email } : {},
-                row.nationalId ? { nationalId: row.nationalId } : {},
-              ],
-            },
-          });
+          const empOrConditions: Prisma.EmployeeWhereInput[] = [];
+          if (row.employeeCode && String(row.employeeCode).trim() !== "") {
+            empOrConditions.push({ employeeCode: String(row.employeeCode).trim() });
+          }
+          if (row.email && String(row.email).trim() !== "") {
+            empOrConditions.push({ email: String(row.email).trim() });
+          }
+          if (row.nationalId && String(row.nationalId).trim() !== "") {
+            empOrConditions.push({ nationalId: String(row.nationalId).trim() });
+          }
+
+          const existing = empOrConditions.length > 0
+            ? await prisma.employee.findFirst({ where: { OR: empOrConditions } })
+            : null;
 
           const parsedEmpType = row.employmentType
             ? (Object.values(EmploymentType).includes(row.employmentType.toUpperCase()) ? row.employmentType.toUpperCase() as EmploymentType : null)
