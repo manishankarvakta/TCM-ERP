@@ -15,7 +15,7 @@ interface LogoProps {
 const Logo = ({ width = 200, height = 100 }: LogoProps) => {
   return (
     <div className="flex items-center gap-2">
-      <Image className="dark:invert" src="/logo.png" alt="Startup MVP Logo" width={width} height={height} />
+      <Image src="/logo.png" alt="Startup MVP Logo" width={width} height={height} />
     </div>
   );
 };

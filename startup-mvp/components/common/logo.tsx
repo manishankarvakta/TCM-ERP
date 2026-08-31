@@ -5,7 +5,6 @@ const Logo = () => {
   return (
     <div>
         <Image
-              className="dark:invert"
               src="/next.svg"
               alt="Next.js logo"
               width={100}

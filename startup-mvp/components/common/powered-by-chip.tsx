@@ -83,7 +83,7 @@ const PoweredByChip = ({
           {/* Logo Container */}
           <div className="relative z-10 flex items-center justify-center">
             <Image
-              className="dark:invert opacity-90 group-hover:opacity-100 transition-opacity duration-300"
+              className="opacity-90 group-hover:opacity-100 transition-opacity duration-300"
               src="/logo.png"
               alt="Techsoul Logo"
               width={logoWidth}

@@ -164,17 +164,17 @@ export default function PrintIdCardDialog({ employee, orgInfo }: PrintIdCardDial
             {/* ============================================================== */}
             {/* CARD FRONT                                                     */}
             {/* ============================================================== */}
-            <div className="relative w-[54mm] h-[86mm] bg-white rounded-[12px] border-2 border-slate-300 shadow-md overflow-hidden flex flex-col justify-between select-none box-border print:border-slate-300 print:rounded-[12px] print:shadow-none bg-no-repeat id-card-poppins pt-[8mm] pb-[8mm]">
+            <div className="relative w-[54mm] h-[86mm] bg-white rounded-[12px] border-2 border-black shadow-md overflow-hidden flex flex-col justify-between select-none box-border print:border-black print:rounded-[12px] print:shadow-none bg-no-repeat id-card-poppins pt-[8mm] pb-[8mm]">
               
-              {/* Top Navy Block (Centered and Small) */}
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[32mm] h-[4.5mm] bg-[#2b3b7c] rounded-b-full z-0"></div>
+              {/* Top Red Block (Centered and Small) */}
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[32mm] h-[4.5mm] bg-[#ED1C24] rounded-b-full z-0"></div>
               
-              {/* Bottom Navy Block (Centered and Small) */}
-              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[32mm] h-[4.5mm] bg-[#2b3b7c] rounded-t-full z-0"></div>
+              {/* Bottom Red Block (Centered and Small) */}
+              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[32mm] h-[4.5mm] bg-[#ED1C24] rounded-t-full z-0"></div>
 
               {/* Lanyard Slot Placeholder */}
               <div className="absolute top-1 left-1/2 -translate-x-1/2 w-8 h-1.5 bg-white/20 rounded-full z-20 flex items-center justify-center">
-                <div className="w-5 h-[2px] bg-[#2b3b7c]/40 rounded-full"></div>
+                <div className="w-5 h-[2px] bg-[#ED1C24]/40 rounded-full"></div>
               </div>
 
               {/* Content Area */}
@@ -185,15 +185,15 @@ export default function PrintIdCardDialog({ employee, orgInfo }: PrintIdCardDial
                   
                   {/* Header section: Centered Logo */}
                   <div className="flex items-center justify-center">
-                    <img src="/logo.png" alt="logo" className="h-[13mm] max-w-[42mm] object-contain" />
+                    <img src="/logo.png" alt="logo" className="h-[10mm] max-w-[36mm] object-contain" />
                   </div>
 
                   {/* Profile Avatar */}
                   <div className="flex flex-col items-center mt-1">
-                    <div className="w-[24mm] h-[24mm] rounded-full border-[2.5px] border-[#2b3b7c] shadow bg-white overflow-hidden flex items-center justify-center">
+                    <div className="w-[24mm] h-[24mm] rounded-full border-[2.5px] border-black shadow bg-white overflow-hidden flex items-center justify-center">
                       <Avatar className="w-full h-full rounded-none">
                         <AvatarImage src={employee.photo || undefined} className="object-cover w-full h-full" />
-                        <AvatarFallback className="text-[16px] font-bold bg-slate-100 text-[#2b3b7c]">
+                        <AvatarFallback className="text-[16px] font-bold bg-slate-100 text-black">
                           {getInitials(employee.name)}
                         </AvatarFallback>
                       </Avatar>
@@ -202,7 +202,7 @@ export default function PrintIdCardDialog({ employee, orgInfo }: PrintIdCardDial
 
                   {/* Profile details */}
                   <div className="flex flex-col items-center text-center px-3 mt-1">
-                    <h2 className="text-[13.5px] font-extrabold text-[#2b3b7c] tracking-tight line-clamp-2 max-w-[48mm] leading-tight">
+                    <h2 className="text-[13.5px] font-extrabold text-black tracking-tight line-clamp-2 max-w-[48mm] leading-tight">
                       {toTitleCase(employee.name)}
                     </h2>
                     <p className="text-[8.5px] font-medium text-slate-700 uppercase tracking-wider mt-0.5 truncate max-w-[48mm]">
@@ -210,7 +210,7 @@ export default function PrintIdCardDialog({ employee, orgInfo }: PrintIdCardDial
                     </p>
                     
                     {/* Blood Group Value */}
-                    <p className="text-[7.5px] font-extrabold text-rose-600 uppercase tracking-wider mt-0.5">
+                    <p className="text-[10.5px] font-black text-rose-600 uppercase tracking-wider mt-0.5">
                       {employee.bloodGroup || "-"}
                     </p>
                   </div>
@@ -230,17 +230,17 @@ export default function PrintIdCardDialog({ employee, orgInfo }: PrintIdCardDial
             {/* ============================================================== */}
             {/* CARD BACK                                                      */}
             {/* ============================================================== */}
-            <div className="relative w-[54mm] h-[86mm] bg-white rounded-[12px] border-2 border-slate-300 shadow-md overflow-hidden flex flex-col justify-between select-none box-border print:border-slate-300 print:rounded-[12px] print:shadow-none bg-no-repeat id-card-poppins pt-[8mm] pb-[8mm]">
+            <div className="relative w-[54mm] h-[86mm] bg-white rounded-[12px] border-2 border-black shadow-md overflow-hidden flex flex-col justify-between select-none box-border print:border-black print:rounded-[12px] print:shadow-none bg-no-repeat id-card-poppins pt-[8mm] pb-[8mm]">
               
-              {/* Top Navy Block (Centered and Small) */}
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[32mm] h-[4.5mm] bg-[#2b3b7c] rounded-b-full z-0"></div>
+              {/* Top Red Block (Centered and Small) */}
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[32mm] h-[4.5mm] bg-[#ED1C24] rounded-b-full z-0"></div>
               
-              {/* Bottom Navy Block (Centered and Small) */}
-              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[32mm] h-[4.5mm] bg-[#2b3b7c] rounded-t-full z-0"></div>
+              {/* Bottom Red Block (Centered and Small) */}
+              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[32mm] h-[4.5mm] bg-[#ED1C24] rounded-t-full z-0"></div>
 
               {/* Lanyard Slot Placeholder */}
               <div className="absolute top-1 left-1/2 -translate-x-1/2 w-8 h-1.5 bg-white/20 rounded-full z-20 flex items-center justify-center">
-                <div className="w-5 h-[2px] bg-[#2b3b7c]/40 rounded-full"></div>
+                <div className="w-5 h-[2px] bg-[#ED1C24]/40 rounded-full"></div>
               </div>
 
               {/* Content Area */}
@@ -248,7 +248,7 @@ export default function PrintIdCardDialog({ employee, orgInfo }: PrintIdCardDial
                 
                 {/* Rules / Terms header */}
                 <div className="text-center border-b border-slate-100 pb-1.5 w-full">
-                  <span className="text-[7.5px] text-[#2b3b7c] font-bold uppercase tracking-widest">
+                  <span className="text-[7.5px] text-black font-bold uppercase tracking-widest">
                     TERMS & CONDITIONS
                   </span>
                 </div>
@@ -257,7 +257,7 @@ export default function PrintIdCardDialog({ employee, orgInfo }: PrintIdCardDial
                 <div className="space-y-2 text-center font-medium leading-relaxed text-[7px] text-slate-600 px-1">
                   <p className="tracking-wide">This card is the official property of the organization and is non-transferable.</p>
                   <p className="tracking-wide">It must be worn visibly at all times while on company premises.</p>
-                  <div className="mt-2 space-y-0.5 font-bold text-[#2b3b7c]">
+                  <div className="mt-2 space-y-0.5 font-bold text-black">
                     <p className="tracking-wide">
                       If found, please return to: <span className="underline">{orgInfo?.name || "the office"}</span>
                     </p>
@@ -270,6 +270,11 @@ export default function PrintIdCardDialog({ employee, orgInfo }: PrintIdCardDial
                 {/* Signature zone */}
                 <div className="flex flex-col items-center w-full">
                   <div className="w-[32mm] h-[8mm] border-b border-slate-300 relative flex items-end justify-center">
+                    <img
+                      src="/sign.png"
+                      alt="Authorized Signature"
+                      className="max-h-[100%] max-w-[100%] object-contain mb-0.5"
+                    />
                   </div>
                   <span className="text-[5.5px] text-slate-400 font-bold uppercase tracking-wider mt-1">
                     Authorized Signature
