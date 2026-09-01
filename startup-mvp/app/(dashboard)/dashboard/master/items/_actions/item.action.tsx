@@ -2675,5 +2675,74 @@ export async function getItemLedger(
   }
 }
 
+/**
+ * Directly append uploaded photos to an item's images list
+ * Requires "photo-upload" or "edit" permission under master.items
+ */
+export async function uploadItemPhotos(itemId: string, newImageUrls: string[]) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const canUpload = await hasPermission(session.user.id, "master.items", "photo-upload");
+
+    if (!canUpload) {
+      return { success: false, error: "You do not have permission to upload photos for items" };
+    }
+
+    if (!newImageUrls || newImageUrls.length === 0) {
+      return { success: false, error: "No images provided" };
+    }
+
+    const item = await prisma.item.findUnique({
+      where: { id: itemId },
+      select: { id: true, name: true, images: true, featuredImage: true },
+    });
+
+    if (!item) {
+      return { success: false, error: "Item not found" };
+    }
+
+    const currentImages = Array.isArray(item.images) ? (item.images as string[]) : [];
+    // Merge new URLs ensuring uniqueness
+    const updatedImages = Array.from(new Set([...currentImages, ...newImageUrls]));
+    const updatedFeaturedImage = item.featuredImage || updatedImages[0] || null;
+
+    const updatedItem = await prisma.item.update({
+      where: { id: itemId },
+      data: {
+        images: updatedImages,
+        featuredImage: updatedFeaturedImage,
+      },
+      select: {
+        id: true,
+        images: true,
+        featuredImage: true,
+      },
+    });
+
+    await logItemUpdated(session.user.id, "Item", item.id, item.name, {
+      uploadedPhotosCount: newImageUrls.length,
+      totalPhotosCount: updatedImages.length,
+    });
+
+    revalidateBothPaths("master/items");
+
+    return {
+      success: true,
+      item: updatedItem,
+    };
+  } catch (error) {
+    console.error("uploadItemPhotos error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to upload item photos",
+    };
+  }
+}
+
+
 
 

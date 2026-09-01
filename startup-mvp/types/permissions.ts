@@ -54,7 +54,8 @@ export type CustomOperation =
   | "verify"
   | "finish"
   | "reopen"
-  | "post";
+  | "post"
+  | "photo-upload";
 
 // Standard operations for pages (as per requirements)
 export type StandardOperation = "create" | "view" | "edit" | "move-to-trash" | "delete-permanently";
@@ -548,7 +549,7 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
         permissionKey: "master.items",
         path: "/dashboard/master/items",
         label: "Items",
-        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
+        operations: ["create", "view", "edit", "photo-upload", "move-to-trash", "delete-permanently"],
       },
       {
         permissionKey: "master.warehouses",

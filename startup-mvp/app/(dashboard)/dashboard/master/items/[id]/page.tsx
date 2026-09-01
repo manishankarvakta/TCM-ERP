@@ -33,6 +33,7 @@ import {
 import { hasPermission } from "@/lib/permissions";
 import { auth } from "@/lib/auth";
 import ItemActionButtons from "../_components/ItemActionButtons";
+import ItemPhotoGallery from "../_components/item-photo-gallery";
 
 interface ItemDetailsPageProps {
   params: Promise<{
@@ -62,6 +63,7 @@ export default async function ItemDetailsPage({ params }: ItemDetailsPageProps) 
   const session = await auth();
   const userId = session?.user?.id;
   const canEdit = userId ? await hasPermission(userId, "master.items", "edit") : false;
+  const canUploadPhoto = userId ? await hasPermission(userId, "master.items", "photo-upload") : false;
 
   const getItemTypeBadge = (type: string) => {
     const typeMap: Record<string, { label: string; variant: "default" | "secondary" | "outline"; color: string }> = {
@@ -553,38 +555,15 @@ export default async function ItemDetailsPage({ params }: ItemDetailsPageProps) 
           {/* Right Column - Sidebar */}
           <div className="space-y-4">
             {/* Photos Section */}
-            {item.images && item.images.length > 0 && (
-              <Card className="border-border/60">
-                <CardHeader className="pb-4">
-                  <div className="flex items-center gap-2">
-                    <div className="p-1.5 rounded-md bg-muted">
-                      <FiImage className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                    <CardTitle className="text-base">Item Photos</CardTitle>
-                  </div>
-                  <CardDescription>Product images and gallery ({item.images.length} photos)</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex flex-col gap-4">
-                    {item.images.map((img: string, i: number) => (
-                      <div key={i} className="relative w-full aspect-[4/3] rounded-xl overflow-hidden border border-border group shadow-sm bg-muted/20">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={img} alt={`Item ${i}`} className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-300" />
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                          <a href={img} target="_blank" rel="noreferrer" className="text-white p-2 rounded-full bg-primary/80 hover:bg-primary transition-colors">
-                            <FiMaximize2 className="h-4 w-4" />
-                          </a>
-                        </div>
-                        {item.featuredImage === img && (
-                          <div className="absolute top-3 left-3 px-2 py-1 bg-primary text-[10px] text-white rounded-md font-bold shadow-md tracking-wider">
-                            FEATURED
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+            {((item.images && item.images.length > 0) || canUploadPhoto) && (
+              <ItemPhotoGallery
+                itemId={item.id}
+                images={item.images || []}
+                featuredImage={item.featuredImage}
+                itemName={item.name}
+                itemCode={item.code}
+                canUploadPhoto={canUploadPhoto}
+              />
             )}
 
             {/* Variant Summary Card */}
