@@ -143,6 +143,33 @@ async function generateUniqueBrandSlug(baseSlug?: string | null, excludeId?: str
 }
 
 /**
+ * Safely generate a unique slug for Item
+ */
+async function generateUniqueItemSlug(baseSlug?: string | null, excludeId?: string): Promise<string | null> {
+  if (!baseSlug || !String(baseSlug).trim()) return null;
+  const cleanSlug = String(baseSlug).toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  if (!cleanSlug) return null;
+
+  let currentSlug = cleanSlug;
+  let counter = 1;
+
+  while (true) {
+    const existing = await prisma.item.findFirst({
+      where: {
+        slug: currentSlug,
+        ...(excludeId ? { id: { not: excludeId } } : {}),
+      },
+      select: { id: true },
+    });
+
+    if (!existing) return currentSlug;
+
+    currentSlug = `${cleanSlug}-${counter}`;
+    counter++;
+  }
+}
+
+/**
  * Get available import modules
  */
 export async function getImportModulesAction(): Promise<{
@@ -840,9 +867,12 @@ export async function executeImportAction(
               skippedCount++;
               continue;
             }
+            const itemSlugForUpdate = existing.slug || (await generateUniqueItemSlug(String(row.name).trim(), existing.id));
+
             await prisma.item.update({
               where: { id: existing.id },
               data: {
+                slug: itemSlugForUpdate,
                 ...(codeVal ? { code: codeVal } : {}),
                 ...(barcodeVal ? { barcode: barcodeVal } : {}),
                 salesPrice: row.salesPrice ? Number(row.salesPrice) : existing.salesPrice,
@@ -867,10 +897,12 @@ export async function executeImportAction(
           }
 
           const finalCode = codeVal || `ITM-${Date.now().toString().slice(-6)}-${Math.floor(100 + Math.random() * 900)}`;
+          const itemSlug = await generateUniqueItemSlug(String(row.name).trim());
 
           await prisma.item.create({
             data: {
               name: String(row.name).trim(),
+              slug: itemSlug,
               code: finalCode,
               barcode: barcodeVal,
               salesPrice: row.salesPrice ? Number(row.salesPrice) : 0,
