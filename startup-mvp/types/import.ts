@@ -66,4 +66,5 @@ export interface ImportExecutionResult {
   skippedCount: number;
   failedCount: number;
   failedRows?: { rowIndex: number; error: string; data: Record<string, any> }[];
+  skippedRows?: { rowIndex: number; reason: string; data: Record<string, any> }[];
 }

@@ -481,6 +481,7 @@ export async function executeImportAction(
     let skippedCount = 0;
     let failedCount = 0;
     const failedRows: { rowIndex: number; error: string; data: Record<string, any> }[] = [];
+    const skippedRows: { rowIndex: number; reason: string; data: Record<string, any> }[] = [];
 
     // Process each row depending on target module
     for (let i = 0; i < mappedRows.length; i++) {
@@ -494,6 +495,11 @@ export async function executeImportAction(
             if (existing) {
               if (duplicateStrategy === "skip") {
                 skippedCount++;
+                skippedRows.push({
+                  rowIndex,
+                  reason: `Duplicate client email '${row.email}' already exists in database`,
+                  data: row,
+                });
                 continue;
               }
             }
@@ -533,6 +539,11 @@ export async function executeImportAction(
             if (existing) {
               if (duplicateStrategy === "skip") {
                 skippedCount++;
+                skippedRows.push({
+                  rowIndex,
+                  reason: `Duplicate supplier email '${row.email}' already exists in database`,
+                  data: row,
+                });
                 continue;
               }
             }
@@ -596,6 +607,11 @@ export async function executeImportAction(
           if (existing) {
             if (duplicateStrategy === "skip") {
               skippedCount++;
+              skippedRows.push({
+                rowIndex,
+                reason: `Duplicate category name '${row.name}' or slug already exists in database`,
+                data: row,
+              });
               continue;
             }
             const updatedSlug = row.slug
@@ -645,6 +661,11 @@ export async function executeImportAction(
           if (existing) {
             if (duplicateStrategy === "skip") {
               skippedCount++;
+              skippedRows.push({
+                rowIndex,
+                reason: `Duplicate brand name '${row.name}' or slug already exists in database`,
+                data: row,
+              });
               continue;
             }
             const updatedSlug = row.slug
@@ -688,6 +709,11 @@ export async function executeImportAction(
           if (existing) {
             if (duplicateStrategy === "skip") {
               skippedCount++;
+              skippedRows.push({
+                rowIndex,
+                reason: `Duplicate unit symbol '${row.code || row.name}' already exists in database`,
+                data: row,
+              });
               continue;
             }
             await prisma.unit.update({
@@ -722,6 +748,11 @@ export async function executeImportAction(
           if (existing) {
             if (duplicateStrategy === "skip") {
               skippedCount++;
+              skippedRows.push({
+                rowIndex,
+                reason: `Duplicate warehouse code '${row.code || row.name}' already exists in database`,
+                data: row,
+              });
               continue;
             }
             await prisma.warehouse.update({
@@ -865,6 +896,11 @@ export async function executeImportAction(
           if (existing) {
             if (duplicateStrategy === "skip") {
               skippedCount++;
+              skippedRows.push({
+                rowIndex,
+                reason: `Duplicate item code '${existing.code}', barcode, or name '${existing.name}' already exists in database`,
+                data: row,
+              });
               continue;
             }
             const itemSlugForUpdate = existing.slug || (await generateUniqueItemSlug(String(row.name).trim(), existing.id));
@@ -949,6 +985,11 @@ export async function executeImportAction(
           if (existing) {
             if (duplicateStrategy === "skip") {
               skippedCount++;
+              skippedRows.push({
+                rowIndex,
+                reason: `Duplicate employee code '${existing.employeeCode}', email, or NID already exists in database`,
+                data: row,
+              });
               continue;
             }
             await prisma.employee.update({
@@ -1013,6 +1054,7 @@ export async function executeImportAction(
       skippedCount,
       failedCount,
       failedRows,
+      skippedRows,
     };
   } catch (error) {
     console.error("executeImportAction error:", error);

@@ -290,6 +290,78 @@ export default function ImportWizard() {
     setImportResult(null);
   };
 
+  // Download CSV of skipped or failed rows with "reason for skip or fail" column
+  const handleDownloadUnprocessedCsv = () => {
+    const unprocessedRows: Record<string, any>[] = [];
+
+    // 1. Add rows skipped during import execution
+    if (importResult?.skippedRows && importResult.skippedRows.length > 0) {
+      importResult.skippedRows.forEach((sr) => {
+        const matchingValidationRow = validationSummary?.rows.find((r) => r.rowIndex === sr.rowIndex);
+        const rowData = matchingValidationRow?.rawData || sr.data;
+        unprocessedRows.push({
+          ...rowData,
+          "reason for skip or fail": sr.reason || "Skipped: Duplicate record exists in database",
+        });
+      });
+    }
+
+    // 2. Add rows failed during import execution
+    if (importResult?.failedRows && importResult.failedRows.length > 0) {
+      importResult.failedRows.forEach((fr) => {
+        const matchingValidationRow = validationSummary?.rows.find((r) => r.rowIndex === fr.rowIndex);
+        const rowData = matchingValidationRow?.rawData || fr.data;
+        unprocessedRows.push({
+          ...rowData,
+          "reason for skip or fail": `Failed: ${fr.error}`,
+        });
+      });
+    }
+
+    // 3. Add rows invalid during validation
+    if (validationSummary) {
+      validationSummary.rows
+        .filter((r) => !r.isValid)
+        .forEach((r) => {
+          const reasonMsg = r.errors.map((e) => e.message).join(" | ");
+          const alreadyAdded = unprocessedRows.some(
+            (u) => JSON.stringify(u) === JSON.stringify({ ...r.rawData, "reason for skip or fail": `Validation Error: ${reasonMsg}` })
+          );
+          if (!alreadyAdded) {
+            unprocessedRows.push({
+              ...r.rawData,
+              "reason for skip or fail": `Validation Error: ${reasonMsg}`,
+            });
+          }
+        });
+    }
+
+    if (unprocessedRows.length === 0) {
+      toast({ title: "No Skipped or Failed Records", description: "All rows were successfully imported." });
+      return;
+    }
+
+    const worksheet = XLSX.utils.json_to_sheet(unprocessedRows);
+    const csvContent = XLSX.utils.sheet_to_csv(worksheet);
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute(
+      "download",
+      `skipped_and_failed_${selectedModuleId.toLowerCase()}_${new Date().toISOString().slice(0, 10)}.csv`
+    );
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    toast({
+      title: "Downloaded CSV",
+      description: `Exported ${unprocessedRows.length} record(s) with 'reason for skip or fail' column for reconciliation.`,
+    });
+  };
+
   const unmappedRequiredCount = activeModuleConfig.fields.filter(
     (f) => f.required && (!fieldMapping[f.key] || fieldMapping[f.key].trim() === "")
   ).length;
@@ -602,10 +674,49 @@ export default function ImportWizard() {
                 </div>
               </div>
 
+              {/* Download CSV CTA for Skipped or Failed Records */}
+              {(importResult.skippedCount > 0 || importResult.failedCount > 0 || (validationSummary && validationSummary.invalidRowsCount > 0)) && (
+                <div className="p-4 border border-amber-300 dark:border-amber-800 bg-amber-500/10 rounded-lg space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <h4 className="text-sm font-semibold text-amber-900 dark:text-amber-200 flex items-center gap-2">
+                        <FiAlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                        Reconciliation CSV Download Available
+                      </h4>
+                      <p className="text-xs text-amber-700 dark:text-amber-300 mt-0.5">
+                        Download a CSV with all skipped and failed records including a <strong>"reason for skip or fail"</strong> column to review and re-import.
+                      </p>
+                    </div>
+                    <Button
+                      onClick={handleDownloadUnprocessedCsv}
+                      className="bg-amber-600 hover:bg-amber-700 text-white shrink-0 text-xs font-medium"
+                      size="sm"
+                    >
+                      <FiDownload className="mr-2 h-4 w-4" /> Download Skipped / Failed CSV
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Skipped Records Breakdown List */}
+              {importResult.skippedRows && importResult.skippedRows.length > 0 && (
+                <div className="border border-amber-200 dark:border-amber-900 rounded-lg p-4 bg-background">
+                  <h4 className="font-semibold text-amber-700 dark:text-amber-400 text-sm mb-2">Skipped Records Details:</h4>
+                  <ul className="list-disc list-inside text-xs text-amber-800 dark:text-amber-300 space-y-1 max-h-40 overflow-y-auto">
+                    {importResult.skippedRows.map((sr, idx) => (
+                      <li key={idx}>
+                        Row {sr.rowIndex}: {sr.reason}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Failed Ingestion Details List */}
               {importResult.failedRows && importResult.failedRows.length > 0 && (
                 <div className="border border-rose-200 dark:border-rose-900 rounded-lg p-4 bg-background">
                   <h4 className="font-semibold text-rose-600 text-sm mb-2">Failed Ingestion Details:</h4>
-                  <ul className="list-disc list-inside text-xs text-rose-700 dark:text-rose-400 space-y-1">
+                  <ul className="list-disc list-inside text-xs text-rose-700 dark:text-rose-400 space-y-1 max-h-40 overflow-y-auto">
                     {importResult.failedRows.map((fr, idx) => (
                       <li key={idx}>
                         Row {fr.rowIndex}: {fr.error}
@@ -615,7 +726,7 @@ export default function ImportWizard() {
                 </div>
               )}
 
-              <div className="flex justify-center pt-4">
+              <div className="flex justify-center pt-4 border-t">
                 <Button onClick={handleReset}>
                   <FiRefreshCw className="mr-2 h-4 w-4" /> Import Another File
                 </Button>
