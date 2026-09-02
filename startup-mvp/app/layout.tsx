@@ -12,7 +12,7 @@ const geistSans = { variable: "font-sans" };
 const geistMono = { variable: "font-mono" };
 
 export const metadata: Metadata = {
-  title: "FF ERP",
+  title: "TCM",
   description: "Supershop",
   icons: {
     icon: "/site-icon.png",
