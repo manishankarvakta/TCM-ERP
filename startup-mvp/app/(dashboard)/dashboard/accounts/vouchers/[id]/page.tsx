@@ -16,6 +16,7 @@ import { format } from "date-fns";
 import { notFound } from "next/navigation";
 import PageGuard from "@/components/permissions/page-guard";
 import VoucherPrintAction from "../_components/print/voucher-print-action";
+import { prisma } from "@/lib/prisma";
 
 interface VoucherDetailPageProps {
   params: Promise<{
@@ -64,35 +65,93 @@ export default async function VoucherDetailPage({ params }: VoucherDetailPagePro
   }
 
   const voucher = result.voucher;
-  
-  // Serialize voucher for client component (convert Decimals to numbers/strings)
-  const serializedVoucher = {
-    ...voucher,
-    lines: voucher.voucherLines.map((line: any) => ({
-      lineNumber: line.lineNumber,
-      description: line.description,
-      debitAmount: Number(line.debitAmount),
-      creditAmount: Number(line.creditAmount),
-      account: {
-        name: line.chartOfAccount.name,
-        code: line.chartOfAccount.code
-      }
-    })),
-    // Ensure dates are strings if needed, though Date objects are usually fine if serializable, 
-    // but safer to pass as strings or keep as Date if next handles it. 
-    // For react-to-print component, we need specific structure matching VoucherPrintTemplateProps
-    client: voucher.journalEntries?.[0]?.journalEntryLines?.find((l: any) => l.clientId)?.client ? {
-        name: voucher.journalEntries[0]?.journalEntryLines.find((l: any) => l.clientId)?.client?.name || null,
-        email: voucher.journalEntries[0]?.journalEntryLines.find((l: any) => l.clientId)?.client?.email || ""
-    } : null,
-    supplier: voucher.supplierId ? { // Assuming we can fetch supplier details or it's already in the voucher object if fetched
-        name: null, // Basic voucher might not have supplier details loaded directly here without include
-        email: ""
-    } : null 
-  };
+
+  // Fetch POS settings as header branding fallback
+  const posSettingsRaw = await prisma.settings.findFirst({
+    where: {
+      code: "pos_settings",
+      userId: null,
+      isGlobal: true,
+      isActive: true,
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
+  const posSettings = posSettingsRaw?.settings ? (posSettingsRaw.settings as any) : null;
+
+  // Resolve Client & Supplier data from voucher root or voucherLines
+  const client = voucher.client || voucher.voucherLines?.find((l: any) => l.client)?.client || null;
+  const supplier = voucher.supplier || voucher.voucherLines?.find((l: any) => l.supplier)?.supplier || null;
+
+  // Calculate Due Summary (Previous Due, Paid Amount, Remaining Due) if client or supplier is attached
+  let dueSummary: { previousDue: number; paidAmount: number; remainingDue: number } | null = null;
+
+  if (client) {
+    const coaId = client.chartOfAccountId;
+    const balanceResult = await prisma.journalEntryLine.aggregate({
+      where: {
+        OR: [
+          ...(coaId ? [{ chartOfAccountId: coaId }] : []),
+          { clientId: client.id },
+        ],
+      },
+      _sum: { debitAmount: true, creditAmount: true },
+    });
+
+    const totalDebit = Number(balanceResult._sum.debitAmount || 0);
+    const totalCredit = Number(balanceResult._sum.creditAmount || 0);
+    let netDue = totalDebit - totalCredit;
+
+    const hasOpeningJournal = await prisma.journalEntryLine.findFirst({
+      where: {
+        OR: [
+          ...(coaId ? [{ chartOfAccountId: coaId }] : []),
+          { clientId: client.id },
+        ],
+        description: { contains: "opening balance", mode: "insensitive" },
+      },
+    });
+
+    if (Number(client.openingBalance || 0) > 0 && !hasOpeningJournal) {
+      netDue += Number(client.openingBalance || 0);
+    }
+
+    const currentRemainingDue = Math.max(0, Number(netDue.toFixed(2)));
+    const paidInThisVoucher = voucher.voucherLines.reduce(
+      (sum: number, line: any) => sum + Number(line.debitAmount || line.creditAmount || 0),
+      0
+    );
+    const previousDue = Number((currentRemainingDue + paidInThisVoucher).toFixed(2));
+
+    dueSummary = {
+      previousDue,
+      paidAmount: paidInThisVoucher,
+      remainingDue: currentRemainingDue,
+    };
+  } else if (supplier) {
+    const balanceResult = await prisma.journalEntryLine.aggregate({
+      where: { supplierId: supplier.id },
+      _sum: { debitAmount: true, creditAmount: true },
+    });
+
+    const totalDebit = Number(balanceResult._sum.debitAmount || 0);
+    const totalCredit = Number(balanceResult._sum.creditAmount || 0);
+    const currentRemainingPayable = Math.max(0, Number((totalCredit - totalDebit).toFixed(2)));
+    const paidInThisVoucher = voucher.voucherLines.reduce(
+      (sum: number, line: any) => sum + Number(line.debitAmount || line.creditAmount || 0),
+      0
+    );
+    const previousDue = Number((currentRemainingPayable + paidInThisVoucher).toFixed(2));
+
+    dueSummary = {
+      previousDue,
+      paidAmount: paidInThisVoucher,
+      remainingDue: currentRemainingPayable,
+    };
+  }
    
-  // Refine the serialization to match exactly what VoucherPrintTemplate needs
-  // We need to map the voucherLines to the structure expected by the print template
+  // Construct dynamic print data matching VoucherPrintTemplate requirements
   const printVoucherData = {
     id: voucher.id,
     voucherNumber: voucher.voucherNumber,
@@ -101,18 +160,46 @@ export default async function VoucherDetailPage({ params }: VoucherDetailPagePro
     description: voucher.description,
     reference: voucher.reference,
     status: voucher.status,
-    client: null, // You might need to fetch client/supplier details if not present
-    supplier: null, // or extract from lines if possible
+    organization: voucher.organization ? {
+      name: voucher.organization.name,
+      address: voucher.organization.address,
+      phone: voucher.organization.phone,
+      email: voucher.organization.email,
+      website: voucher.organization.website,
+      logo: voucher.organization.logo || "/main_logo.png",
+    } : {
+      name: posSettings?.headerText || "FERRARI FASHION",
+      address: posSettings?.subHeaderText || "Unique, Ashulia, Dhaka",
+      phone: "+880 19 5658 2108",
+      email: "msferrarifashion4475@gmail.com",
+      website: null,
+      logo: posSettings?.logoUrl || "/main_logo.png",
+    },
+    client: client ? {
+      name: client.name || null,
+      email: client.email || "",
+      phone: client.phone || null,
+      address: client.address || null,
+    } : null,
+    supplier: supplier ? {
+      name: supplier.name || null,
+      email: supplier.email || "",
+      phone: supplier.phone || null,
+      address: supplier.address || null,
+    } : null,
+    creatorName: voucher.creator?.name || "System",
+    postedByName: voucher.postedBy?.name || null,
+    dueSummary,
     lines: voucher.voucherLines.map((line: any) => ({
-        lineNumber: line.lineNumber,
-        description: line.description,
-        debitAmount: Number(line.debitAmount),
-        creditAmount: Number(line.creditAmount),
-        account: {
-            name: line.chartOfAccount.name,
-            code: line.chartOfAccount.code
-        }
-    }))
+      lineNumber: line.lineNumber,
+      description: line.description,
+      debitAmount: Number(line.debitAmount),
+      creditAmount: Number(line.creditAmount),
+      account: {
+        name: line.chartOfAccount.name,
+        code: line.chartOfAccount.code,
+      },
+    })),
   };
 
   const totalDebit = voucher.voucherLines.reduce((sum: number, line: any) => sum + line.debitAmount, 0);

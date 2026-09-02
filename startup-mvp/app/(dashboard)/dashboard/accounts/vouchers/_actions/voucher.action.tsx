@@ -465,6 +465,10 @@ export async function getVoucherById(voucherId: string) {
             id: true,
             name: true,
             email: true,
+            phone: true,
+            address: true,
+            openingBalance: true,
+            chartOfAccountId: true,
           },
         },
         Supplier: {
@@ -472,6 +476,8 @@ export async function getVoucherById(voucherId: string) {
             id: true,
             name: true,
             email: true,
+            phone: true,
+            address: true,
           },
         },
         User_Voucher_userIdToUser: {
@@ -485,6 +491,12 @@ export async function getVoucherById(voucherId: string) {
           select: {
             id: true,
             name: true,
+            details: true,
+            address: true,
+            phone: true,
+            email: true,
+            website: true,
+            logo: true,
           },
         },
         VoucherLine: {
