@@ -454,6 +454,7 @@ export const OPERATIONS: Record<Operation, OperationMetadata> = {
   finish: { id: "finish", label: "Finish Scan", description: "Finish scanning session and generate draft purchase", category: "custom" },
   reopen: { id: "reopen", label: "Reopen Closing", description: "Reopen locked cashier POS closing for edits", category: "custom" },
   post: { id: "post", label: "Post Voucher", description: "Directly post vouchers to General Ledger upon creation or approve draft vouchers", category: "custom" },
+  "photo-upload": { id: "photo-upload", label: "Upload Photos", description: "Upload item gallery photos", category: "custom" },
 };
 
 // Helper function to get all modules

@@ -2723,7 +2723,7 @@ export async function uploadItemPhotos(itemId: string, newImageUrls: string[]) {
       },
     });
 
-    await logItemUpdated(session.user.id, "Item", item.id, item.name, {
+    await logItemUpdated(session.user.id, "Item", item.id, ["images"], item.name, {
       uploadedPhotosCount: newImageUrls.length,
       totalPhotosCount: updatedImages.length,
     });

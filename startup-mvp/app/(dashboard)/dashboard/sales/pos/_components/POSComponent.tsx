@@ -1555,10 +1555,11 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     setIsReturning(true);
     try {
       const res = await processSaleReturn(null, selectedItems, selectedWarehouseId);
-      if(res.success && res.returnSale) {
-        const saleNum = res.returnSale.saleNumber;
-        const saleId = res.returnSale.id;
-        const refundAmt = Number(res.returnSale.grandTotal);
+      const returnSale = (res as any).returnSale;
+      if(res.success && returnSale) {
+        const saleNum = returnSale.saleNumber;
+        const saleId = returnSale.id;
+        const refundAmt = Number(returnSale.grandTotal);
         setCompletedSaleNumber(saleNum);
         setCompletedSaleId(saleId || '');
         setChangeAmount(Math.abs(refundAmt));
@@ -1589,11 +1590,12 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     setIsReturning(true);
     try {
       const res = await processSaleReturn(returnSaleDetails.id, selectedItems, undefined, refundMode);
-      if(res.success && res.returnSale) {
-        const saleNum = res.returnSale.saleNumber;
-        const saleId = res.returnSale.id;
-        const refundAmt = Number(res.returnSale.grandTotal);
-        const details = (res.returnSale as any).paymentDetails;
+      const returnSale = (res as any).returnSale;
+      if(res.success && returnSale) {
+        const saleNum = returnSale.saleNumber;
+        const saleId = returnSale.id;
+        const refundAmt = Number(returnSale.grandTotal);
+        const details = (returnSale as any).paymentDetails;
         const arOffset = Number(details?.arOffsetAmount || 0);
 
         setCompletedSaleNumber(saleNum);

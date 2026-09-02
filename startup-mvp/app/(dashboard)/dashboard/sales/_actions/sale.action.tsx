@@ -1296,22 +1296,29 @@ export async function createSaleAccountingVoucher(
     const paymentLines: Array<{ accountId: string; amount: number; description: string }> = [];
 
     if (paymentDetails) {
-      const cashAmt = Number(paymentDetails.cashAmount || 0);
+      const rawCashAmt = Number(paymentDetails.cashAmount || 0);
       const cardAmt = Number(paymentDetails.cardAmount || 0);
       const mfsAmt = Number(paymentDetails.mfsAmount || 0);
-      const totalPaid = cashAmt + cardAmt + mfsAmt;
+      const changeAmt = Number(paymentDetails.changeAmount || 0);
+      const totalPaid = rawCashAmt + cardAmt + mfsAmt;
 
       if (totalPaid > 0) {
-        // If the total paid exceeds the grand total (e.g. because of change returned),
-        // we scale down the cash/card/mfs amounts proportionally so that they total exactly absGrandTotal.
-        const scale = totalPaid > absGrandTotal ? (absGrandTotal / totalPaid) : 1;
+        // Change is physically paid out from cash drawer, so deduct change 100% from cash amount.
+        // Card and MFS payment amounts remain 100% exact as charged on POS card machine/wallet.
+        let netCashAmt = Math.max(0, rawCashAmt - changeAmt);
 
-        if (cashAmt > 0) {
+        // Cap total cash collected if total net payment exceeds grand total
+        const netNonCashTotal = cardAmt + mfsAmt;
+        if (netNonCashTotal + netCashAmt > absGrandTotal) {
+          netCashAmt = Math.max(0, absGrandTotal - netNonCashTotal);
+        }
+
+        if (netCashAmt > 0) {
           const cashAcctId = paymentDetails.cashAccountId || (await getWarehouseCashAccount(sale.warehouseId, client));
           if (cashAcctId) {
             paymentLines.push({
               accountId: cashAcctId,
-              amount: Number((cashAmt * scale).toFixed(2)),
+              amount: Number(netCashAmt.toFixed(2)),
               description: isReturn 
                 ? `Cash Refund Paid - ${sale.saleNumber} - ${sale.client.name}`
                 : `Cash Received - ${sale.saleNumber} - ${sale.client.name}`,
@@ -1321,7 +1328,7 @@ export async function createSaleAccountingVoucher(
         if (cardAmt > 0 && paymentDetails.cardAccountId) {
           paymentLines.push({
             accountId: paymentDetails.cardAccountId,
-            amount: Number((cardAmt * scale).toFixed(2)),
+            amount: Number(cardAmt.toFixed(2)),
             description: isReturn
               ? `Card Refund Paid - ${sale.saleNumber} - ${sale.client.name}`
               : `Card Payment Received - ${sale.saleNumber} - ${sale.client.name}`,
@@ -1330,19 +1337,11 @@ export async function createSaleAccountingVoucher(
         if (mfsAmt > 0 && paymentDetails.mfsAccountId) {
           paymentLines.push({
             accountId: paymentDetails.mfsAccountId,
-            amount: Number((mfsAmt * scale).toFixed(2)),
+            amount: Number(mfsAmt.toFixed(2)),
             description: isReturn
               ? `Digital Wallet Refund Paid - ${sale.saleNumber} - ${sale.client.name}`
               : `Digital Wallet/MFS Received - ${sale.saleNumber} - ${sale.client.name}`,
           });
-        }
-
-        // Adjust for minor rounding discrepancies from scaling
-        const totalScaled = paymentLines.reduce((sum, line) => sum + line.amount, 0);
-        const expectedTotal = totalPaid > absGrandTotal ? absGrandTotal : totalPaid;
-        const discrepancy = Number((expectedTotal - totalScaled).toFixed(2));
-        if (discrepancy !== 0 && paymentLines.length > 0) {
-          paymentLines[0].amount = Number((paymentLines[0].amount + discrepancy).toFixed(2));
         }
       }
     } else if (debitAccountId && debitAccountId !== receivableAccountId) {
