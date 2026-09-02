@@ -3867,6 +3867,8 @@ export async function processSaleExchange(payload: {
   clientId: string;
   warehouseId: string;
   orderType?: "RETAIL" | "WHOLESALE";
+  discount?: number;
+  tax?: number;
   paymentDetails?: {
     cashAmount?: number;
     cashAccountId?: string;
@@ -3897,7 +3899,7 @@ export async function processSaleExchange(payload: {
       return { success: false, error: "Unauthorized" };
     }
 
-    const { clientId, warehouseId, orderType = "RETAIL", paymentDetails, returnItems = [], newItems = [] } = payload;
+    const { clientId, warehouseId, orderType = "RETAIL", paymentDetails, returnItems = [], newItems = [], discount = 0, tax = 0 } = payload;
 
     if (returnItems.length === 0 && newItems.length === 0) {
       return { success: false, error: "No items provided for exchange" };
@@ -4095,7 +4097,9 @@ export async function processSaleExchange(payload: {
       }
 
       const netSubtotal = Number((totalNewSubtotal - totalReturnSubtotal).toFixed(2));
-      const grandTotal = netSubtotal;
+      const overallDiscount = Number((discount || 0).toFixed(2));
+      const taxAmt = Number((tax || 0).toFixed(2));
+      const grandTotal = Number((netSubtotal - overallDiscount + taxAmt).toFixed(2));
 
       // 5. Create Sale Record
       const newSale = await tx.sale.create({
@@ -4108,8 +4112,8 @@ export async function processSaleExchange(payload: {
           warehouseId,
           createdBy: session.user.id,
           subTotal: netSubtotal,
-          discount: 0,
-          tax: 0,
+          discount: overallDiscount,
+          tax: taxAmt,
           grandTotal,
           paymentDetails: paymentDetails || {},
           notes: payload.saleId ? `Exchange for sale ID ${payload.saleId}` : "POS Exchange Sale",

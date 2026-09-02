@@ -1938,6 +1938,8 @@ export default function POSComponent({ items, clients: initialClients, warehouse
           orderType: orderType as any,
           returnItems,
           newItems,
+          discount: effectiveDiscountAmount,
+          tax: tax,
           paymentDetails: {
             cashAmount: effectiveCashAmount,
             cashAccountId: effectiveCashAccountId || undefined,
