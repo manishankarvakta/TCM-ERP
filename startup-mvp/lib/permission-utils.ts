@@ -63,6 +63,11 @@ export function getPathPermissionKey(pathname: string): string | null {
     "/dashboard/notifications": "notifications",
     "/dashboard/analytics": "analytics",
     "/dashboard/reports": "reports",
+    // Integrations & Automation
+    "/dashboard/integrations/connections": "integrations.connections",
+    "/dashboard/integrations/webhooks": "integrations.webhooks",
+    "/dashboard/integrations/automations": "integrations.automations",
+    "/dashboard/integrations/logs": "integrations.logs",
   };
 
   // Check exact match first

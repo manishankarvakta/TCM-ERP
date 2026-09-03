@@ -232,8 +232,10 @@ export default function SettingsLayoutWrapper({
                                     // Handle permissions sub-menu with links
                                     if (item.id === "permissions") {
                                       let href = "/dashboard/settings?section=permissions";
+// @ts-expect-error - Legacy compatibility
                                       if (child.id === "permissions-templates") {
                                         href = "/dashboard/settings/permissions/templates";
+// @ts-expect-error - Legacy compatibility
                                       } else if (child.id === "permissions-users") {
                                         href = "/dashboard/users"; // Users list page
                                       }

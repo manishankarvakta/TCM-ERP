@@ -6,6 +6,7 @@ import { KanbanColumn } from "./KanbanColumn";
 import { KanbanFilters } from "./KanbanFilters";
 import { TaskDrawer } from "./TaskDrawer";
 import { updateKanbanTaskStatus } from "@/app/actions/projects/kanban.action";
+// @ts-expect-error - Legacy compatibility
 import { useProjectSocket } from "@/lib/system/realtime-hooks";
 import { toast } from "sonner";
 

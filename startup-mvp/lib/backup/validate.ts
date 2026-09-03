@@ -11,6 +11,7 @@ import {
   validateMetadata,
   hasValidMetadata,
 } from './metadata';
+import { loadBackupMetadata } from '../backup-metadata';
 import {
   calculateFileChecksum,
   verifyFileChecksum,
@@ -47,7 +48,7 @@ export async function validateBackupIntegrity(backupPath: string): Promise<Valid
     // Extract and validate metadata
     let metadata;
     try {
-      metadata = await extractMetadataFromZip(backupPath);
+      metadata = await loadBackupMetadata(backupPath);
       
       const metadataValidation = validateMetadata(metadata);
       if (!metadataValidation.valid) {

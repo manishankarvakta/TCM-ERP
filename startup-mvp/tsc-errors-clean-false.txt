@@ -1,0 +1,32 @@
+app/(dashboard)/dashboard/accounts/vouchers/_components/voucher-form.tsx(245,40): error TS2345: Argument of type '(data: VoucherFormData) => Promise<void>' is not assignable to parameter of type 'SubmitHandler<TFieldValues>'.
+  Types of parameters 'data' and 'data' are incompatible.
+    Type 'TFieldValues' is not assignable to type '{ date: string; type: "PURCHASE" | "ADJUSTMENT" | "RETURN" | "PAYMENT" | "RECEIPT" | "JOURNAL" | "CONTRA" | "SALES"; lines: { chartOfAccountId: string; debitAmount: number; creditAmount: number; description?: string; }[]; reference?: string; description?: string; }'.
+      Type 'FieldValues' is missing the following properties from type '{ date: string; type: "PURCHASE" | "ADJUSTMENT" | "RETURN" | "PAYMENT" | "RECEIPT" | "JOURNAL" | "CONTRA" | "SALES"; lines: { chartOfAccountId: string; debitAmount: number; creditAmount: number; description?: string; }[]; reference?: string; description?: string; }': date, type, lines
+app/(dashboard)/dashboard/crm/leads/_components/LeadEditButton.tsx(30,8): error TS2741: Property 'categories' is missing in type '{ open: boolean; onOpenChange: Dispatch<SetStateAction<boolean>>; lead: any; onSuccess: () => void; }' but required in type 'LeadSheetProps'.
+app/(dashboard)/dashboard/crm/leads/_components/LeadKanban.tsx(265,44): error TS2304: Cannot find name 'Badge'.
+app/(dashboard)/dashboard/crm/leads/_components/LeadKanban.tsx(265,309): error TS2304: Cannot find name 'Badge'.
+app/(dashboard)/dashboard/crm/leads/_components/LeadTable.tsx(401,27): error TS2339: Property 'source' does not exist on type 'Lead'.
+app/(dashboard)/dashboard/crm/leads/_components/LeadTable.tsx(404,31): error TS2339: Property 'source' does not exist on type 'Lead'.
+app/(dashboard)/dashboard/employees/_components/employeeForm.tsx(277,40): error TS2345: Argument of type '(data: EmployeeFormData) => Promise<void>' is not assignable to parameter of type 'SubmitHandler<TFieldValues>'.
+  Types of parameters 'data' and 'data' are incompatible.
+    Type 'TFieldValues' is not assignable to type '{ name: string; status: "active" | "inactive"; email?: string; phone?: string; designation?: string; department?: string; salary?: number; joiningDate?: string; gender?: string; dateOfBirth?: string; ... 7 more ...; fingerprintDeviceId?: string; }'.
+      Type 'FieldValues' is missing the following properties from type '{ name: string; status: "active" | "inactive"; email?: string; phone?: string; designation?: string; department?: string; salary?: number; joiningDate?: string; gender?: string; dateOfBirth?: string; ... 7 more ...; fingerprintDeviceId?: string; }': name, status
+app/(dashboard)/dashboard/projects/[id]/_components/MemberProjectOverview.tsx(143,42): error TS2304: Cannot find name 'FiActivity'.
+app/(dashboard)/dashboard/purchases/_components/purchaseForm.tsx(212,40): error TS2345: Argument of type '(data: PurchaseFormData) => Promise<void>' is not assignable to parameter of type 'SubmitHandler<TFieldValues>'.
+  Types of parameters 'data' and 'data' are incompatible.
+    Type 'TFieldValues' is not assignable to type '{ supplierId: string; date: Date; status: "DRAFT" | "APPROVED" | "PARTIALLY_RECEIVED" | "RECEIVED" | "CANCELLED"; items: { description: string; quantity: number; unitPrice: number; amount: number; itemId?: string; }[]; notes?: string; attachmentUrl?: string; discount?: number; tax?: number; }'.
+      Type 'FieldValues' is missing the following properties from type '{ supplierId: string; date: Date; status: "DRAFT" | "APPROVED" | "PARTIALLY_RECEIVED" | "RECEIVED" | "CANCELLED"; items: { description: string; quantity: number; unitPrice: number; amount: number; itemId?: string; }[]; notes?: string; attachmentUrl?: string; discount?: number; tax?: number; }': supplierId, date, status, items
+app/(dashboard)/dashboard/quotations/[id]/_components/QuotationActionButtons.tsx(48,113): error TS2345: Argument of type 'QuotationStatus' is not assignable to parameter of type '"DRAFT" | "APPROVED" | "REVIEW" | "SENT"'.
+  Type '"CANCELLED"' is not assignable to type '"DRAFT" | "APPROVED" | "REVIEW" | "SENT"'.
+app/(dashboard)/dashboard/work-orders/[id]/page.tsx(54,14): error TS2304: Cannot find name 'WorkOrderStatusButton'.
+app/(portal)/portal/support/[id]/page.tsx(85,23): error TS2551: Property 'SupportTicketSLAs' does not exist on type '{ id: string; type: SupportTicketType; status: SupportTicketStatus; createdAt: Date; updatedAt: Date; description: string; priority: SupportTicketPriority; ... 4 more ...; coverageStatus: SupportCoverageStatus; }'. Did you mean 'SupportTicketSLA'?
+components/forms/user-form.tsx(188,40): error TS2345: Argument of type '(data: UserFormDataWithId) => Promise<void>' is not assignable to parameter of type 'SubmitHandler<TFieldValues>'.
+  Types of parameters 'data' and 'data' are incompatible.
+    Type 'TFieldValues' is not assignable to type 'UserFormDataWithId'.
+      Type 'FieldValues' is not assignable to type 'UserFormDataWithId'.
+        Type 'FieldValues' is missing the following properties from type '{ name: string; email: string; role: "user" | "admin"; status: "active" | "inactive"; password?: string; image?: string; inchargeId?: string; salary?: number | ""; }': name, email, role, status
+          Type 'TFieldValues' is not assignable to type '{ name: string; email: string; role: "user" | "admin"; status: "active" | "inactive"; password?: string; image?: string; inchargeId?: string; salary?: number | ""; }'.
+            Type 'FieldValues' is missing the following properties from type '{ name: string; email: string; role: "user" | "admin"; status: "active" | "inactive"; password?: string; image?: string; inchargeId?: string; salary?: number | ""; }': name, email, role, status
+components/permissions/templates-list.tsx(140,19): error TS2322: Type 'unknown' is not assignable to type 'ReactNode'.
+lib/backup/create.ts(536,7): error TS2561: Object literal may only specify known properties, but 'forceLocalSize' does not exist in type 'ArchiverOptions'. Did you mean to write 'forceLocalTime'?
+lib/backup/index.ts(5,1): error TS2308: Module "./config" has already exported a member named 'generateBackupId'. Consider explicitly re-exporting to resolve the ambiguity.

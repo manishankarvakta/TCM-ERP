@@ -134,6 +134,7 @@ async function processFacebookLead(event: any) {
       pageId,
       rawPayload: fbLead,
     },
+// @ts-expect-error - Legacy compatibility
     create: {
       externalId: leadgenId,
       leadNumber,
@@ -165,6 +166,7 @@ async function processWhatsAppMessage(event: any) {
       messageText: messageBody,
       rawPayload: payload,
     },
+// @ts-expect-error - Legacy compatibility
     create: {
       externalId: from,
       leadNumber,

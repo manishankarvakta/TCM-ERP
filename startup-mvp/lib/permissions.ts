@@ -634,6 +634,22 @@ export async function checkPermission(
   return hasPermission(userId, permissionKey, operation);
 }
 
+/**
+ * Server-side Permission Assertion Helper
+ * Throws PERMISSION_DENIED if caller lacks required permission
+ */
+export async function verifyServerPermission(
+  userId: string,
+  permissionKey: string,
+  operation: Operation
+): Promise<boolean> {
+  const allowed = await checkPermission(userId, permissionKey, operation);
+  if (!allowed) {
+    throw new Error(`PERMISSION_DENIED: User lacks '${permissionKey}' (${operation}) authorization`);
+  }
+  return true;
+}
+
 // Wrapper function for convertToEnhancedPermissions (required for "use server" files)
 // Since convertToEnhancedPermissions is synchronous, we wrap it in an async function
 export async function convertToEnhancedPermissionsAsync(
@@ -642,4 +658,5 @@ export async function convertToEnhancedPermissionsAsync(
   // Import the function directly (it's already imported at the top of the file)
   return convertToEnhancedPermissions(legacyPermissions);
 }
+
 

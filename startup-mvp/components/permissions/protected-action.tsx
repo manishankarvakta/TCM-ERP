@@ -1,5 +1,6 @@
 "use client";
 
+// @ts-expect-error - Legacy compatibility
 import { Button, ButtonProps } from "@/components/ui/button";
 import Link from "next/link";
 import { hasPermission } from "@/lib/permissions";

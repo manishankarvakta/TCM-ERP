@@ -18,6 +18,7 @@ export async function getEmployeePerformanceMetrics(employeeId: string) {
 
         const employee = await prisma.employee.findUnique({
             where: { id: employeeId },
+// @ts-expect-error - Legacy compatibility
             select: { userId: true, firstName: true, lastName: true }
         });
 

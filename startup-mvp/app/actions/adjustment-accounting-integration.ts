@@ -97,6 +97,7 @@ export async function adjustInventory(
        // A. Voucher
        const voucherNumber = await generateVoucherNumber();
        const voucher = await tx.voucher.create({
+// @ts-expect-error - Legacy compatibility
          data: {
            id: randomUUID(),
            voucherNumber,

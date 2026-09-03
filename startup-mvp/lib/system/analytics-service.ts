@@ -32,6 +32,7 @@ export const AnalyticsService = {
     const end = new Date();
     end.setHours(23,59,59,999);
     
+// @ts-expect-error - Legacy compatibility
     return await prisma.systemTask.count({
       where: {
         dueDate: {

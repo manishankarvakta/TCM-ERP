@@ -65,6 +65,7 @@ interface CashBankAccountOption {
 }
 
 interface ReceiptPaymentFormProps {
+// @ts-expect-error - Legacy compatibility
   voucherType: VoucherType.RECEIPT | VoucherType.PAYMENT;
 }
 

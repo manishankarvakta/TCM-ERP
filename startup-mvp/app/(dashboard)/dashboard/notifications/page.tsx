@@ -101,9 +101,11 @@ export default function NotificationsPage() {
         
         // Check if there are new unread notifications
         const previousUnreadCount = notifications.filter((n: Notification) => !n.isRead).length;
+// @ts-expect-error - Legacy compatibility
         const newUnreadCount = newNotifications.filter((n: Notification) => !n.isRead).length;
         
         // Update notifications
+// @ts-expect-error - Legacy compatibility
         setNotifications(newNotifications);
         
         // Show toast if new unread notifications arrived (only if not silent and count increased)

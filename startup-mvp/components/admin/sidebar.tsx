@@ -19,6 +19,7 @@ import {
   FiFolder,
   FiBell,
   FiArchive,
+  FiFilter,
   FiChevronDown,
   FiChevronRight,
   FiPackage,

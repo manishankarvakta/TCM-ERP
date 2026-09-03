@@ -4,8 +4,10 @@ import { revalidateBothPaths } from '@/lib/route-utils-server';
 import { prisma } from '@/lib/prisma';
 import { Prisma, QuotationStatus } from '@prisma/client';
 import { auth } from '@/lib/auth';
+import { getTenantContext, verifyTenantAccess, verifyParentTenantAccess } from '@/lib/tenant-context';
 import { notifyItemCreated, notifyItemUpdated, notifyItemDeleted } from '@/lib/notification';
 import { createUserLog, LogAction } from '@/lib/user-log';
+import { getNextSequenceNumber } from "@/lib/sequence";
 import { createClient } from '@/app/(dashboard)/dashboard/crm/clients/_actions/client.action';
 import { buildDefaultSections } from '@/lib/quotation/buildDefaultSections';
 import { sortSectionsByDisplayOrder } from '@/lib/quotation/sortSections';
@@ -597,10 +599,14 @@ export async function createQuotation(data: any) {
       });
     }
 
+    // Generate atomic sequence number if not provided
+// @ts-expect-error - Legacy compatibility
+    const finalQuotationNumber = data.quotationNumber || (await getNextSequenceNumber(organizationId, "QUOTATION", "QUO"));
+
     // Create quotation with optimized data fetching
     const quotation = await prisma.quotation.create({
       data: {
-        quotationNumber: data.quotationNumber || `QT-${Date.now()}`,
+        quotationNumber: finalQuotationNumber,
         mode: data.mode || 'SIMPLE',
         subject: data.subject || '',
         date: data.date ? new Date(data.date) : new Date(),

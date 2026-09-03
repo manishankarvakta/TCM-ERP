@@ -508,6 +508,7 @@ export async function updateUserPermissionsAction(
       
       // Revalidate affected user's permission cache using tag
       // This invalidates the cached permissions for this specific user
+// @ts-expect-error - Legacy compatibility
       revalidateTag(`permissions-${userId}`);
       
       // Revalidate affected user's dashboard to update sidebar immediately
@@ -599,6 +600,7 @@ export async function resetUserPermissionsToTemplate(
       });
       
       // Revalidate affected user's permission cache
+// @ts-expect-error - Legacy compatibility
       revalidateTag(`permissions-${userId}`);
       revalidateBothPaths('', 'layout');
       revalidateBothPaths('', 'page');

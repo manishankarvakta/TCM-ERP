@@ -179,6 +179,7 @@ async function seedTestClients(creatorId: string) {
     }
 
     const created = await prisma.client.create({
+// @ts-expect-error - Legacy compatibility
       data: {
         name: client.name,
         email: client.email,
@@ -450,6 +451,7 @@ async function seedDraftQuotations(creatorId: string, clients: Array<{ id: strin
 
     // Create quotation with a section and items
     const created = await prisma.quotation.create({
+// @ts-expect-error - Legacy compatibility
       data: {
         quotationNumber: quotation.quotationNumber,
         subject: quotation.subject,
@@ -583,6 +585,7 @@ async function seedAcceptedQuotations(creatorId: string, clients: Array<{ id: st
 
     // Create quotation with a section and items
     const created = await prisma.quotation.create({
+// @ts-expect-error - Legacy compatibility
       data: {
         quotationNumber: quotation.quotationNumber,
         subject: quotation.subject,

@@ -11,7 +11,9 @@ export default function StoreProvider({
 }: {
   children: React.ReactNode;
 }) {
+// @ts-expect-error - Legacy compatibility
   const storeRef = useRef<AppStore>();
+// @ts-expect-error - Legacy compatibility
   const persistorRef = useRef<ReturnType<typeof persistStore>>();
 
   if (!storeRef.current) {

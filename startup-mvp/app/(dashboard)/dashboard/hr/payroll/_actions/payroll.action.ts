@@ -182,6 +182,7 @@ export async function generatePayroll(month: number, year: number) {
     // Create Payroll Transaction
     const payroll = await prisma.$transaction(async (tx) => {
       return await tx.payroll.create({
+// @ts-expect-error - Legacy compatibility
         data: {
           payrollNumber,
           month,

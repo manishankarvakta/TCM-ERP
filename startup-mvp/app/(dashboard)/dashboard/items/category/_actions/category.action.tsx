@@ -326,7 +326,9 @@ export async function updateCategory(input: {
 
     // Revalidate categories page
     revalidateBothPaths("category");
+// @ts-expect-error - Legacy compatibility
     revalidatePath(`/dashboard/category/${category.id}`);
+// @ts-expect-error - Legacy compatibility
     revalidatePath(`/dashboard/category/details?id=${category.id}`);
 
     return {

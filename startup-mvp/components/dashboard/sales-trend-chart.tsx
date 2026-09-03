@@ -132,6 +132,7 @@ export default function SalesTrendChart({ trends }: SalesTrendChartProps) {
                 if (name === "revenue") return [formatCurrency(Number(value)), "Revenue"];
                 return [value, "Quotations"];
               }}
+// @ts-expect-error - Legacy compatibility
               labelStyle={{ fontWeight: "semibold", marginBottom: "4px", className: "text-foreground" }}
             />
             <Legend

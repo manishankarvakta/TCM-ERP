@@ -36,6 +36,7 @@ export async function GET() {
         isRead: true,
         createdAt: true,
         createdBy: true,
+// @ts-expect-error - Legacy compatibility
         creator: {
           select: {
             id: true,

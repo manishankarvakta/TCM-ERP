@@ -18,6 +18,8 @@ import {
   TEMP_DIR,
 } from './config';
 import { extractMetadataFromZip } from './metadata';
+import { loadBackupMetadata } from '../backup-metadata';
+import { decryptBackupFile, getEncryptionKey } from '../backup-encryption';
 import { validateBackupIntegrity } from './validate';
 import { findBackupPath } from './list';
 import { createDatabaseBackup, createFullBackup } from './create';
@@ -45,6 +47,7 @@ export async function restoreDatabaseBackup(
   options?: RestoreOptions
 ): Promise<void> {
   const manager = getRestoreManager();
+  let decryptedTempPath: string | null = null;
 
   try {
     // Ensure all backup directories exist (especially TEMP_DIR)
@@ -73,7 +76,7 @@ export async function restoreDatabaseBackup(
       manager.addLog(restoreId, 'Backup validation passed');
     }
 
-    const metadata = await extractMetadataFromZip(backupPath);
+    const metadata = await loadBackupMetadata(backupPath);
     manager.updateProgress(restoreId, { progress: 10 });
 
     // Stage 2: PREPARING (10-20%)
@@ -91,8 +94,18 @@ export async function restoreDatabaseBackup(
     manager.updateStatus(restoreId, 'EXTRACTING', 'Extracting database dump from backup');
     manager.addLog(restoreId, 'Extracting database.dump...');
 
+    let activeBackupPath = backupPath;
+    if (metadata.encrypted) {
+      manager.addLog(restoreId, 'Decrypting backup file...');
+      decryptedTempPath = generateTempFilePath('decrypted-zip') + '.zip';
+      const key = getEncryptionKey();
+      await decryptBackupFile(backupPath, decryptedTempPath, key);
+      activeBackupPath = decryptedTempPath;
+      manager.addLog(restoreId, 'Decryption completed');
+    }
+
     const tempDumpPath = generateTempFilePath('restore-db');
-    await extractDatabaseDump(backupPath, tempDumpPath);
+    await extractDatabaseDump(activeBackupPath, tempDumpPath);
 
     const dumpSize = await fs.stat(tempDumpPath);
     manager.addLog(restoreId, `Extracted database dump: ${formatBytes(dumpSize.size)}`);
@@ -114,9 +127,14 @@ export async function restoreDatabaseBackup(
     manager.updateProgress(restoreId, { progress: 95 });
 
     // Stage 6: COMPLETED (100%)
-    await cleanupTempFiles([tempDumpPath]);
+    const cleanupPaths = [tempDumpPath];
+    if (decryptedTempPath) cleanupPaths.push(decryptedTempPath);
+    await cleanupTempFiles(cleanupPaths);
     manager.completeRestore(restoreId);
   } catch (error) {
+    if (decryptedTempPath) {
+      try { await fs.unlink(decryptedTempPath); } catch {}
+    }
     manager.failRestore(
       restoreId,
       error instanceof Error ? error.message : String(error),
@@ -138,6 +156,7 @@ export async function restoreFilesBackup(
   options?: RestoreOptions
 ): Promise<void> {
   const manager = getRestoreManager();
+  let decryptedTempPath: string | null = null;
 
   try {
     // Ensure all backup directories exist (especially TEMP_DIR)
@@ -163,7 +182,7 @@ export async function restoreFilesBackup(
       }
     }
 
-    const metadata = await extractMetadataFromZip(backupPath);
+    const metadata = await loadBackupMetadata(backupPath);
     manager.updateProgress(restoreId, { progress: 10 });
 
     // Stage 2: PREPARING (10-20%)
@@ -181,10 +200,20 @@ export async function restoreFilesBackup(
     manager.updateStatus(restoreId, 'EXTRACTING', 'Extracting files from backup');
     manager.addLog(restoreId, 'Extracting files from ZIP...');
 
+    let activeBackupPath = backupPath;
+    if (metadata.encrypted) {
+      manager.addLog(restoreId, 'Decrypting backup file...');
+      decryptedTempPath = generateTempFilePath('decrypted-zip') + '.zip';
+      const key = getEncryptionKey();
+      await decryptBackupFile(backupPath, decryptedTempPath, key);
+      activeBackupPath = decryptedTempPath;
+      manager.addLog(restoreId, 'Decryption completed');
+    }
+
     const tempExtractDir = generateTempFilePath('restore-files');
     await fs.mkdir(tempExtractDir, { recursive: true });
 
-    const zip = new AdmZip(backupPath);
+    const zip = new AdmZip(activeBackupPath);
     const entries = zip.getEntries().filter(
       (entry: any) => !entry.isDirectory && entry.entryName !== METADATA_FILENAME
     );
@@ -237,9 +266,14 @@ export async function restoreFilesBackup(
     manager.updateProgress(restoreId, { progress: 95 });
 
     // Cleanup
-    await cleanupTempFiles([tempExtractDir]);
+    const cleanupPaths = [tempExtractDir];
+    if (decryptedTempPath) cleanupPaths.push(decryptedTempPath);
+    await cleanupTempFiles(cleanupPaths);
     manager.completeRestore(restoreId);
   } catch (error) {
+    if (decryptedTempPath) {
+      try { await fs.unlink(decryptedTempPath); } catch {}
+    }
     manager.failRestore(
       restoreId,
       error instanceof Error ? error.message : String(error),
@@ -261,6 +295,7 @@ export async function restoreFullBackup(
   options?: RestoreOptions
 ): Promise<void> {
   const manager = getRestoreManager();
+  let decryptedTempPath: string | null = null;
 
   try {
     // Ensure all backup directories exist (especially TEMP_DIR)
@@ -286,7 +321,7 @@ export async function restoreFullBackup(
       }
     }
 
-    const metadata = await extractMetadataFromZip(backupPath);
+    const metadata = await loadBackupMetadata(backupPath);
     manager.updateProgress(restoreId, { progress: 5 });
 
     // Stage 2: PREPARING (5-10%)
@@ -304,8 +339,18 @@ export async function restoreFullBackup(
     manager.updateStatus(restoreId, 'EXTRACTING', 'Extracting backup contents');
     manager.addLog(restoreId, 'Extracting database and files...');
 
+    let activeBackupPath = backupPath;
+    if (metadata.encrypted) {
+      manager.addLog(restoreId, 'Decrypting backup file...');
+      decryptedTempPath = generateTempFilePath('decrypted-zip') + '.zip';
+      const key = getEncryptionKey();
+      await decryptBackupFile(backupPath, decryptedTempPath, key);
+      activeBackupPath = decryptedTempPath;
+      manager.addLog(restoreId, 'Decryption completed');
+    }
+
     const tempDumpPath = generateTempFilePath('restore-db');
-    await extractDatabaseDump(backupPath, tempDumpPath);
+    await extractDatabaseDump(activeBackupPath, tempDumpPath);
 
     manager.addLog(restoreId, 'Extraction completed');
     manager.updateProgress(restoreId, { progress: 15 });
@@ -328,7 +373,7 @@ export async function restoreFullBackup(
       await clearLocalStorage();
     }
 
-    const zip = new AdmZip(backupPath);
+    const zip = new AdmZip(activeBackupPath);
     const entries = zip.getEntries().filter(
       (entry: any) =>
         !entry.isDirectory &&
@@ -378,9 +423,14 @@ export async function restoreFullBackup(
     manager.updateProgress(restoreId, { progress: 100 });
 
     // Cleanup
-    await cleanupTempFiles([tempDumpPath]);
+    const cleanupPaths = [tempDumpPath];
+    if (decryptedTempPath) cleanupPaths.push(decryptedTempPath);
+    await cleanupTempFiles(cleanupPaths);
     manager.completeRestore(restoreId);
   } catch (error) {
+    if (decryptedTempPath) {
+      try { await fs.unlink(decryptedTempPath); } catch {}
+    }
     manager.failRestore(
       restoreId,
       error instanceof Error ? error.message : String(error),
@@ -440,6 +490,7 @@ async function executePgRestore(
 
   if (cleanDatabase) {
     pgArgs.push('--clean');
+    pgArgs.push('--if-exists');
   }
 
   let useDocker = false;
@@ -475,13 +526,22 @@ async function executePgRestore(
       const commandArgs = pgArgs.map(arg => arg.includes(' ') ? `"${arg}"` : arg);
       const command = `pg_restore ${commandArgs.join(' ')} "${dumpPath}"`;
 
-      await execAsync(command, {
-        env: {
-          ...process.env,
-          PGPASSWORD: config.password,
-        },
-        maxBuffer: 100 * 1024 * 1024, // 100MB buffer
-      });
+      try {
+        await execAsync(command, {
+          env: {
+            ...process.env,
+            PGPASSWORD: config.password,
+          },
+          maxBuffer: 100 * 1024 * 1024, // 100MB buffer
+        });
+      } catch (execError: any) {
+        const exitCode = String(execError.code ?? execError.status ?? '');
+        if (exitCode === '1') {
+          manager.addLog(restoreId, `pg_restore completed with warnings: ${execError.stderr || execError.message}`, 'warn');
+        } else {
+          throw execError;
+        }
+      }
     } else {
       // Docker-based pg_restore
       await new Promise<void>((resolve, reject) => {
@@ -532,13 +592,15 @@ async function executePgRestore(
     clearInterval(updateInterval);
     manager.updateProgress(restoreId, { progress: progressEnd });
   } catch (error: any) {
+    const exitCode = String(error.code ?? error.status ?? '');
     // Distinguish between minor warnings (exit code 1) and fatal errors
     const isFatal = 
-      error.code !== 1 || 
-      error.message?.includes('could not connect') || 
-      error.message?.includes('database does not exist') ||
-      error.message?.includes('role') ||
-      error.message?.includes('FATAL:');
+      exitCode !== '1' && 
+      (error.message?.includes('could not connect') || 
+       error.message?.includes('database does not exist') ||
+       error.message?.includes('password authentication failed') ||
+       error.message?.includes('role') ||
+       error.message?.includes('FATAL:'));
 
     if (isFatal) {
       if (error.message?.includes('command not found') || error.code === 'ENOENT') {

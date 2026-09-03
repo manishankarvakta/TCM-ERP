@@ -191,6 +191,7 @@ export async function createSalesVoucherForQuotation(
 
       // Create voucher
       const voucher = await tx.voucher.create({
+// @ts-expect-error - Legacy compatibility
         data: {
           voucherNumber,
           date: quotationDate,

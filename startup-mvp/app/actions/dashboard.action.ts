@@ -615,6 +615,7 @@ export async function getUserDashboardStats() {
         prisma.quotation.count({
           where: { isTrash: false },
         }),
+// @ts-expect-error - Legacy compatibility
         prisma.quotation.groupBy({
           by: ['status'],
           where: { isTrash: false },

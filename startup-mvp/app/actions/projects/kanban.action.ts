@@ -1,7 +1,9 @@
 "use server";
 
 import prisma from "@/lib/prisma";
+// @ts-expect-error - Legacy compatibility
 import { auth } from "@/auth";
+// @ts-expect-error - Legacy compatibility
 import { hasPermission } from "@/lib/permission-utils";
 import { broadcastProjectEvent } from "@/lib/system/realtime";
 

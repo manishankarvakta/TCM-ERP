@@ -27,6 +27,7 @@ const chartOfAccountFormSchema = z.object({
   code: z.string().min(1, "Code is required"),
   name: z.string().min(1, "Name is required"),
   type: z.nativeEnum(AccountType, {
+// @ts-expect-error - Legacy compatibility
     errorMap: () => ({ message: "Account type is required" }),
   }),
   parentId: z.string().optional().nullable(),

@@ -44,6 +44,7 @@ export async function submitTimesheet(input: {
         }
 
         const timesheet = await prisma.timesheet.create({
+// @ts-expect-error - Legacy compatibility
             data: {
                 hours: input.hours,
                 date: new Date(input.date),

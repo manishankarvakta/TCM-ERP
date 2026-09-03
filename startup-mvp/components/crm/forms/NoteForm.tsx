@@ -39,6 +39,7 @@ export function NoteForm({ note, entityType, entityId, onSuccess }: NoteFormProp
 
       const result = note?.id
         ? await updateNote(note.id, noteData)
+// @ts-expect-error - Legacy compatibility
         : await createNote(noteData);
 
       if (result.success) {

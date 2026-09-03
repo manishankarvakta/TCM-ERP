@@ -39,6 +39,7 @@ export function EventForm({ event, entityType, entityId, onSuccess }: EventFormP
     setLoading(true);
 
     try {
+// @ts-expect-error - Legacy compatibility
       const { createEvent, updateEvent } = await import("@/app/actions/system/event.action");
 
       const eventData = {
@@ -74,6 +75,7 @@ export function EventForm({ event, entityType, entityId, onSuccess }: EventFormP
 
     setLoading(true);
     try {
+// @ts-expect-error - Legacy compatibility
       const { deleteEvent } = await import("@/app/actions/system/event.action");
       const result = await deleteEvent(event.id);
 

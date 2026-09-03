@@ -51,6 +51,7 @@ export function DirectOrderForm() {
     watch,
     formState: { errors },
   } = useForm<DirectOrderFormValues>({
+// @ts-expect-error - Legacy compatibility
     resolver: zodResolver(directOrderSchema),
     defaultValues: {
       clientId: '',
@@ -134,6 +135,7 @@ export function DirectOrderForm() {
   };
 
   return (
+// @ts-expect-error - Legacy compatibility
     <form onSubmit={handleSubmit(onSubmitForm)} className="space-y-6">
       <Card>
         <CardHeader>

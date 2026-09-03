@@ -36,6 +36,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
 interface Props {
   initialLeads: any[];
@@ -261,7 +262,7 @@ export default function LeadKanban({ initialLeads, canCreate, onRefresh }: Props
                       Lead: <span className="font-semibold">{statusUpdateLead?.name}</span>
                   </div>
                   <div className="text-sm font-medium">
-                      Changing status to: <Badge variant={statusUpdateLead ? (statusUpdateLead.newStatus === LeadStatus.UNQUALIFIED ? "destructive" : statusUpdateLead.newStatus === LeadStatus.QUALIFIED ? "success" : "default") : "default"}>{statusUpdateLead ? STAGE_LABELS[statusUpdateLead.newStatus] : ""}</Badge>
+                      Changing status to: <Badge variant={statusUpdateLead ? (statusUpdateLead.newStatus === LeadStatus.UNQUALIFIED ? "destructive" : statusUpdateLead.newStatus === LeadStatus.QUALIFIED ? "success" : "default") as any : "default"}>{statusUpdateLead ? STAGE_LABELS[statusUpdateLead.newStatus] : ""}</Badge>
                   </div>
                   {statusUpdateLead?.newStatus === LeadStatus.UNQUALIFIED && (
                       <div className="grid gap-2">

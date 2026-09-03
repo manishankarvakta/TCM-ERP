@@ -1,5 +1,3 @@
-import cron from "node-cron";
-import type { ScheduledTask } from "node-cron";
 import { prisma } from "@/lib/prisma";
 import { format } from "date-fns";
 import { createDatabaseBackup, createFilesBackup, createFullBackup } from "./create";
@@ -8,7 +6,7 @@ import { getBackupTypeDir } from "./config";
 import { formatBytes } from "./utils";
 import path from "path";
 
-let scheduledTask: ScheduledTask | null = null;
+let scheduledTask: any = null;
 
 export async function initBackupScheduler() {
   console.log("[Backup Scheduler] Initializing...");
@@ -20,6 +18,7 @@ export async function initBackupScheduler() {
   }
 
   try {
+    const cron = (await import("node-cron")).default;
     // Load active schedule settings from DB
     const scheduleSetting = await prisma.settings.findFirst({
       where: { category: "backup", code: "backup_schedule", is_active: true }

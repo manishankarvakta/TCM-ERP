@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { updateWorkOrder } from '@/app/actions/work-orders';
 import { useToast } from '@/hooks/use-toast';
+// @ts-expect-error - Legacy compatibility
 import { WorkOrderStatus } from '@prisma/client';
 
 interface EditWorkOrderFormProps {

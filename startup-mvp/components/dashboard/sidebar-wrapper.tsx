@@ -1,4 +1,4 @@
-// Cache-bust: v4
+// Cache-bust: v5
 import { auth } from "@/lib/auth";
 import { getUserPermissionsEnhanced } from "@/lib/permissions";
 import { NAVIGATION_STRUCTURE, type PagePermission } from "@/types/permissions";

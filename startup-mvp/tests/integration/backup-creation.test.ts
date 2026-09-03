@@ -13,14 +13,15 @@
 import { promises as fs } from "fs";
 import path from "path";
 import {
-  createDatabaseBackup,
-  createFilesBackup,
-  createFullBackup,
-  listBackups,
+  createDatabaseBackup as createDatabaseBackupRaw,
+  createFilesBackup as createFilesBackupRaw,
+  createFullBackup as createFullBackupRaw,
+  listAllBackups,
   getBackupTypeDir,
-  ensureBackupDirs,
-  type BackupType,
+  ensureBackupDirectories,
+  findBackupPath,
 } from "../../lib/backup";
+import type { BackupType } from "@/types/backup";
 import {
   loadBackupMetadata,
   isEncryptedBackup,
@@ -31,6 +32,38 @@ import {
   decryptBackupFile,
   verifyChecksum,
 } from "../../lib/backup-encryption";
+import AdmZip from "adm-zip";
+async function createDatabaseBackup(): Promise<string> {
+  const metadata = await createDatabaseBackupRaw();
+  const path = await findBackupPath(metadata.id);
+  if (!path) throw new Error("Path not found");
+  return path;
+}
+
+async function createFilesBackup(): Promise<string> {
+  const metadata = await createFilesBackupRaw();
+  const path = await findBackupPath(metadata.id);
+  if (!path) throw new Error("Path not found");
+  return path;
+}
+
+async function createFullBackup(): Promise<string> {
+  const metadata = await createFullBackupRaw();
+  const path = await findBackupPath(metadata.id);
+  if (!path) throw new Error("Path not found");
+  return path;
+}
+
+async function listBackups(type: BackupType): Promise<any[]> {
+  const list = await listAllBackups();
+  return list.filter(item => item.metadata.type === type).map(item => ({
+    path: item.filePath,
+    encrypted: item.metadata.encrypted,
+    checksum: item.metadata.checksum
+  }));
+}
+
+const ensureBackupDirs = ensureBackupDirectories;
 
 // Test configuration
 const TEST_KEY = process.env.BACKUP_ENCRYPTION_KEY || 
@@ -149,17 +182,18 @@ async function runTests() {
       throw new Error("Invalid metadata");
     }
 
-    // Read encrypted file
+     // Read encrypted file
     const encryptedData = await fs.readFile(backupPath);
-    const AUTH_TAG_LENGTH = 16;
-    const encryptedContent = encryptedData.slice(0, -AUTH_TAG_LENGTH);
+    const iv = encryptedData.slice(0, 12);
+    const authTag = encryptedData.slice(12, 28);
+    const ciphertext = encryptedData.slice(28);
 
     // Decrypt
     const decrypted = await decryptBackupFile(
-      encryptedContent,
-      metadata.iv,
+      ciphertext,
+      iv.toString("hex"),
       metadata.salt,
-      metadata.authTag,
+      authTag.toString("hex"),
       TEST_KEY
     );
 
@@ -171,10 +205,15 @@ async function runTests() {
       }
     }
 
-    // Verify it's valid SQL
-    const sqlContent = decrypted.toString("utf-8");
-    if (!sqlContent.includes("Database Backup")) {
-      throw new Error("Decrypted content is not valid SQL");
+    // Verify it's a valid ZIP and contains database.dump
+    try {
+      const zip = new AdmZip(decrypted);
+      const dumpEntry = zip.getEntry("database.dump");
+      if (!dumpEntry) {
+        throw new Error("database.dump not found in decrypted backup ZIP");
+      }
+    } catch (e: any) {
+      throw new Error(`Decrypted content is not a valid backup ZIP: ${e.message}`);
     }
   });
 
@@ -275,7 +314,7 @@ async function runTests() {
     const backups = await listBackups("database");
     
     // Find our backup
-    const ourBackup = backups.find(b => b.path === backupPath);
+    const ourBackup = backups.find((b: any) => b.path === backupPath);
     if (!ourBackup) {
       throw new Error("Created backup not found in list");
     }

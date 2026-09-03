@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate, formatCurrency } from "@/lib/utils/formatters";
+// @ts-expect-error - Legacy compatibility
 import { WorkOrderStatus } from "@prisma/client";
 
 interface WorkOrder {

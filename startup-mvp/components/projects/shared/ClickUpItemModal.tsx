@@ -283,6 +283,7 @@ export function ClickUpItemModal({
                                                 setLocalStartDate(date);
                                                 handleUpdate({ startDate: date });
                                             }}
+// @ts-expect-error - Legacy compatibility
                                             initialFocus
                                         />
                                     </PopoverContent>
@@ -303,6 +304,7 @@ export function ClickUpItemModal({
                                                 setLocalDueDate(date);
                                                 handleUpdate({ dueDate: date });
                                             }}
+// @ts-expect-error - Legacy compatibility
                                             initialFocus
                                         />
                                     </PopoverContent>

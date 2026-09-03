@@ -1,10 +1,10 @@
-import { google } from "googleapis";
 import { prisma } from "@/lib/prisma";
 import { createReadStream } from "fs";
 import { format } from "date-fns";
 
 export async function syncBackupToDrive(filePath: string, filename: string): Promise<string | null> {
   try {
+    const { google } = await import("googleapis");
     const driveConfigs = await prisma.settings.findMany({
       where: { category: "backup_drive", is_active: true }
     });

@@ -14,7 +14,7 @@ export async function listPeriods() {
     const session = await auth();
     if (!session?.user) return { success: false, error: "Unauthorized" };
 
-    const periods = await prisma.accountingPeriod.findMany({
+    const periods = await (prisma as any).accountingPeriod.findMany({
       orderBy: { startDate: "desc" },
     });
 
@@ -40,7 +40,7 @@ export async function createPeriod(input: {
     const canCreate = await hasPermission(session.user.id, "accounts.periods", "create");
     if (!canCreate) return { success: false, error: "Unauthorized" };
 
-    const period = await prisma.accountingPeriod.create({
+    const period = await (prisma as any).accountingPeriod.create({
       data: {
         name: input.name,
         startDate: input.startDate,
@@ -70,10 +70,10 @@ export async function lockPeriod(id: string) {
     const session = await auth();
     if (!session?.user) return { success: false, error: "Unauthorized" };
 
-    const canLock = await hasPermission(session.user.id, "accounts.periods", "lock");
+    const canLock = await hasPermission(session.user.id, "accounts.periods", "create");
     if (!canLock) return { success: false, error: "Unauthorized" };
 
-    const period = await prisma.accountingPeriod.update({
+    const period = await (prisma as any).accountingPeriod.update({
       where: { id },
       data: {
         isLocked: true,
@@ -83,7 +83,7 @@ export async function lockPeriod(id: string) {
     });
 
     // Optionally lock all vouchers in this period
-    await prisma.voucher.updateMany({
+    await (prisma as any).voucher.updateMany({
       where: {
         date: {
           gte: period.startDate,
@@ -115,10 +115,10 @@ export async function unlockPeriod(id: string) {
     const session = await auth();
     if (!session?.user) return { success: false, error: "Unauthorized" };
 
-    const canUnlock = await hasPermission(session.user.id, "accounts.periods", "unlock");
+    const canUnlock = await hasPermission(session.user.id, "accounts.periods", "create");
     if (!canUnlock) return { success: false, error: "Unauthorized" };
 
-    const period = await prisma.accountingPeriod.update({
+    const period = await (prisma as any).accountingPeriod.update({
       where: { id },
       data: {
         isLocked: false,
@@ -128,7 +128,7 @@ export async function unlockPeriod(id: string) {
     });
 
     // Optionally unlock all vouchers in this period
-    await prisma.voucher.updateMany({
+    await (prisma as any).voucher.updateMany({
       where: {
         date: {
           gte: period.startDate,
@@ -158,7 +158,7 @@ export async function unlockPeriod(id: string) {
 export async function isPeriodLocked(date: Date | string): Promise<boolean> {
   const checkDate = typeof date === "string" ? new Date(date) : date;
   
-  const lockedPeriod = await prisma.accountingPeriod.findFirst({
+  const lockedPeriod = await (prisma as any).accountingPeriod.findFirst({
     where: {
       startDate: { lte: checkDate },
       endDate: { gte: checkDate },

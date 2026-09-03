@@ -2,7 +2,7 @@ import React from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { FiCheckSquare, FiTarget, FiCalendar, FiBell, FiClock } from "react-icons/fi";
+import { FiCheckSquare, FiTarget, FiCalendar, FiBell, FiClock, FiActivity } from "react-icons/fi";
 import { format } from "date-fns";
 
 export function MemberProjectOverview({ project, tasks, userId, events }: { project: any; tasks: any[]; userId: string; events: any[] }) {

@@ -1,0 +1,59 @@
+CEO
+│
+├── Marketing
+│    Leads: 84
+│    CPL: 610
+│    Campaigns At Risk: 2
+│
+├── Sales
+│    Pipeline: 12.4M
+│    Quotations Pending: 11
+│    Agreements Pending: 4
+│
+├── Projects
+│    Active: 17
+│    At Risk: 3
+│    Delayed: 2
+│
+├── Creative
+│    Open: 31
+│    Overdue: 5
+│
+├── Development
+│    Sprint Completion: 78%
+│    Blocked Tasks: 9
+│
+├── QA
+│    Critical Bugs: 3
+│    Releases Blocked: 2
+│
+├── Accounts
+│    Receivable: 4.2M
+│    Overdue: 1.1M
+│
+└── HR
+     Present: 91%
+     Overallocated: 4
+
+
+
+     → Marketing 
+     → Lead 
+     → CRM Qualification 
+     → Opportunity 
+     → Requirement Analysis 
+     → Internal Estimation 
+     → Quotation → Agreement 
+     → Service Sale 
+     → Project Handover 
+     → Project Planning 
+     → Resource Allocation 
+     → Creative / Development 
+     → QA 
+     → Client Approval 
+     → Billing Milestone 
+     → Invoice → Collection 
+     → Project Profitability 
+     → Delivery 
+     → Support 
+     → Renewal / Upsell

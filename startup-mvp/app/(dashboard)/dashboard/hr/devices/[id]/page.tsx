@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +11,9 @@ import { Wifi, RefreshCw, ArrowLeft, Save } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
 
-export default function EditDevicePage({ params }: { params: { id: string } }) {
+export default function EditDevicePage({ params }: { params: Promise<{ id: string }> }) {
+    const resolvedParams = use(params);
+    const id = resolvedParams.id;
     const router = useRouter();
     const [isTesting, setIsTesting] = useState(false);
     const [isSaving, setIsSaving] = useState(false);

@@ -13,11 +13,10 @@
 import { promises as fs } from "fs";
 import path from "path";
 import {
-  createDatabaseBackup,
-  decryptBackupFileForRestore,
-  getBackupPath,
+  createDatabaseBackup as createDatabaseBackupRaw,
   getBackupTypeDir,
-  ensureBackupDirs,
+  ensureBackupDirectories,
+  findBackupPath,
 } from "../../lib/backup";
 import {
   loadBackupMetadata,
@@ -26,7 +25,18 @@ import {
 import {
   isEncryptionEnabled,
   verifyChecksum,
+  decryptBackupFileForRestore,
 } from "../../lib/backup-encryption";
+import AdmZip from "adm-zip";
+async function createDatabaseBackup(): Promise<string> {
+  const metadata = await createDatabaseBackupRaw();
+  const path = await findBackupPath(metadata.id);
+  if (!path) throw new Error("Path not found");
+  return path;
+}
+
+const getBackupPath = findBackupPath;
+const ensureBackupDirs = ensureBackupDirectories;
 
 // Test configuration
 const TEST_KEY = process.env.BACKUP_ENCRYPTION_KEY || 
@@ -43,26 +53,14 @@ interface TestResult {
 const results: TestResult[] = [];
 const testBackups: string[] = [];
 
+interface TestDef {
+  name: string;
+  fn: () => void | Promise<void>;
+}
+const tests: TestDef[] = [];
+
 function test(name: string, fn: () => void | Promise<void>): void {
-  const startTime = Date.now();
-  const result = fn();
-  if (result instanceof Promise) {
-    result
-      .then(() => {
-        const duration = Date.now() - startTime;
-        results.push({ name, passed: true, duration });
-        console.log(`✅ ${name} (${duration}ms)`);
-      })
-      .catch((error) => {
-        const duration = Date.now() - startTime;
-        results.push({ name, passed: false, error: error.message, duration });
-        console.error(`❌ ${name}: ${error.message} (${duration}ms)`);
-      });
-  } else {
-    const duration = Date.now() - startTime;
-    results.push({ name, passed: true, duration });
-    console.log(`✅ ${name} (${duration}ms)`);
-  }
+  tests.push({ name, fn });
 }
 
 async function cleanup() {
@@ -110,10 +108,15 @@ async function runTests() {
     // Decrypt using restore function
     const decrypted = await decryptBackupFileForRestore(backupPath);
 
-    // Verify it's valid SQL
-    const sqlContent = decrypted.toString("utf-8");
-    if (!sqlContent.includes("Database Backup")) {
-      throw new Error("Decrypted content is not valid SQL");
+    // Verify it's a valid ZIP and contains database.dump
+    try {
+      const zip = new AdmZip(decrypted);
+      const dumpEntry = zip.getEntry("database.dump");
+      if (!dumpEntry) {
+        throw new Error("database.dump not found in decrypted backup ZIP");
+      }
+    } catch (e: any) {
+      throw new Error(`Decrypted content is not a valid backup ZIP: ${e.message}`);
     }
   });
 
@@ -154,10 +157,15 @@ async function runTests() {
       // Decrypt should work (returns file as-is for unencrypted)
       const decrypted = await decryptBackupFileForRestore(backupPath);
 
-      // Verify it's valid SQL
-      const sqlContent = decrypted.toString("utf-8");
-      if (!sqlContent.includes("Database Backup")) {
-        throw new Error("Content is not valid SQL");
+      // Verify it's a valid ZIP and contains database.dump
+      try {
+        const zip = new AdmZip(decrypted);
+        const dumpEntry = zip.getEntry("database.dump");
+        if (!dumpEntry) {
+          throw new Error("database.dump not found in decrypted backup ZIP");
+        }
+      } catch (e: any) {
+        throw new Error(`Decrypted content is not a valid backup ZIP: ${e.message}`);
       }
     } finally {
       process.env.BACKUP_ENCRYPTION_ENABLED = originalEnabled;
@@ -256,8 +264,20 @@ async function runTests() {
     }
   });
 
-  // Wait for async tests to complete
-  await new Promise(resolve => setTimeout(resolve, 5000));
+  // Run all registered tests sequentially
+  for (const t of tests) {
+    const startTime = Date.now();
+    try {
+      await t.fn();
+      const duration = Date.now() - startTime;
+      results.push({ name: t.name, passed: true, duration });
+      console.log(`✅ ${t.name} (${duration}ms)`);
+    } catch (error: any) {
+      const duration = Date.now() - startTime;
+      results.push({ name: t.name, passed: false, error: error.message, duration });
+      console.error(`❌ ${t.name}: ${error.message} (${duration}ms)`);
+    }
+  }
 
   // Print summary
   console.log("\n" + "=".repeat(60));

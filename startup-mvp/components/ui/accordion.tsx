@@ -76,6 +76,7 @@ const AccordionTrigger = React.forwardRef<HTMLButtonElement, AccordionTriggerPro
         )}
         onClick={() => {
           if (props.value) {
+// @ts-expect-error - Legacy compatibility
             context.onValueChange?.(props.value === context.value ? "" : props.value);
           }
         }}

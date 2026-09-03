@@ -15,9 +15,16 @@ async function runStressTest() {
             data: { id: USER_ID, email: `stress_${Date.now()}@test.com`, name: "Stress Tester", password: "hash" }
         });
 
+        let org = await prisma.organization.findFirst();
+        if (!org) {
+            org = await prisma.organization.create({
+                data: { name: "Stress Org", createdBy: USER_ID }
+            });
+        }
+
         const CLIENT_ID = "stress-client-" + Date.now();
         const client = await prisma.client.create({
-            data: { id: CLIENT_ID, name: "Stress Client", email: `client_${Date.now()}@test.com`, createdBy: USER_ID }
+            data: { id: CLIENT_ID, name: "Stress Client", email: `client_${Date.now()}@test.com`, createdBy: USER_ID, organizationId: org.id }
         });
 
         const project = await prisma.project.create({
@@ -25,7 +32,8 @@ async function runStressTest() {
                 id: PROJECT_ID, 
                 title: "Stress Test Project", 
                 Owner: { connect: { id: USER_ID } },
-                Client: { connect: { id: CLIENT_ID } } 
+                Client: { connect: { id: CLIENT_ID } },
+                Organization: { connect: { id: org.id } }
             }
         });
 
@@ -39,7 +47,8 @@ async function runStressTest() {
             projectId: PROJECT_ID,
             userId: USER_ID,
             status: "todo",
-            priority: "medium"
+            priority: "medium",
+            organizationId: org.id,
         }));
 
         await prisma.task.createMany({

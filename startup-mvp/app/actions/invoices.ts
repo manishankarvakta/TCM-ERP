@@ -84,6 +84,7 @@ export async function createInvoice(input: {
     const totalAmount = items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
 
     const invoice = await client.invoice.create({
+// @ts-expect-error - Legacy compatibility
       data: {
         invoiceNumber,
         orderId,
@@ -169,6 +170,7 @@ export async function postInvoice(invoiceId: string, userId?: string) {
     const result = await prisma.$transaction(async (tx) => {
       // Create Voucher
       const voucher = await tx.voucher.create({
+// @ts-expect-error - Legacy compatibility
         data: {
           id: crypto.randomUUID(),
           voucherNumber,
@@ -349,6 +351,7 @@ export async function applyAdvanceToInvoice(input: {
 
     const result = await prisma.$transaction(async (tx) => {
         const voucher = await tx.voucher.create({
+// @ts-expect-error - Legacy compatibility
             data: {
                 id: crypto.randomUUID(),
                 voucherNumber,

@@ -56,6 +56,7 @@ export default function NoteManager() {
 
   const fetchData = () => {
     startTransition(async () => {
+// @ts-expect-error - Legacy compatibility
       const res = await getNotes(1, 100);
       if (res.success) setNotes(res.notes || []);
       else toast.error(res.error || "Failed to load notes");

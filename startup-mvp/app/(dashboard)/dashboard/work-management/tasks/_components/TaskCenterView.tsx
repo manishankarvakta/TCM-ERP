@@ -706,6 +706,7 @@ export default function TaskCenterView({ initialData, currentUser }: Props) {
                     ...projects.map((p: any) => ({ label: p.title, value: p.id }))
                   ]}
                   value={taskProjId || "none"}
+// @ts-expect-error - Legacy compatibility
                   onChange={(val) => {
                     const mappedVal = val === "none" ? "" : val;
                     setTaskProjId(mappedVal);

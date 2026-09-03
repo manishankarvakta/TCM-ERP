@@ -16,7 +16,18 @@ export type Module =
   | "notes"
   | "docs"
   | "work-orders"
-  | "hr";
+  | "hr"
+  | "ceo-command-center"
+  | "integrations"
+  | "marketing"
+  | "creatives"
+  | "qa"
+  | "support"
+  | "billing"
+  | "governance"
+  | "productivity"
+  | "system"
+  | "admin";
 
 // Basic operations
 export type BasicOperation = "create" | "read" | "update" | "delete" | "export" | "import";
@@ -34,7 +45,25 @@ export type CustomOperation =
   | "edit"
   | "manage"
   | "post"
-  | "sync";
+  | "sync"
+  | "confirm"
+  | "ready-for-estimation"
+  | "review"
+  | "ready-for-quotation"
+  | "view-cost"
+  | "view-margin"
+  | "acceptance"
+  | "sign"
+  | "activate"
+  | "terminate"
+  | "fulfillment"
+  | "billing-eligibility"
+  | "handover-ready"
+  | "submit"
+  | "accept"
+  | "reject"
+  | "create-project"
+  | "cancel";
 
 // Standard operations for pages (as per requirements)
 export type StandardOperation = "create" | "view" | "edit" | "move-to-trash" | "delete-permanently";
@@ -135,6 +164,11 @@ export const MODULES: Record<Module, ModuleMetadata> = {
       { id: "leads", label: "Leads", path: "/dashboard/crm/leads", module: "crm", permissionKey: "crm.leads" },
       { id: "contacts", label: "Contacts", path: "/dashboard/crm/contacts", module: "crm", permissionKey: "crm.contacts" },
       { id: "opportunities", label: "Opportunities", path: "/dashboard/crm/opportunities", module: "crm", permissionKey: "crm.opportunities" },
+      { id: "requirements", label: "Requirements", path: "/dashboard/crm/requirements", module: "crm", permissionKey: "crm.requirements" },
+      { id: "estimations", label: "Estimations", path: "/dashboard/crm/estimations", module: "crm", permissionKey: "crm.estimations" },
+      { id: "agreements", label: "Agreements", path: "/dashboard/crm/agreements", module: "crm", permissionKey: "crm.agreements" },
+      { id: "service-sales", label: "Service Sales", path: "/dashboard/crm/service-sales", module: "crm", permissionKey: "crm.service-sales" },
+      { id: "project-handovers", label: "Project Handovers", path: "/dashboard/crm/project-handovers", module: "crm", permissionKey: "crm.project-handovers" },
       { id: "clients", label: "Clients", path: "/dashboard/crm/clients", module: "peoples", permissionKey: "peoples.clients" }, // Linked to Peoples permissions
       { id: "activities", label: "Activities", path: "/dashboard/crm/activities", module: "crm", permissionKey: "crm.activities" },
     ],
@@ -262,20 +296,71 @@ export const MODULES: Record<Module, ModuleMetadata> = {
       { id: "devices", label: "Biometric Devices", path: "/dashboard/hr/attendance/devices", module: "hr", permissionKey: "hr.devices" },
     ],
   },
-  // analytics: {
-  //   id: "analytics",
-  //   label: "Analytics",
-  //   description: "Analytics and reports (Deprecated)",
-  // },
-  // reports: {
-  //   id: "reports",
-  //   label: "Reports",
-  //   description: "Generate and view reports (Deprecated)",
-  // },
+  "ceo-command-center": {
+    id: "ceo-command-center",
+    label: "CEO Command Center",
+    description: "Executive Operational Command Center",
+  },
+  integrations: {
+    id: "integrations",
+    label: "Integrations & Automation",
+    description: "Manage integration connections, webhooks, and automation rules",
+    subModules: [
+      { id: "connections", label: "Connections", path: "/dashboard/integrations/connections", module: "integrations", permissionKey: "integrations.connections" },
+      { id: "webhooks", label: "Webhooks", path: "/dashboard/integrations/webhooks", module: "integrations", permissionKey: "integrations.webhooks" },
+      { id: "automations", label: "Automations", path: "/dashboard/integrations/automations", module: "integrations", permissionKey: "integrations.automations" },
+      { id: "logs", label: "Event Logs", path: "/dashboard/integrations/logs", module: "integrations", permissionKey: "integrations.logs" }
+    ]
+  },
+  marketing: {
+    id: "marketing",
+    label: "Marketing",
+    description: "Marketing campaigns, leads, and analytics",
+  },
+  creatives: {
+    id: "creatives",
+    label: "Creatives",
+    description: "Design requests, UI/UX, and brand assets",
+  },
+  qa: {
+    id: "qa",
+    label: "QA",
+    description: "Quality assurance test plans, cases, and release approvals",
+  },
+  support: {
+    id: "support",
+    label: "Customer Success",
+    description: "Support tickets, SLA tracking, and escalations",
+  },
+  billing: {
+    id: "billing",
+    label: "Billing",
+    description: "Billing plans, milestones, and invoicing readiness",
+  },
+  governance: {
+    id: "governance",
+    label: "Governance",
+    description: "Approvals, change requests, and audit logs",
+  },
+  productivity: {
+    id: "productivity",
+    label: "Productivity",
+    description: "Files, notes, documents, and notifications",
+  },
+  system: {
+    id: "system",
+    label: "System Operations",
+    description: "Queue jobs, workers, storage, redis, and system health",
+  },
+  admin: {
+    id: "admin",
+    label: "Administration",
+    description: "User management, profile, and administrative settings",
+  },
 };
 
 // Default operations configuration
-export const OPERATIONS: Record<Operation, OperationMetadata> = {
+export const OPERATIONS: Partial<Record<Operation, OperationMetadata>> = {
   // Basic operations
   create: {
     id: "create",
@@ -446,491 +531,263 @@ export interface NavigationItem {
 }
 
 export const NAVIGATION_STRUCTURE: NavigationItem[] = [
+  // 1. Executive
   {
-    id: "dashboard",
-    label: "Dashboard",
-    alwaysVisible: true,
+    id: "ceo-command-center",
+    label: "Executive",
     pages: [
-      {
-        permissionKey: "dashboard",
-        path: "/dashboard",
-        label: "Dashboard",
-        operations: ["view"],
-      },
+      { permissionKey: "dashboard", path: "/dashboard", label: "Dashboard", operations: ["view"] },
+      { permissionKey: "ceo-command-center", path: "/dashboard/ceo-command-center", label: "CEO Command Center", operations: ["view"] },
+      { permissionKey: "ceo-command-center.profitability", path: "/dashboard/profitability", label: "Profitability", operations: ["view"] },
+      { permissionKey: "ceo-command-center.alerts", path: "/dashboard/executive/alerts", label: "Alerts", operations: ["view"] },
+      { permissionKey: "ceo-command-center.reports", path: "/dashboard/executive/reports", label: "Reports", operations: ["view"] },
     ],
   },
+  // 2. Marketing
+  {
+    id: "marketing",
+    label: "Marketing",
+    pages: [
+      { permissionKey: "marketing.dashboard", path: "/dashboard/marketing", label: "Dashboard", operations: ["view"] },
+      { permissionKey: "marketing.marketing-funnel", path: "/dashboard/marketing/marketing-funnel", label: "Marketing Funnel", operations: ["create", "view", "edit", "delete-permanently"] },
+      { permissionKey: "marketing.campaigns", path: "/dashboard/marketing/campaigns", label: "Campaigns", operations: ["create", "view", "edit", "delete-permanently"] },
+      { permissionKey: "marketing.content-calendar", path: "/dashboard/marketing/content-calendar", label: "Content Calendar", operations: ["view", "edit"] },
+      { permissionKey: "marketing.social-media", path: "/dashboard/marketing/social-media", label: "Social Media", operations: ["view", "edit"] },
+      { permissionKey: "marketing.paid-ads", path: "/dashboard/marketing/paid-ads", label: "Paid Ads", operations: ["view", "edit"] },
+      { permissionKey: "marketing.seo", path: "/dashboard/marketing/seo", label: "SEO", operations: ["view", "edit"] },
+      { permissionKey: "marketing.email-campaigns", path: "/dashboard/marketing/email-campaigns", label: "Email Campaigns", operations: ["create", "view", "edit"] },
+      { permissionKey: "marketing.sms-campaign", path: "/dashboard/marketing/sms-campaign", label: "SMS Campaign", operations: ["create", "view", "edit"] },
+      { permissionKey: "marketing.landing-pages", path: "/dashboard/marketing/landing-pages", label: "Landing Pages", operations: ["view", "edit"] },
+      { permissionKey: "marketing.lead-sources", path: "/dashboard/marketing/lead-sources", label: "Lead Sources", operations: ["view", "edit"] },
+      { permissionKey: "marketing.budget", path: "/dashboard/marketing/budget", label: "Campaign Budget", operations: ["view", "edit"] },
+      { permissionKey: "marketing.expenses", path: "/dashboard/marketing/expenses", label: "Marketing Expenses", operations: ["view", "edit"] },
+      { permissionKey: "marketing.attribution", path: "/dashboard/marketing/attribution", label: "Attribution", operations: ["view"] },
+      { permissionKey: "marketing.roi-reports", path: "/dashboard/marketing/roi-reports", label: "ROI Reports", operations: ["view"] },
+    ],
+  },
+  // 3. Creatives
+  {
+    id: "creatives",
+    label: "Creatives",
+    pages: [
+      { permissionKey: "creatives.dashboard", path: "/dashboard/creatives", label: "Creative Dashboard", operations: ["view"] },
+      { permissionKey: "creatives.design-requests", path: "/dashboard/creatives/design-requests", label: "Design Requests", operations: ["create", "view", "edit"] },
+      { permissionKey: "creatives.ui-ux-tasks", path: "/dashboard/creatives/ui-ux-tasks", label: "UI/UX Tasks", operations: ["view", "edit"] },
+      { permissionKey: "creatives.graphics-tasks", path: "/dashboard/creatives/graphics-tasks", label: "Graphics Tasks", operations: ["view", "edit"] },
+      { permissionKey: "creatives.video-motion-tasks", path: "/dashboard/creatives/video-motion-tasks", label: "Video/Motion Tasks", operations: ["view", "edit"] },
+      { permissionKey: "creatives.brand-assets", path: "/dashboard/creatives/brand-assets", label: "Brand Assets", operations: ["view", "edit"] },
+      { permissionKey: "creatives.revisions", path: "/dashboard/creatives/revisions", label: "Revision Management", operations: ["view", "edit"] },
+      { permissionKey: "creatives.internal-approval", path: "/dashboard/creatives/internal-approval", label: "Internal Approval", operations: ["view", "approve"] },
+      { permissionKey: "creatives.client-approval", path: "/dashboard/creatives/client-approval", label: "Client Approval", operations: ["view", "approve"] },
+      { permissionKey: "creatives.library", path: "/dashboard/creatives/library", label: "Creative Library", operations: ["view"] },
+    ],
+  },
+  // 4. CRM
   {
     id: "crm",
     label: "CRM",
     pages: [
-      {
-        permissionKey: "crm.dashboard",
-        path: "/dashboard/crm",
-        label: "Dashboard",
-        operations: ["view"],
-      },
-      {
-        permissionKey: "crm.leads",
-        path: "/dashboard/crm/leads",
-        label: "Leads",
-        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
-      },
-      {
-        permissionKey: "crm.opportunities",
-        path: "/dashboard/crm/opportunities",
-        label: "Opportunities",
-        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
-      },
-      {
-        permissionKey: "crm.contacts",
-        path: "/dashboard/crm/contacts",
-        label: "Contacts",
-        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
-      },
-      {
-        permissionKey: "peoples.clients", // Using existing permission key
-        path: "/dashboard/crm/clients",
-        label: "Clients",
-        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
-      },
-      {
-        permissionKey: "crm.activities",
-        path: "/dashboard/crm/activities",
-        label: "Activities",
-        operations: ["create", "view", "edit", "delete-permanently"],
-      },
+      { permissionKey: "crm.dashboard", path: "/dashboard/crm", label: "CRM Dashboard", operations: ["view"] },
+      { permissionKey: "crm.leads", path: "/dashboard/crm/leads", label: "Leads", operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"] },
+      { permissionKey: "crm.opportunities", path: "/dashboard/crm/opportunities", label: "Opportunities", operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"] },
+      { permissionKey: "crm.contacts", path: "/dashboard/crm/contacts", label: "Contacts", operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"] },
+      { permissionKey: "crm.activities", path: "/dashboard/crm/activities", label: "Activities", operations: ["create", "view", "edit", "delete-permanently"] },
+      { permissionKey: "crm.follow-ups", path: "/dashboard/crm/follow-ups", label: "Follow-ups", operations: ["view", "edit"] },
+      { permissionKey: "crm.pipeline", path: "/dashboard/crm/pipeline", label: "Pipeline", operations: ["view", "edit"] },
     ],
   },
-  {
-    id: "hr",
-    label: "HR & Payroll",
-    pages: [
-      {
-        permissionKey: "hr.attendance",
-        path: "/dashboard/hr/attendance",
-        label: "Attendance",
-        operations: ["view", "create", "edit", "sync"],
-      },
-      {
-        permissionKey: "hr.shifts",
-        path: "/dashboard/hr/shifts",
-        label: "Shifts",
-        operations: ["view", "create", "edit", "move-to-trash", "delete-permanently"],
-      },
-      {
-        permissionKey: "hr.holidays",
-        path: "/dashboard/hr/holidays",
-        label: "Holidays",
-        operations: ["view", "create", "edit", "move-to-trash", "delete-permanently"],
-      },
-      {
-        permissionKey: "hr.leave",
-        path: "/dashboard/hr/leave",
-        label: "Leave Applications",
-        operations: ["view", "create", "edit", "approve"],
-      },
-      {
-        permissionKey: "hr.loans",
-        path: "/dashboard/hr/loans",
-        label: "Loans",
-        operations: ["view", "create", "edit", "approve"],
-      },
-      {
-        permissionKey: "hr.payroll",
-        path: "/dashboard/hr/payroll",
-        label: "Payroll",
-        operations: ["view", "create", "edit", "post"],
-      },
-      {
-        permissionKey: "hr.calendar",
-        path: "/dashboard/hr/calendar",
-        label: "HR Calendar",
-        operations: ["view"],
-      },
-      {
-        permissionKey: "hr.devices",
-        path: "/dashboard/hr/attendance/devices",
-        label: "Biometric Devices",
-        operations: ["view", "create", "edit", "delete-permanently"],
-      },
-    ],
-  },
-  {
-    id: "projects",
-    label: "Projects",
-    pages: [
-      {
-        permissionKey: "projects.work-management",
-        path: "/dashboard/work-management",
-        label: "Work Management",
-        operations: ["view", "manage"],
-      },
-      {
-        permissionKey: "projects.work-management-myday",
-        path: "/dashboard/work-management/my-day",
-        label: "My Day",
-        operations: ["view", "manage"],
-      },
-      {
-        permissionKey: "projects.work-management-team",
-        path: "/dashboard/work-management/team",
-        label: "My Team",
-        operations: ["view", "manage"],
-      },
-      {
-        permissionKey: "projects.work-management-tasks",
-        path: "/dashboard/work-management/tasks",
-        label: "Task Center",
-        operations: ["view", "manage"],
-      },
-      {
-        permissionKey: "projects.projects",
-        path: "/dashboard/projects",
-        label: "Dashboard",
-        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
-      },
-      {
-        permissionKey: "projects.all",
-        path: "/dashboard/projects/all",
-        label: "Projects",
-        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
-      },
-      {
-        permissionKey: "projects.tasks",
-        path: "/dashboard/projects/tasks",
-        label: "My Tasks",
-        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
-      },
-      {
-        permissionKey: "projects.kanban",
-        path: "/dashboard/projects/kanban",
-        label: "Kanban Board",
-        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
-      },
-      {
-        permissionKey: "projects.milestones",
-        path: "/dashboard/projects/milestone",
-        label: "Milestones",
-        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
-      },
-      {
-        permissionKey: "projects.issues",
-        path: "/dashboard/projects/issues",
-        label: "Issues",
-        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
-      },
-      {
-        permissionKey: "projects.timeline",
-        path: "/dashboard/projects/timeline",
-        label: "Timeline",
-        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
-      },
-      {
-        permissionKey: "projects.calendar",
-        path: "/dashboard/projects/calendar",
-        label: "Calendar",
-        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
-      },
-      {
-        permissionKey: "projects.notes",
-        path: "/dashboard/projects/notes",
-        label: "Notes",
-        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
-      },
-      {
-        permissionKey: "projects.docs",
-        path: "/dashboard/projects/docs",
-        label: "Documents",
-        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
-      },
-      {
-        permissionKey: "projects.files",
-        path: "/dashboard/projects/files",
-        label: "Files",
-        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
-      },
-      {
-        permissionKey: "projects.activities",
-        path: "/dashboard/projects/activities",
-        label: "Activities",
-        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
-      },
-      {
-        permissionKey: "projects.team",
-        path: "/dashboard/projects/team",
-        label: "Team",
-        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
-      },
-    ],
-  },
-  {
-    id: "items",
-    label: "Service Catalog",
-    pages: [
-      {
-        permissionKey: "items.items",
-        path: "/dashboard/items",
-        label: "All Services",
-        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
-      },
-      {
-        permissionKey: "items.groups",
-        path: "/dashboard/items/groups",
-        label: "Groups",
-        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
-      },
-      {
-        permissionKey: "items.category",
-        path: "/dashboard/items/category",
-        label: "Categories",
-        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
-      },
-      {
-        permissionKey: "items.units",
-        path: "/dashboard/items/units",
-        label: "Units",
-        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
-      },
-    ],
-  },
+  // 5. Sales
   {
     id: "quotations",
-    label: "Quotations",
+    label: "Sales",
     pages: [
-      {
-        permissionKey: "quotations.quotations",
-        path: "/dashboard/quotations",
-        label: "Quotations",
-        operations: ["create", "view", "edit", "approve", "move-to-trash", "delete-permanently"],
-      },
-      {
-        permissionKey: "quotations.orders",
-        path: "/dashboard/quotations/orders",
-        label: "Orders",
-        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
-      },
-      {
-        permissionKey: "quotations.delivery-schedule",
-        path: "/dashboard/quotations/delivery-schedule",
-        label: "Delivery Schedule",
-        operations: ["view", "edit"],
-      },
-      {
-        permissionKey: "quotations.invoices",
-        path: "/dashboard/quotations/invoices",
-        label: "Invoices",
-        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
-      },
+      { permissionKey: "sales.dashboard", path: "/dashboard/sales", label: "Sales Dashboard", operations: ["view"] },
+      { permissionKey: "crm.requirements", path: "/dashboard/crm/requirements", label: "Requirements", operations: ["create", "view", "edit", "confirm", "ready-for-estimation", "move-to-trash", "delete-permanently"] },
+      { permissionKey: "crm.estimations", path: "/dashboard/crm/estimations", label: "Internal Estimations", operations: ["create", "view", "edit", "review", "approve", "ready-for-quotation", "move-to-trash", "delete-permanently", "view-cost", "view-margin"] },
+      { permissionKey: "quotations.quotations", path: "/dashboard/quotations", label: "Quotations", operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"] },
+      { permissionKey: "crm.agreements", path: "/dashboard/crm/agreements", label: "Agreements", operations: ["create", "view", "edit", "review", "approve", "send", "acceptance", "sign", "activate", "terminate", "move-to-trash", "delete-permanently", "print", "export"] },
+      { permissionKey: "crm.service-sales", path: "/dashboard/crm/service-sales", label: "Service Sales", operations: ["create", "view", "edit", "review", "approve", "confirm", "fulfillment", "billing-eligibility", "handover-ready", "move-to-trash", "delete-permanently", "print", "export"] },
+      { permissionKey: "quotations.orders", path: "/dashboard/quotations/orders", label: "Work Orders", operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"] },
+      { permissionKey: "crm.project-handovers", path: "/dashboard/crm/project-handovers", label: "Project Handovers", operations: ["create", "view", "edit", "submit", "accept", "reject", "create-project", "cancel", "move-to-trash", "delete-permanently", "print", "export"] },
     ],
   },
-  {
-    id: "purchases",
-    label: "Purchases",
-    pages: [
-      {
-        permissionKey: "purchases.purchases",
-        path: "/dashboard/purchases",
-        label: "Purchases",
-        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
-      },
-    ],
-  },
-  {
-    id: "accounts",
-    label: "Accounts",
-    pages: [
-      {
-        permissionKey: "accounts.chart-of-accounts",
-        path: "/dashboard/accounts/chart-of-accounts",
-        label: "Chart of Accounts",
-        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
-      },
-      {
-        permissionKey: "accounts.ledgers",
-        path: "/dashboard/accounts/ledgers",
-        label: "Ledgers",
-        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
-      },
-      {
-        permissionKey: "accounts.vouchers",
-        path: "/dashboard/accounts/vouchers",
-        label: "Vouchers",
-        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
-      },
-      {
-        permissionKey: "accounts.trial-balance",
-        path: "/dashboard/accounts/trial-balance",
-        label: "Trial Balance",
-        operations: ["view", "export"],
-      },
-      {
-        permissionKey: "accounts.balance-sheet",
-        path: "/dashboard/accounts/balance-sheet",
-        label: "Balance Sheet",
-        operations: ["view", "export"],
-      },
-      {
-        permissionKey: "accounts.profit-loss",
-        path: "/dashboard/accounts/profit-loss",
-        label: "Profit & Loss",
-        operations: ["view", "export"],
-      },
-      {
-        permissionKey: "accounts.cash-bank",
-        path: "/dashboard/accounts/cash-bank",
-        label: "Cash & Bank",
-        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
-      },
-      {
-        permissionKey: "accounts.accounts-receivable",
-        path: "/dashboard/accounts/accounts-receivable",
-        label: "Accounts Receivable",
-        operations: ["view", "export"],
-      },
-      {
-        permissionKey: "accounts.accounts-payable",
-        path: "/dashboard/accounts/accounts-payable",
-        label: "Accounts Payable",
-        operations: ["view", "export"],
-      },
-      {
-        permissionKey: "accounts.project-ledger",
-        path: "/dashboard/accounts/project-ledger",
-        label: "Project Ledger",
-        operations: ["view", "export"],
-      },
-    ],
-  },
+  // 6. Clients
   {
     id: "peoples",
-    label: "Peoples",
+    label: "Clients",
     pages: [
-      {
-        permissionKey: "peoples.users",
-        path: "/dashboard/users",
-        label: "Users",
-        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
-      },
-      {
-        permissionKey: "peoples.contacts",
-        path: "/dashboard/crm/contacts",
-        label: "Contacts",
-        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
-      },
-      {
-        permissionKey: "peoples.clients",
-        path: "/dashboard/clients",
-        label: "Clients",
-        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
-      },
-      {
-        permissionKey: "peoples.suppliers",
-        path: "/dashboard/suppliers",
-        label: "Suppliers",
-        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
-      },
-      {
-        permissionKey: "peoples.employees",
-        path: "/dashboard/employees",
-        label: "Employees",
-        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
-      },
+      { permissionKey: "peoples.clients", path: "/dashboard/crm/clients", label: "All Clients", operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"] },
+      { permissionKey: "peoples.client-360", path: "/dashboard/clients/details", label: "Client 360", operations: ["view", "edit"] },
+      { permissionKey: "peoples.portal-users", path: "/dashboard/clients/portal-users", label: "Portal Users", operations: ["create", "view", "edit"] },
+      { permissionKey: "peoples.client-activity", path: "/dashboard/clients/activity", label: "Client Activity", operations: ["view"] },
     ],
   },
+  // 7. Project Management
   {
-    id: "files",
-    label: "Files",
+    id: "projects",
+    label: "Project Management",
     pages: [
-      {
-        permissionKey: "files",
-        path: "/dashboard/files",
-        label: "Files",
-        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
-      },
+      { permissionKey: "projects.projects", path: "/dashboard/projects", label: "PM Dashboard", operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"] },
+      { permissionKey: "projects.intake", path: "/dashboard/projects/intake", label: "Project Intake", operations: ["create", "view", "edit"] },
+      { permissionKey: "projects.planning", path: "/dashboard/projects/planning", label: "Project Planning", operations: ["view", "edit"] },
+      { permissionKey: "projects.milestones", path: "/dashboard/projects/milestone", label: "Milestones", operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"] },
+      { permissionKey: "projects.resource-allocation", path: "/dashboard/projects/resource-allocation", label: "Resource Allocation", operations: ["view", "edit"] },
+      { permissionKey: "projects.wbs", path: "/dashboard/projects/wbs", label: "Work Breakdown", operations: ["view", "edit"] },
+      { permissionKey: "projects.gantt", path: "/dashboard/projects/gantt", label: "Timeline/Gantt", operations: ["view", "edit"] },
+      { permissionKey: "projects.dependencies", path: "/dashboard/projects/dependencies", label: "Dependencies", operations: ["view", "edit"] },
+      { permissionKey: "projects.risks", path: "/dashboard/projects/risks", label: "Risk Register", operations: ["create", "view", "edit"] },
+      { permissionKey: "projects.meetings", path: "/dashboard/projects/meetings", label: "Client Meetings", operations: ["create", "view", "edit"] },
+      { permissionKey: "projects.change-requests", path: "/dashboard/projects/change-requests", label: "Change Requests", operations: ["create", "view", "edit"] },
+      { permissionKey: "projects.client-approvals", path: "/dashboard/projects/client-approvals", label: "Client Approvals", operations: ["view", "approve"] },
+      { permissionKey: "projects.billing-readiness", path: "/dashboard/projects/billing-readiness", label: "Billing Readiness", operations: ["view", "edit"] },
+      { permissionKey: "projects.closure", path: "/dashboard/projects/closure", label: "Project Closure", operations: ["view", "edit"] },
+      { permissionKey: "projects.all", path: "/dashboard/projects/all", label: "Projects", operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"] },
+      { permissionKey: "projects.work-management-tasks", path: "/dashboard/work-management/tasks", label: "Task Center", operations: ["view", "manage"] },
+      { permissionKey: "projects.issues", path: "/dashboard/projects/issues", label: "Issues Board", operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"] },
+      { permissionKey: "projects.work-management-myday", path: "/dashboard/work-management/my-day", label: "My Day", operations: ["view", "manage"] },
+      { permissionKey: "projects.work-management-team", path: "/dashboard/work-management/team", label: "My Team", operations: ["view", "manage"] },
     ],
   },
+  // 8. QA
   {
-    id: "notifications",
-    label: "Notifications",
+    id: "qa",
+    label: "QA",
     pages: [
-      {
-        permissionKey: "notifications",
-        path: "/dashboard/notifications",
-        label: "Notifications",
-        operations: ["view", "edit"],
-      },
+      { permissionKey: "qa.dashboard", path: "/dashboard/qa", label: "QA Dashboard", operations: ["view"] },
+      { permissionKey: "qa.test-plans", path: "/dashboard/qa/test-plans", label: "Test Plans", operations: ["create", "view", "edit"] },
+      { permissionKey: "qa.test-cases", path: "/dashboard/qa/test-cases", label: "Test Cases", operations: ["create", "view", "edit"] },
+      { permissionKey: "qa.test-suites", path: "/dashboard/qa/test-suites", label: "Test Suites", operations: ["create", "view", "edit"] },
+      { permissionKey: "qa.test-runs", path: "/dashboard/qa/test-runs", label: "Test Runs", operations: ["create", "view", "edit"] },
+      { permissionKey: "qa.bugs", path: "/dashboard/qa/bugs", label: "Bugs", operations: ["create", "view", "edit"] },
+      { permissionKey: "qa.regression", path: "/dashboard/qa/regression", label: "Regression", operations: ["view", "edit"] },
+      { permissionKey: "qa.uat", path: "/dashboard/qa/uat", label: "UAT", operations: ["view", "edit"] },
+      { permissionKey: "qa.release-checklist", path: "/dashboard/qa/release-checklist", label: "Release Checklist", operations: ["view", "edit"] },
+      { permissionKey: "qa.release-approval", path: "/dashboard/qa/release-approval", label: "Release Approval", operations: ["view", "approve"] },
     ],
   },
-  // {
-  //   id: "analytics",
-  //   label: "Analytics",
-  //   pages: [
-  //     {
-  //       permissionKey: "analytics",
-  //       path: "/dashboard/analytics",
-  //       label: "Analytics",
-  //       operations: ["view", "export"],
-  //     },
-  //   ],
-  // },
-  // {
-  //   id: "reports",
-  //   label: "Reports",
-  //   pages: [
-  //     {
-  //       permissionKey: "reports",
-  //       path: "/dashboard/reports",
-  //       label: "Reports",
-  //       operations: ["view", "export"],
-  //     },
-  //   ],
-  // },
+  // 9. Customer Success
   {
-    id: "tasks",
-    label: "Tasks",
+    id: "support",
+    label: "Customer Success",
     pages: [
-      {
-        permissionKey: "tasks",
-        path: "/dashboard/tasks",
-        label: "Tasks",
-        operations: ["create", "view", "edit", "delete-permanently"],
-      },
+      { permissionKey: "support.dashboard", path: "/dashboard/support", label: "Support Dashboard", operations: ["view"] },
+      { permissionKey: "support.tickets", path: "/dashboard/support/tickets", label: "All Tickets", operations: ["create", "view", "edit"] },
+      { permissionKey: "support.my-tickets", path: "/dashboard/support/my-tickets", label: "My Tickets", operations: ["view", "edit"] },
+      { permissionKey: "support.sla-warnings", path: "/dashboard/support/sla-warnings", label: "SLA Warnings", operations: ["view"] },
+      { permissionKey: "support.sla-breaches", path: "/dashboard/support/sla-breaches", label: "SLA Breaches", operations: ["view"] },
+      { permissionKey: "support.escalations", path: "/dashboard/support/escalations", label: "Escalations", operations: ["view", "edit"] },
+      { permissionKey: "support.renewals", path: "/dashboard/support/renewals", label: "Renewals", operations: ["view", "edit"] },
+      { permissionKey: "support.upsell-opportunities", path: "/dashboard/support/upsell-opportunities", label: "Upsell Opportunities", operations: ["view"] },
     ],
   },
+  // 10. Billing
   {
-    id: "notes",
-    label: "Notes",
+    id: "billing",
+    label: "Billing",
     pages: [
-      {
-        permissionKey: "notes",
-        path: "/dashboard/notes",
-        label: "Notes",
-        operations: ["create", "view", "edit", "delete-permanently"],
-      },
+      { permissionKey: "billing.dashboard", path: "/dashboard/billing", label: "Billing Dashboard", operations: ["view"] },
+      { permissionKey: "billing.plans", path: "/dashboard/billing/plans", label: "Billing Plans", operations: ["view", "edit"] },
+      { permissionKey: "billing.milestones", path: "/dashboard/billing/milestones", label: "Billing Milestones", operations: ["view", "edit"] },
+      { permissionKey: "billing.billable", path: "/dashboard/billing/billable", label: "Billable", operations: ["view"] },
+      { permissionKey: "billing.invoiced-milestones", path: "/dashboard/billing/invoiced-milestones", label: "Invoiced Milestones", operations: ["view"] },
     ],
   },
+  // 11. Finance
   {
-    id: "docs",
-    label: "Docs",
+    id: "accounts",
+    label: "Finance",
     pages: [
-      {
-        permissionKey: "docs",
-        path: "/dashboard/docs",
-        label: "Docs",
-        operations: ["create", "view", "edit", "delete-permanently"],
-      },
+      { permissionKey: "accounts.dashboard", path: "/dashboard/accounts", label: "Overview", operations: ["view"] },
+      { permissionKey: "quotations.invoices", path: "/dashboard/quotations/invoices", label: "Invoices", operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"] },
+      { permissionKey: "accounts.accounts-receivable", path: "/dashboard/accounts/accounts-receivable", label: "Accounts Receivable", operations: ["view", "create", "edit"] },
+      { permissionKey: "accounts.collections", path: "/dashboard/accounts/collections", label: "Collections", operations: ["view", "create", "edit"] },
+      { permissionKey: "accounts.accounts-payable", path: "/dashboard/accounts/accounts-payable", label: "Accounts Payable", operations: ["view", "create", "edit"] },
+      { permissionKey: "accounts.chart-of-accounts", path: "/dashboard/accounts/chart-of-accounts", label: "Chart of Accounts", operations: ["view", "create", "edit"] },
+      { permissionKey: "accounts.vouchers", path: "/dashboard/accounts/vouchers", label: "Vouchers", operations: ["view", "create", "edit", "approve"] },
+      { permissionKey: "accounts.journal-entries", path: "/dashboard/accounts/journal-entries", label: "Journal Entries", operations: ["view", "create", "edit"] },
+      { permissionKey: "accounts.ledgers", path: "/dashboard/accounts/ledgers", label: "Ledgers", operations: ["view"] },
+      { permissionKey: "accounts.cash-bank", path: "/dashboard/accounts/cash-bank", label: "Cash & Bank", operations: ["view", "create", "edit"] },
+      { permissionKey: "accounts.fixed-assets", path: "/dashboard/accounts/fixed-assets", label: "Asset Register", operations: ["view", "create", "edit"] },
+      { permissionKey: "accounts.capitalization", path: "/dashboard/accounts/fixed-assets/capitalization", label: "Capitalization", operations: ["view", "edit"] },
+      { permissionKey: "accounts.depreciation", path: "/dashboard/accounts/fixed-assets/depreciation", label: "Depreciation", operations: ["view", "edit"] },
+      { permissionKey: "accounts.transfers", path: "/dashboard/accounts/fixed-assets/transfers", label: "Transfers", operations: ["view", "edit"] },
+      { permissionKey: "accounts.disposals", path: "/dashboard/accounts/fixed-assets/disposals", label: "Disposals", operations: ["view", "edit"] },
+      { permissionKey: "accounts.trial-balance", path: "/dashboard/accounts/trial-balance", label: "Trial Balance", operations: ["view"] },
+      { permissionKey: "accounts.profit-loss", path: "/dashboard/accounts/profit-loss", label: "Profit & Loss", operations: ["view"] },
+      { permissionKey: "accounts.balance-sheet", path: "/dashboard/accounts/balance-sheet", label: "Balance Sheet", operations: ["view"] },
     ],
   },
+  // 12. Services & Catalog
   {
-    id: "work-orders",
-    label: "Work Orders",
+    id: "items",
+    label: "Services & Catalog",
     pages: [
-      {
-        permissionKey: "work-orders",
-        path: "/dashboard/work-orders",
-        label: "Work Orders",
-        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
-      },
+      { permissionKey: "items.items", path: "/dashboard/items", label: "Services", operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"] },
+      { permissionKey: "items.groups", path: "/dashboard/items/groups", label: "Groups", operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"] },
+      { permissionKey: "items.category", path: "/dashboard/items/category", label: "Categories", operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"] },
+      { permissionKey: "items.units", path: "/dashboard/items/units", label: "Units", operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"] },
+    ],
+  },
+  // 13. People & HR
+  {
+    id: "hr",
+    label: "People & HR",
+    pages: [
+      { permissionKey: "peoples.employees", path: "/dashboard/employees", label: "Employees", operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"] },
+      { permissionKey: "hr.departments", path: "/dashboard/hr/departments", label: "Departments", operations: ["view", "create", "edit"] },
+      { permissionKey: "hr.attendance", path: "/dashboard/hr/attendance", label: "Attendance", operations: ["view", "create", "edit", "sync"] },
+      { permissionKey: "hr.shifts", path: "/dashboard/hr/shifts", label: "Shifts", operations: ["view", "create", "edit", "move-to-trash", "delete-permanently"] },
+      { permissionKey: "hr.holidays", path: "/dashboard/hr/holidays", label: "Holidays", operations: ["view", "create", "edit", "move-to-trash", "delete-permanently"] },
+      { permissionKey: "hr.leave", path: "/dashboard/hr/leave", label: "Leave", operations: ["view", "create", "edit", "approve"] },
+      { permissionKey: "hr.payroll", path: "/dashboard/hr/payroll", label: "Payroll", operations: ["view", "create", "edit", "post"] },
+      { permissionKey: "hr.loans", path: "/dashboard/hr/loans", label: "Loans", operations: ["view", "create", "edit", "approve"] },
+      { permissionKey: "hr.calendar", path: "/dashboard/hr/calendar", label: "HR Calendar", operations: ["view"] },
+      { permissionKey: "hr.devices", path: "/dashboard/hr/attendance/devices", label: "Biometric", operations: ["view", "create", "edit", "delete-permanently"] },
+    ],
+  },
+  // 14. Governance
+  {
+    id: "governance",
+    label: "Governance",
+    pages: [
+      { permissionKey: "governance.approvals", path: "/dashboard/approvals", label: "Approval Inbox", operations: ["view", "approve"] },
+      { permissionKey: "governance.my-requests", path: "/dashboard/approvals/my-requests", label: "My Requests", operations: ["view"] },
+      { permissionKey: "governance.policies", path: "/dashboard/settings/approval-policies", label: "Approval Policies", operations: ["view", "edit"] },
+      { permissionKey: "governance.change-requests", path: "/dashboard/governance/change-requests", label: "Change Requests", operations: ["view", "edit"] },
+      { permissionKey: "governance.commercial-amendments", path: "/dashboard/governance/commercial-amendments", label: "Commercial Amendments", operations: ["view", "edit"] },
+      { permissionKey: "governance.audit-logs", path: "/dashboard/system/logs", label: "Audit Logs", operations: ["view"] },
+    ],
+  },
+  // 15. Productivity
+  {
+    id: "productivity",
+    label: "Productivity",
+    pages: [
+      { permissionKey: "files", path: "/dashboard/files", label: "Files", operations: ["create", "view", "edit", "delete-permanently"] },
+      { permissionKey: "notes", path: "/dashboard/notes", label: "Notes", operations: ["create", "view", "edit", "delete-permanently"] },
+      { permissionKey: "docs", path: "/dashboard/docs", label: "Docs", operations: ["create", "view", "edit", "delete-permanently"] },
+      { permissionKey: "notifications", path: "/dashboard/notifications", label: "Notifications", operations: ["view"] },
+    ],
+  },
+  // 16. System Operations
+  {
+    id: "system",
+    label: "System Operations",
+    pages: [
+      { permissionKey: "system.queue-jobs", path: "/dashboard/system/tasks", label: "Queue Jobs", operations: ["view", "manage"] },
+      { permissionKey: "system.workers", path: "/dashboard/system/workers", label: "Workers", operations: ["view", "manage"] },
+      { permissionKey: "system.storage", path: "/dashboard/system/storage", label: "Storage", operations: ["view", "manage"] },
+      { permissionKey: "system.redis", path: "/dashboard/system/redis", label: "Redis", operations: ["view", "manage"] },
+      { permissionKey: "system.backups", path: "/dashboard/admin/settings", label: "Backups", operations: ["view", "manage"] },
+      { permissionKey: "system.health", path: "/dashboard/system/health", label: "Health", operations: ["view"] },
+    ],
+  },
+  // 17. Administration
+  {
+    id: "admin",
+    label: "Administration",
+    pages: [
+      { permissionKey: "peoples.users", path: "/dashboard/users", label: "Users", operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"] },
     ],
   },
   {

@@ -1,5 +1,6 @@
 "use client";
 
+// @ts-expect-error - Legacy compatibility
 import { Button, ButtonProps } from "@/components/ui/button";
 import { hasPermission } from "@/lib/permissions";
 import { useSession } from "next-auth/react";

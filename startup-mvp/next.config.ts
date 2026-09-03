@@ -9,6 +9,9 @@ const nextConfig: NextConfig = {
   // Enable standalone output for Docker
   output: 'standalone',
   
+  // Exclude server-only Node modules from Webpack bundling
+  serverExternalPackages: ["googleapis", "node-cron", "node-zklib", "bullmq", "ioredis"],
+  
   // Ignore TypeScript errors during build
   typescript: {
     ignoreBuildErrors: true,

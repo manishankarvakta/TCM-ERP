@@ -8,6 +8,7 @@ import TaskItem from "@tiptap/extension-task-item";
 import Placeholder from "@tiptap/extension-placeholder";
 import { cn } from "@/lib/utils";
 import { useEffect, useRef, useState } from "react";
+// @ts-expect-error - Legacy compatibility
 import tippy from "tippy.js";
 import { SlashMenu } from "./SlashMenu";
 
@@ -188,6 +189,7 @@ export const DocEditor = ({
       case "image":
         const url = window.prompt('URL');
         if (url) {
+// @ts-expect-error - Legacy compatibility
             editor.chain().focus().setImage({ src: url }).run();
         }
         break;

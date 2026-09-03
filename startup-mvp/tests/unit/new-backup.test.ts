@@ -143,6 +143,7 @@ async function runTests() {
     const restoreId = manager.createRestore(filesBackupId);
     
     await restoreFilesBackup(filesBackupId, restoreId, {
+      backupId: filesBackupId,
       clearFiles: true,
     });
 

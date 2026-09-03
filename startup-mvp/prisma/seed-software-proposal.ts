@@ -10,8 +10,8 @@ async function main() {
   const org = await prisma.organization.findFirst();
   const user = await prisma.user.findFirst();
 
-  if (!client || !user) {
-    console.error('Missing Client or User in DB. Run basic CRM seed first.');
+  if (!client || !user || !org) {
+    console.error('Missing Client, User, or Organization in DB. Run basic CRM seed first.');
     return;
   }
 
@@ -24,7 +24,7 @@ async function main() {
       quotationNumber: quoteNum,
       subject: 'Software Development & CRM Implementation',
       clientId: client.id,
-      organizationId: org ? org.id : undefined,
+      organizationId: org.id,
       submittedById: user.id,
       total: 125000,
       grandTotal: 125000,

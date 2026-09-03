@@ -12,6 +12,11 @@ async function main() {
     throw new Error("No users found in database. Please run seed-users first.");
   }
 
+  const org = await prisma.organization.findFirst();
+  if (!org) {
+    throw new Error("No organization found in database.");
+  }
+
   // 2. Find or create the Biometric Device matching the IP '192.168.0.111'
   const device = await prisma.biometricDevice.upsert({
     where: { serialNumber: "ZK-192.168.0.111" },
@@ -95,6 +100,7 @@ async function main() {
         status: "active",
         shiftId: shift.id,
         salaryPayableAccountId: salaryPayableCOA.id,
+        organizationId: org.id,
       },
     });
     employeeMap.set(emp.deviceUserId, created.id);

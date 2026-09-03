@@ -27,6 +27,7 @@ export function LeadEditButton({ lead }: LeadEditButtonProps) {
       </Button>
 
       <LeadSheet
+        categories={[]}
         open={isOpen}
         onOpenChange={setIsOpen}
         lead={lead}

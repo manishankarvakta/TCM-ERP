@@ -84,6 +84,7 @@ export async function getSuppliers(
         image: true,
         status: true,
         createdBy: true,
+// @ts-expect-error - Legacy compatibility
         createdByUser: {
           select: {
             id: true,
@@ -167,6 +168,7 @@ export async function getSupplierById(supplierId: string) {
         image: true,
         status: true,
         createdBy: true,
+// @ts-expect-error - Legacy compatibility
         createdByUser: {
           select: {
             id: true,

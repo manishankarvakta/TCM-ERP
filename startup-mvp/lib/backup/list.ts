@@ -9,6 +9,7 @@ import path from 'path';
 import type { BackupListItem, BackupType, BackupStatus } from '@/types/backup';
 import { getBackupTypeDir, extractBackupId, BACKUP_FILENAME_PATTERN } from './config';
 import { extractMetadataFromZip, hasValidMetadata } from './metadata';
+import { loadBackupMetadata } from '../backup-metadata';
 import { quickValidate, isCorrupted } from './validate';
 import { getBackupTypeFromPath } from './utils';
 
@@ -70,8 +71,9 @@ export async function scanBackupDirectory(type: BackupType): Promise<BackupListI
         // Extract metadata (may fail for corrupted backups)
         let metadata;
         try {
-          metadata = await extractMetadataFromZip(filePath);
-        } catch (error) {
+          metadata = await loadBackupMetadata(filePath);
+        } catch (error: any) {
+          console.log("scanBackupDirectory error for", filePath, ":", error.message);
           // If metadata extraction fails, create a minimal backup item
           backups.push({
             metadata: {
@@ -131,14 +133,13 @@ export async function getBackupDetails(backupId: string, type?: BackupType): Pro
     const filePath = path.join(dir, filename);
 
     try {
-      // Check if file exists
       await fs.access(filePath);
 
       // Get file stats
       const stats = await fs.stat(filePath);
 
       // Extract metadata
-      const metadata = await extractMetadataFromZip(filePath);
+      const metadata = await loadBackupMetadata(filePath);
 
       // Determine status
       const status = await determineBackupStatus(filePath);
@@ -151,8 +152,8 @@ export async function getBackupDetails(backupId: string, type?: BackupType): Pro
         modifiedAt: stats.mtime,
         fileSize: stats.size,
       };
-    } catch (error) {
-      // File not found in this directory, continue searching
+    } catch (error: any) {
+      console.log("getBackupDetails error for", filePath, ":", error.message, error.stack);
       continue;
     }
   }

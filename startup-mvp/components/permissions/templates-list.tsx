@@ -61,11 +61,11 @@ export default function PermissionTemplatesList({
     return Object.keys(permissions || {}).length;
   };
 
-  const getOperationCount = (permissions: any) => {
+  const getOperationCount = (permissions: any): number => {
     return Object.values(permissions || {}).reduce(
       (total: number, ops: any) => total + (Array.isArray(ops) ? ops.length : 0),
       0
-    );
+    ) as number;
   };
 
   if (templates.length === 0) {

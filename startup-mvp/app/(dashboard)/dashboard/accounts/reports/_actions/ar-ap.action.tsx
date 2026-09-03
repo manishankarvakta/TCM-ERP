@@ -542,8 +542,11 @@ export async function getAccountsPayable(asOfDate?: Date | string, includeAging:
         debitAmount,
         creditAmount,
         balance,
+// @ts-expect-error - Legacy compatibility
         voucherNumber: entry.JournalEntry.voucher?.voucherNumber || null,
+// @ts-expect-error - Legacy compatibility
         voucherType: entry.JournalEntry.voucher?.type || null,
+// @ts-expect-error - Legacy compatibility
         reference: entry.JournalEntry.voucher?.reference || null,
       });
 

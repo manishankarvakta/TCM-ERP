@@ -37,6 +37,7 @@ import {
   formatBytes,
 } from './utils';
 import { storage } from '@/lib/storage';
+import { isEncryptionEnabled, getEncryptionKey, encryptBackupFile } from '../backup-encryption';
 
 const execAsync = promisify(exec);
 
@@ -140,11 +141,13 @@ export async function createDatabaseBackup(
     const { tables, recordCount } = await getDatabaseTableInfo();
     console.log(`[Backup] Found ${tables.length} tables with ${recordCount} total records`);
 
+    const isEnc = options?.encrypt !== undefined ? options.encrypt : isEncryptionEnabled();
+
     // Step 3: Create final metadata (checksum will be empty, size is estimate)
     const finalMetadata = createMetadata({
       id: backupId, // Use the same ID as the filename
       type: 'database',
-      encrypted: options?.encrypt || false,
+      encrypted: isEnc,
       description: options?.description,
       size: dumpSize + 2048, // Estimate size
       checksum: '', // Leave empty - can't checksum a file that includes its own checksum
@@ -164,6 +167,14 @@ export async function createDatabaseBackup(
     zip.addFile(METADATA_FILENAME, Buffer.from(metadataJson, 'utf-8'));
     
     zip.writeZip(tempZipPath);
+
+    if (isEnc) {
+      const key = getEncryptionKey();
+      const encryptedPath = tempZipPath + ".enc";
+      await encryptBackupFile(tempZipPath, encryptedPath, key);
+      await fs.unlink(tempZipPath);
+      await fs.rename(encryptedPath, tempZipPath);
+    }
 
     // Step 4: Get final size
     const finalSize = await getFileSize(tempZipPath);
@@ -229,11 +240,13 @@ export async function createFilesBackup(
       }
     }
 
+    const isEnc = options?.encrypt !== undefined ? options.encrypt : isEncryptionEnabled();
+
     // Step 4: Create final metadata (checksum empty)
     const finalMetadata = createMetadata({
       id: backupId, // Use the same ID as the filename
       type: 'files',
-      encrypted: options?.encrypt || false,
+      encrypted: isEnc,
       description: options?.description,
       size: totalSize + 2048, // Estimate size
       checksum: '', // Leave empty
@@ -250,6 +263,14 @@ export async function createFilesBackup(
     zip.addFile(METADATA_FILENAME, Buffer.from(metadataJson, 'utf-8'));
     
     zip.writeZip(tempZipPath);
+
+    if (isEnc) {
+      const key = getEncryptionKey();
+      const encryptedPath = tempZipPath + ".enc";
+      await encryptBackupFile(tempZipPath, encryptedPath, key);
+      await fs.unlink(tempZipPath);
+      await fs.rename(encryptedPath, tempZipPath);
+    }
 
     // Update with final size
     const finalSize = await getFileSize(tempZipPath);
@@ -328,11 +349,13 @@ export async function createFullBackup(
       }
     }
 
+    const isEnc = options?.encrypt !== undefined ? options.encrypt : isEncryptionEnabled();
+
     // Step 6: Create final metadata (checksum empty)
     const finalMetadata = createMetadata({
       id: backupId, // Use the same ID as the filename
       type: 'full',
-      encrypted: options?.encrypt || false,
+      encrypted: isEnc,
       description: options?.description,
       size: dumpSize + filesSize + 2048, // Estimate size
       checksum: '', // Leave empty
@@ -355,6 +378,14 @@ export async function createFullBackup(
     zip.addFile(METADATA_FILENAME, Buffer.from(metadataJson, 'utf-8'));
     
     zip.writeZip(tempZipPath);
+
+    if (isEnc) {
+      const key = getEncryptionKey();
+      const encryptedPath = tempZipPath + ".enc";
+      await encryptBackupFile(tempZipPath, encryptedPath, key);
+      await fs.unlink(tempZipPath);
+      await fs.rename(encryptedPath, tempZipPath);
+    }
 
     // Update with final size
     const finalSize = await getFileSize(tempZipPath);
@@ -534,7 +565,7 @@ async function createZipArchive(
     const archive = archiver('zip', {
       zlib: { level: COMPRESSION_CONFIG.level },
       forceLocalSize: true,
-    });
+    } as any);
 
     output.on('close', () => {
       resolve();

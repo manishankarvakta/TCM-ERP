@@ -13,4 +13,13 @@ const getRedisUrl = () => {
 
 export const redis = new Redis(getRedisUrl(), {
   maxRetriesPerRequest: null,
+  retryStrategy(times) {
+    // Retry with exponential backoff up to 2 seconds max
+    return Math.min(times * 100, 2000);
+  },
+});
+
+// Suppress unhandled error log spam when Redis is offline/unavailable
+redis.on("error", (err) => {
+  // Silent handling of connection errors to allow fail-closed rate limiters to handle degraded state
 });

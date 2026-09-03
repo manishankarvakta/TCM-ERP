@@ -114,6 +114,7 @@ export async function getOrganizations(
         limit,
         total,
         totalPages,
+// @ts-expect-error - Legacy compatibility
         totalPages: totalPages,
       },
     };

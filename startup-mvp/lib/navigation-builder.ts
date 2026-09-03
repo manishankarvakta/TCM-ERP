@@ -26,128 +26,190 @@ export interface SubMenuGroup {
 // Master menu template - the complete menu structure
 // This is the single source of truth for menu items
 export const MENU_TEMPLATE: MenuItemData[] = [
-  { href: "/dashboard", label: "Dashboard", icon: "FiHome", module: "dashboard" },
+  // 1. Executive
   {
-    label: "Service Catalog",
-    icon: "FiArchive",
-    module: "items",
+    label: "Executive",
+    icon: "FiActivity",
+    module: "ceo-command-center",
     subMenu: [
-      { href: "/dashboard/items/groups", label: "Groups", icon: "FiLayers", module: "items" },
-      { href: "/dashboard/items", label: "All Services", icon: "FiPackage", module: "items" },
-      { href: "/dashboard/items/category", label: "Categories", icon: "MdOutlineCategory", module: "items" },
-      { href: "/dashboard/items/units", label: "Units", icon: "FiLayers", module: "items" },
+      { href: "/dashboard", label: "Dashboard", icon: "FiHome", module: "dashboard" },
+      { href: "/dashboard/ceo-command-center", label: "CEO Command Center", icon: "FiActivity", module: "ceo-command-center" },
+      { href: "/dashboard/profitability", label: "Profitability", icon: "FiTrendingUp", module: "ceo-command-center" },
+      { href: "/dashboard/executive/alerts", label: "Alerts", icon: "FiAlertCircle", module: "ceo-command-center" },
+      { href: "/dashboard/executive/reports", label: "Reports", icon: "FiBarChart", module: "ceo-command-center" },
     ],
   },
+  // 2. Marketing
+  {
+    label: "Marketing",
+    icon: "FiPieChart",
+    module: "marketing",
+    subMenu: [
+      { href: "/dashboard/marketing", label: "Dashboard", icon: "FiTarget", module: "marketing" },
+      { href: "/dashboard/marketing/marketing-funnel", label: "Marketing Funnel", icon: "FiFilter", module: "marketing" },
+      { href: "/dashboard/marketing/campaigns", label: "Campaigns", icon: "FiLayers", module: "marketing" },
+      { href: "/dashboard/marketing/content-calendar", label: "Content Calendar", icon: "FiCalendar", module: "marketing" },
+      { href: "/dashboard/marketing/social-media", label: "Social Media", icon: "FiShare2", module: "marketing" },
+      { href: "/dashboard/marketing/paid-ads", label: "Paid Ads", icon: "FiDollarSign", module: "marketing" },
+      { href: "/dashboard/marketing/seo", label: "SEO", icon: "FiTrendingUp", module: "marketing" },
+      { href: "/dashboard/marketing/email-campaigns", label: "Email Campaigns", icon: "FiMail", module: "marketing" },
+      { href: "/dashboard/marketing/sms-campaign", label: "SMS Campaign", icon: "FiMessageSquare", module: "marketing" },
+      { href: "/dashboard/marketing/landing-pages", label: "Landing Pages", icon: "FiFileText", module: "marketing" },
+      { href: "/dashboard/marketing/lead-sources", label: "Lead Sources", icon: "FiUsers", module: "marketing" },
+      { href: "/dashboard/marketing/budget", label: "Campaign Budget", icon: "FiCreditCard", module: "marketing" },
+      { href: "/dashboard/marketing/expenses", label: "Marketing Expenses", icon: "FiDollarSign", module: "marketing" },
+      { href: "/dashboard/marketing/attribution", label: "Attribution", icon: "FiActivity", module: "marketing" },
+      { href: "/dashboard/marketing/roi-reports", label: "ROI Reports", icon: "FiBarChart", module: "marketing" },
+    ],
+  },
+  // 3. Creatives
+  {
+    label: "Creatives",
+    icon: "FiImage",
+    module: "creatives",
+    subMenu: [
+      { href: "/dashboard/creatives", label: "Creative Dashboard", icon: "FiTarget", module: "creatives" },
+      { href: "/dashboard/creatives/design-requests", label: "Design Requests", icon: "FiFileText", module: "creatives" },
+      { href: "/dashboard/creatives/ui-ux-tasks", label: "UI/UX Tasks", icon: "FiLayers", module: "creatives" },
+      { href: "/dashboard/creatives/graphics-tasks", label: "Graphics Tasks", icon: "FiImage", module: "creatives" },
+      { href: "/dashboard/creatives/video-motion-tasks", label: "Video/Motion Tasks", icon: "FiVideo", module: "creatives" },
+      { href: "/dashboard/creatives/brand-assets", label: "Brand Assets", icon: "FiFolder", module: "creatives" },
+      { href: "/dashboard/creatives/revisions", label: "Revision Management", icon: "FiClock", module: "creatives" },
+      { href: "/dashboard/creatives/internal-approval", label: "Internal Approval", icon: "FiCheckCircle", module: "creatives" },
+      { href: "/dashboard/creatives/client-approval", label: "Client Approval", icon: "FiUserCheck", module: "creatives" },
+      { href: "/dashboard/creatives/library", label: "Creative Library", icon: "FiArchive", module: "creatives" },
+    ],
+  },
+  // 4. CRM
   {
     label: "CRM",
-    href: "/dashboard/crm",
     icon: "FiUsers",
     module: "crm",
     subMenu: [
-      { href: "/dashboard/crm", label: "Dashboard", icon: "FiTarget", module: "crm" },
+      { href: "/dashboard/crm", label: "CRM Dashboard", icon: "FiTarget", module: "crm" },
       { href: "/dashboard/crm/leads", label: "Leads", icon: "FiTarget", module: "crm" },
       { href: "/dashboard/crm/opportunities", label: "Opportunities", icon: "FiTrendingUp", module: "crm" },
-      { href: "/dashboard/crm/clients", label: "Clients", icon: "FiUsers", module: "peoples" }, // Module is peoples but shown in CRM
       { href: "/dashboard/crm/contacts", label: "Contacts", icon: "FiUser", module: "crm" },
       { href: "/dashboard/crm/activities", label: "Activities", icon: "FiActivity", module: "crm" },
+      { href: "/dashboard/crm/follow-ups", label: "Follow-ups", icon: "FiClock", module: "crm" },
+      { href: "/dashboard/crm/pipeline", label: "Pipeline", icon: "FiLayers", module: "crm" },
     ],
   },
-  {
-    label: "HR & Payroll",
-    icon: "FiBriefcase",
-    module: "hr",
-    subMenu: [
-      { href: "/dashboard/hr/attendance", label: "Attendance", icon: "FiClock", module: "hr" },
-      { href: "/dashboard/hr/shifts", label: "Shifts", icon: "FiLayers", module: "hr" },
-      { href: "/dashboard/hr/holidays", label: "Holidays", icon: "FiCalendar", module: "hr" },
-      { href: "/dashboard/hr/leave", label: "Leave", icon: "FiFileText", module: "hr" },
-      { href: "/dashboard/hr/loans", label: "Loans", icon: "FiCreditCard", module: "hr" },
-      { href: "/dashboard/hr/payroll", label: "Payroll", icon: "FiDollarSign", module: "hr" },
-      { href: "/dashboard/hr/calendar", label: "HR Calendar", icon: "FiCalendar", module: "hr" },
-      { href: "/dashboard/hr/attendance/devices", label: "Biometric Devices", icon: "FiServer", module: "hr" },
-    ],
-  },
-  {
-    label: "Projects",
-    href: "/dashboard/projects",
-    icon: "FiBriefcase",
-    module: "projects",
-    subMenu: [
-      { href: "/dashboard/projects", label: "Dashboard", icon: "FiTarget", module: "projects", permissionKey: "projects.projects" },
-      { href: "/dashboard/work-management/my-day", label: "My Day", icon: "FiCalendar", module: "projects", permissionKey: "projects.work-management-myday" },
-      { href: "/dashboard/work-management/team", label: "My Team", icon: "FiUsers", module: "projects", permissionKey: "projects.work-management-team" },
-      { href: "/dashboard/projects/all", label: "Projects", icon: "FiFolder", module: "projects", permissionKey: "projects.all" },
-      { href: "/dashboard/projects/issues", label: "Issues Board", icon: "FiAlertCircle", module: "projects", permissionKey: "projects.issues" },
-      { href: "/dashboard/work-management/tasks", label: "Task Center", icon: "FiCheckSquare", module: "projects", permissionKey: "projects.work-management-tasks" },
-    ],
-  },
+  // 5. Sales
   {
     label: "Sales",
     icon: "FiDollarSign",
     module: "quotations",
     subMenu: [
+      { href: "/dashboard/sales", label: "Sales Dashboard", icon: "FiBarChart", module: "quotations" },
+      { href: "/dashboard/crm/requirements", label: "Requirements", icon: "FiFileText", module: "crm" },
+      { href: "/dashboard/crm/estimations", label: "Internal Estimations", icon: "SlCalculator", module: "crm" },
       { href: "/dashboard/quotations", label: "Quotations", icon: "FiFileText", module: "quotations" },
-      { href: "/dashboard/quotations/orders", label: "Work Orders", icon: "FiShoppingCart", module: "quotations" },
-      { href: "/dashboard/quotations/delivery-schedule", label: "Delivery Schedule", icon: "FiTruck", module: "quotations" },
-      { href: "/dashboard/quotations/invoices", label: "Invoices", icon: "FiDollarSign", module: "quotations" },
+      { href: "/dashboard/crm/agreements", label: "Agreements", icon: "FiFileText", module: "crm" },
+      { href: "/dashboard/crm/service-sales", label: "Service Sales", icon: "FiShoppingCart", module: "crm" },
+      { href: "/dashboard/quotations/orders", label: "Work Orders", icon: "FiPackage", module: "quotations" },
+      { href: "/dashboard/crm/project-handovers", label: "Project Handovers", icon: "FiBriefcase", module: "crm" },
     ],
   },
+  // 6. Clients
   {
-    label: "Peoples",
-    icon: "FiUsers",
+    label: "Clients",
+    icon: "FiUserCheck",
     module: "peoples",
     subMenu: [
-      { href: "/dashboard/users", label: "Users", icon: "FiUser", module: "peoples" },
-      { href: "/dashboard/crm/contacts", label: "Contacts", icon: "FiUser", module: "peoples" },
-      { href: "/dashboard/suppliers", label: "Suppliers", icon: "FiUser", module: "peoples" },
-      { href: "/dashboard/employees", label: "Employees", icon: "FiUser", module: "peoples" },
+      { href: "/dashboard/crm/clients", label: "All Clients", icon: "FiUsers", module: "peoples" },
+      { href: "/dashboard/clients/details", label: "Client 360", icon: "FiUser", module: "peoples" },
+      { href: "/dashboard/clients/portal-users", label: "Portal Users", icon: "FiKey", module: "peoples" },
+      { href: "/dashboard/clients/activity", label: "Client Activity", icon: "FiActivity", module: "peoples" },
     ],
   },
+  // 7. Project Management
   {
-    label: "Purchases",
-    icon: "FiShoppingCart",
-    module: "purchases",
+    label: "Project Management",
+    icon: "FiBriefcase",
+    module: "projects",
     subMenu: [
-      { href: "/dashboard/purchases", label: "Purchases", icon: "FiShoppingCart", module: "purchases" },
+      { href: "/dashboard/projects", label: "PM Dashboard", icon: "FiTarget", module: "projects" },
+      { href: "/dashboard/projects/intake", label: "Project Intake", icon: "FiInbox", module: "projects" },
+      { href: "/dashboard/projects/planning", label: "Project Planning", icon: "FiLayers", module: "projects" },
+      { href: "/dashboard/projects/milestone", label: "Milestones", icon: "FiCheckSquare", module: "projects" },
+      { href: "/dashboard/projects/resource-allocation", label: "Resource Allocation", icon: "FiUsers", module: "projects" },
+      { href: "/dashboard/projects/wbs", label: "Work Breakdown", icon: "FiGrid", module: "projects" },
+      { href: "/dashboard/projects/gantt", label: "Timeline/Gantt", icon: "FiCalendar", module: "projects" },
+      { href: "/dashboard/projects/dependencies", label: "Dependencies", icon: "FiShare2", module: "projects" },
+      { href: "/dashboard/projects/risks", label: "Risk Register", icon: "FiAlertTriangle", module: "projects" },
+      { href: "/dashboard/projects/meetings", label: "Client Meetings", icon: "FiVideo", module: "projects" },
+      { href: "/dashboard/projects/change-requests", label: "Change Requests", icon: "FiFileText", module: "projects" },
+      { href: "/dashboard/projects/client-approvals", label: "Client Approvals", icon: "FiUserCheck", module: "projects" },
+      { href: "/dashboard/projects/billing-readiness", label: "Billing Readiness", icon: "FiDollarSign", module: "projects" },
+      { href: "/dashboard/projects/closure", label: "Project Closure", icon: "FiArchive", module: "projects" },
     ],
   },
+  // 8. QA
   {
-    label: "Accounts",
+    label: "QA",
+    icon: "FiCheckCircle",
+    module: "qa",
+    subMenu: [
+      { href: "/dashboard/qa", label: "QA Dashboard", icon: "FiTarget", module: "qa" },
+      { href: "/dashboard/qa/test-plans", label: "Test Plans", icon: "FiFileText", module: "qa" },
+      { href: "/dashboard/qa/test-cases", label: "Test Cases", icon: "FiCheckSquare", module: "qa" },
+      { href: "/dashboard/qa/test-suites", label: "Test Suites", icon: "FiLayers", module: "qa" },
+      { href: "/dashboard/qa/test-runs", label: "Test Runs", icon: "FiPlay", module: "qa" },
+      { href: "/dashboard/qa/bugs", label: "Bugs", icon: "FiAlertCircle", module: "qa" },
+      { href: "/dashboard/qa/regression", label: "Regression", icon: "FiRefreshCw", module: "qa" },
+      { href: "/dashboard/qa/uat", label: "UAT", icon: "FiUserCheck", module: "qa" },
+      { href: "/dashboard/qa/release-checklist", label: "Release Checklist", icon: "FiList", module: "qa" },
+      { href: "/dashboard/qa/release-approval", label: "Release Approval", icon: "FiShield", module: "qa" },
+    ],
+  },
+  // 9. Customer Success
+  {
+    label: "Customer Success",
+    icon: "FiHelpCircle",
+    module: "support",
+    subMenu: [
+      { href: "/dashboard/support", label: "Support Dashboard", icon: "FiTarget", module: "support" },
+      { href: "/dashboard/support/tickets", label: "All Tickets", icon: "FiInbox", module: "support" },
+      { href: "/dashboard/support/my-tickets", label: "My Tickets", icon: "FiUser", module: "support" },
+      { href: "/dashboard/support/sla-warnings", label: "SLA Warnings", icon: "FiAlertTriangle", module: "support" },
+      { href: "/dashboard/support/sla-breaches", label: "SLA Breaches", icon: "FiAlertCircle", module: "support" },
+      { href: "/dashboard/support/escalations", label: "Escalations", icon: "FiTrendingUp", module: "support" },
+      { href: "/dashboard/support/renewals", label: "Renewals", icon: "FiRefreshCw", module: "support" },
+      { href: "/dashboard/support/upsell-opportunities", label: "Upsell Opportunities", icon: "FiDollarSign", module: "support" },
+    ],
+  },
+  // 10. Billing
+  {
+    label: "Billing",
+    icon: "FiCreditCard",
+    module: "billing",
+    subMenu: [
+      { href: "/dashboard/billing", label: "Billing Dashboard", icon: "FiTarget", module: "billing" },
+      { href: "/dashboard/billing/plans", label: "Billing Plans", icon: "FiLayers", module: "billing" },
+      { href: "/dashboard/billing/milestones", label: "Billing Milestones", icon: "FiCheckSquare", module: "billing" },
+      { href: "/dashboard/billing/billable", label: "Billable", icon: "FiDollarSign", module: "billing" },
+      { href: "/dashboard/billing/invoiced-milestones", label: "Invoiced Milestones", icon: "FiFileText", module: "billing" },
+    ],
+  },
+  // 11. Finance
+  {
+    label: "Finance",
     icon: "SlCalculator",
     module: "accounts",
     subMenuGroups: [
       {
-        label: "Setup",
+        label: "Finance Dashboard",
         items: [
-          { href: "/dashboard/accounts/chart-of-accounts", label: "Chart of Accounts", icon: "FiBarChart", module: "accounts" },
-          { href: "/dashboard/accounts/cash-bank", label: "Cash & Bank", icon: "FiCreditCard", module: "accounts" },
-        ],
-      },
-      {
-        label: "Transactions",
-        items: [
-          { href: "/dashboard/accounts/vouchers", label: "Vouchers", icon: "FiFile", module: "accounts" },
-        ],
-      },
-      {
-        label: "Ledgers",
-        items: [
-          { href: "/dashboard/accounts/ledgers", label: "Account Ledger", icon: "FiBook", module: "accounts" },
-          { href: "/dashboard/accounts/project-ledger", label: "Project Ledger", icon: "FiBriefcase", module: "accounts" },
-        ],
-      },
-      {
-        label: "Reports",
-        items: [
-          { href: "/dashboard/accounts/trial-balance", label: "Trial Balance", icon: "FiActivity", module: "accounts" },
-          { href: "/dashboard/accounts/balance-sheet", label: "Balance Sheet", icon: "FiFileText", module: "accounts" },
-          { href: "/dashboard/accounts/profit-loss", label: "Profit & Loss", icon: "FiTrendingUp", module: "accounts" },
+          { href: "/dashboard/accounts", label: "Overview", icon: "FiBarChart", module: "accounts" },
         ],
       },
       {
         label: "Receivables",
         items: [
+          { href: "/dashboard/quotations/invoices", label: "Invoices", icon: "FiFileText", module: "quotations" },
           { href: "/dashboard/accounts/accounts-receivable", label: "Accounts Receivable", icon: "FiArrowDownRight", module: "accounts" },
+          { href: "/dashboard/accounts/collections", label: "Collections", icon: "FiDollarSign", module: "accounts" },
         ],
       },
       {
@@ -156,18 +218,118 @@ export const MENU_TEMPLATE: MenuItemData[] = [
           { href: "/dashboard/accounts/accounts-payable", label: "Accounts Payable", icon: "FiArrowUpRight", module: "accounts" },
         ],
       },
+      {
+        label: "General Ledger",
+        items: [
+          { href: "/dashboard/accounts/chart-of-accounts", label: "Chart of Accounts", icon: "FiBarChart", module: "accounts" },
+          { href: "/dashboard/accounts/vouchers", label: "Vouchers", icon: "FiFile", module: "accounts" },
+          { href: "/dashboard/accounts/journal-entries", label: "Journal Entries", icon: "FiBookOpen", module: "accounts" },
+          { href: "/dashboard/accounts/ledgers", label: "Ledgers", icon: "FiBook", module: "accounts" },
+        ],
+      },
+      {
+        label: "Treasury",
+        items: [
+          { href: "/dashboard/accounts/cash-bank", label: "Cash & Bank", icon: "FiCreditCard", module: "accounts" },
+        ],
+      },
+      {
+        label: "Fixed Assets",
+        items: [
+          { href: "/dashboard/accounts/fixed-assets", label: "Asset Register", icon: "FiPackage", module: "accounts" },
+          { href: "/dashboard/accounts/fixed-assets/capitalization", label: "Capitalization", icon: "FiPlusSquare", module: "accounts" },
+          { href: "/dashboard/accounts/fixed-assets/depreciation", label: "Depreciation", icon: "FiTrendingDown", module: "accounts" },
+          { href: "/dashboard/accounts/fixed-assets/transfers", label: "Transfers", icon: "FiRepeat", module: "accounts" },
+          { href: "/dashboard/accounts/fixed-assets/disposals", label: "Disposals", icon: "FiTrash2", module: "accounts" },
+        ],
+      },
+      {
+        label: "Reports",
+        items: [
+          { href: "/dashboard/accounts/trial-balance", label: "Trial Balance", icon: "FiActivity", module: "accounts" },
+          { href: "/dashboard/accounts/profit-loss", label: "Profit & Loss", icon: "FiTrendingUp", module: "accounts" },
+          { href: "/dashboard/accounts/balance-sheet", label: "Balance Sheet", icon: "FiFileText", module: "accounts" },
+        ],
+      },
     ],
   },
+  // 12. Services & Catalog
   {
-    label: "System",
-    icon: "FiSettings",
-    module: "system",
+    label: "Services & Catalog",
+    icon: "FiArchive",
+    module: "items",
+    subMenu: [
+      { href: "/dashboard/items", label: "Services", icon: "FiPackage", module: "items" },
+      { href: "/dashboard/items/groups", label: "Groups", icon: "FiLayers", module: "items" },
+      { href: "/dashboard/items/category", label: "Categories", icon: "MdOutlineCategory", module: "items" },
+      { href: "/dashboard/items/units", label: "Units", icon: "FiLayers", module: "items" },
+    ],
+  },
+  // 13. People & HR
+  {
+    label: "People & HR",
+    icon: "FiBriefcase",
+    module: "hr",
+    subMenu: [
+      { href: "/dashboard/employees", label: "Employees", icon: "FiUser", module: "peoples" },
+      { href: "/dashboard/hr/departments", label: "Departments", icon: "FiLayers", module: "hr" },
+      { href: "/dashboard/hr/attendance", label: "Attendance", icon: "FiClock", module: "hr" },
+      { href: "/dashboard/hr/shifts", label: "Shifts", icon: "FiLayers", module: "hr" },
+      { href: "/dashboard/hr/holidays", label: "Holidays", icon: "FiCalendar", module: "hr" },
+      { href: "/dashboard/hr/leave", label: "Leave", icon: "FiFileText", module: "hr" },
+      { href: "/dashboard/hr/payroll", label: "Payroll", icon: "FiDollarSign", module: "hr" },
+      { href: "/dashboard/hr/loans", label: "Loans", icon: "FiCreditCard", module: "hr" },
+      { href: "/dashboard/hr/calendar", label: "HR Calendar", icon: "FiCalendar", module: "hr" },
+      { href: "/dashboard/hr/attendance/devices", label: "Biometric", icon: "FiServer", module: "hr" },
+    ],
+  },
+  // 14. Governance
+  {
+    label: "Governance",
+    icon: "FiShield",
+    module: "governance",
+    subMenu: [
+      { href: "/dashboard/approvals", label: "Approval Inbox", icon: "FiInbox", module: "governance" },
+      { href: "/dashboard/approvals/my-requests", label: "My Requests", icon: "FiSend", module: "governance" },
+      { href: "/dashboard/settings/approval-policies", label: "Approval Policies", icon: "FiSliders", module: "governance" },
+      { href: "/dashboard/governance/change-requests", label: "Change Requests", icon: "FiFileText", module: "governance" },
+      { href: "/dashboard/governance/commercial-amendments", label: "Commercial Amendments", icon: "FiDollarSign", module: "governance" },
+      { href: "/dashboard/system/logs", label: "Audit Logs", icon: "FiActivity", module: "governance" },
+    ],
+  },
+  // 15. Productivity
+  {
+    label: "Productivity",
+    icon: "FiFolder",
+    module: "productivity",
     subMenu: [
       { href: "/dashboard/files", label: "Files", icon: "FiFolder", module: "files" },
-      { href: "/dashboard/notifications", label: "Notifications", icon: "FiBell", module: "notifications" },
-      { href: "/dashboard/tasks", label: "Tasks", icon: "FiBriefcase", module: "tasks" },
       { href: "/dashboard/notes", label: "Notes", icon: "FiFileText", module: "notes" },
       { href: "/dashboard/docs", label: "Docs", icon: "FiFile", module: "docs" },
+      { href: "/dashboard/notifications", label: "Notifications", icon: "FiBell", module: "notifications" },
+    ],
+  },
+  // 16. System Operations
+  {
+    label: "System Operations",
+    icon: "FiServer",
+    module: "system",
+    subMenu: [
+      { href: "/dashboard/system/tasks", label: "Queue Jobs", icon: "FiList", module: "system" },
+      { href: "/dashboard/system/workers", label: "Workers", icon: "FiCpu", module: "system" },
+      { href: "/dashboard/system/storage", label: "Storage", icon: "FiDatabase", module: "system" },
+      { href: "/dashboard/system/redis", label: "Redis", icon: "FiZap", module: "system" },
+      { href: "/dashboard/admin/settings", label: "Backups", icon: "FiHardDrive", module: "system" },
+      { href: "/dashboard/system/health", label: "Health", icon: "FiHeart", module: "system" },
+    ],
+  },
+  // 17. Administration
+  {
+    label: "Administration",
+    icon: "FiSettings",
+    module: "admin",
+    subMenu: [
+      { href: "/dashboard/users", label: "Users", icon: "FiUsers", module: "peoples" },
     ],
   },
 ];

@@ -99,6 +99,7 @@ export async function recordOrderAdvance(input: {
     const result = await prisma.$transaction(async (tx) => {
       // Create Voucher
       const voucher = await tx.voucher.create({
+// @ts-expect-error - Legacy compatibility
         data: {
           voucherNumber,
           date: date,

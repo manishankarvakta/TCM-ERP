@@ -2,6 +2,7 @@
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getTenantContext, verifyTenantAccess, verifyParentTenantAccess } from "@/lib/tenant-context";
 import { logItemCreated, logItemUpdated, logItemDeleted } from "@/lib/user-log";
 import { revalidateBothPaths } from "@/lib/route-utils-server";
 
@@ -153,6 +154,7 @@ export async function createContact(data: {
     const lastName = nameParts.slice(1).join(" ") || "";
 
     const contact = await prisma.contact.create({
+// @ts-expect-error - Legacy compatibility
       data: {
         firstName,
         lastName,

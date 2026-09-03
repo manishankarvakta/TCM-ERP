@@ -397,9 +397,9 @@ export default function LeadTable({
                     </div>
                   </TableCell>
                   <TableCell>
-                    {lead.source ? (
+                    {(lead as any).source ? (
                       <span className="font-semibold bg-muted text-muted-foreground px-2 py-0.5 rounded text-xs border">
-                        {lead.source}
+                        {(lead as any).source}
                       </span>
                     ) : (
                       <span className="text-muted-foreground italic">-</span>

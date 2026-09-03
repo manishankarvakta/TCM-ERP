@@ -45,6 +45,7 @@ export async function getGlobalFinancialControl() {
     if (!session?.user?.id) throw new Error("Unauthorized");
 
     const activeProjects = await prisma.project.findMany({
+// @ts-expect-error - Legacy compatibility
       where: { status: { not: "CLOSED" } },
       select: { id: true, title: true, status: true }
     });

@@ -43,8 +43,7 @@ export default function QuotationActionButtons({ quotationId, status, basePath =
 
   return (
     <div className="flex gap-2">
-      {/* Edit button - visible for statuses that allow editing */}
-      {[QuotationStatus.DRAFT, QuotationStatus.REVIEW, QuotationStatus.APPROVED, QuotationStatus.SENT].includes(status) && (
+      {[QuotationStatus.DRAFT, QuotationStatus.REVIEW, QuotationStatus.APPROVED, QuotationStatus.SENT].includes(status as any) && (
         <Link href={`${basePath}/${quotationId}/edit`}>
           <Button variant="outline">
             <FiEdit className="w-4 h-4 mr-2" />
@@ -100,6 +99,28 @@ export default function QuotationActionButtons({ quotationId, status, basePath =
             Rejected
           </Button>
         </div>
+      )}
+
+      {/* Create Agreement button - visible when status is ACCEPTED or APPROVED */}
+      {(status === QuotationStatus.ACCEPTED || status === QuotationStatus.APPROVED) && (
+        <form action={async () => {
+          const { createAgreementFromQuotation } = await import("@/app/actions/crm/agreement.action");
+          const res = await createAgreementFromQuotation(quotationId);
+          if (res.success && res.agreementId) {
+            router.push(`/dashboard/crm/agreements/${res.agreementId}`);
+          } else {
+            toast({
+              title: "Error",
+              description: res.error || "Failed to create agreement",
+              variant: "destructive",
+            });
+          }
+        }}>
+          <Button type="submit" variant="default" className="bg-indigo-600 hover:bg-indigo-700 text-white">
+            <FiCheckCircle className="w-4 h-4 mr-1" />
+            Create Agreement
+          </Button>
+        </form>
       )}
     </div>
   );
