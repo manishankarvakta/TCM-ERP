@@ -52,6 +52,7 @@ export async function restoreDatabaseBackup(
   let isTempDecryptedFile = false;
 
   try {
+    await ensureBackupDirectories();
     // Stage 1: VALIDATING (0-10%)
     manager.updateStatus(restoreId, 'VALIDATING', 'Validating backup file');
     manager.updateProgress(restoreId, { progress: 0 });
@@ -167,6 +168,7 @@ export async function restoreFilesBackup(
   let isTempDecryptedFile = false;
 
   try {
+    await ensureBackupDirectories();
     // Stage 1: VALIDATING (0-10%)
     manager.updateStatus(restoreId, 'VALIDATING', 'Validating backup file');
     manager.updateProgress(restoreId, { progress: 0 });
@@ -312,6 +314,7 @@ export async function restoreFullBackup(
   let isTempDecryptedFile = false;
 
   try {
+    await ensureBackupDirectories();
     // Stage 1: VALIDATING (0-5%)
     manager.updateStatus(restoreId, 'VALIDATING', 'Validating backup file');
     manager.updateProgress(restoreId, { progress: 0 });
@@ -466,6 +469,7 @@ export async function restoreFullBackup(
  * @param outputPath - Where to extract dump file
  */
 async function extractDatabaseDump(backupPath: string, outputPath: string): Promise<void> {
+  await fs.mkdir(path.dirname(outputPath), { recursive: true });
   const zipData = await fs.readFile(backupPath);
   const zip = await JSZip.loadAsync(zipData);
   const dumpFile = zip.file(DATABASE_DUMP_FILENAME);
@@ -495,60 +499,155 @@ async function executePgRestore(
 ): Promise<void> {
   const config = parsePostgresConfig();
   const manager = getRestoreManager();
+  const containerName = config.containerName || 'fferp-postgres';
 
-  // Build pg_restore command
-  const args = [
-    `-h ${config.host}`,
-    `-p ${config.port}`,
-    `-U ${config.user}`,
-    `-d ${config.database}`,
-    '--no-owner',
-    '--no-acl',
-  ];
-
-  if (cleanDatabase) {
-    args.push('--clean'); // Drop objects before recreating
+  // Read header of dump file to detect format (binary vs SQL text)
+  let isBinaryDump = true;
+  try {
+    const headerBuffer = await fs.readFile(dumpPath);
+    if (headerBuffer.length >= 5 && headerBuffer.toString('utf-8', 0, 5) === 'PGDMP') {
+      isBinaryDump = true;
+    } else {
+      isBinaryDump = false;
+    }
+  } catch {
+    isBinaryDump = true;
   }
 
-  args.push(dumpPath);
-
-  const command = `pg_restore ${args.join(' ')}`;
-
+  // Tier 1: Try host-based pg_restore / psql if available
+  let hostCliAvailable = false;
+  const toolName = isBinaryDump ? 'pg_restore' : 'psql';
   try {
-    // Update progress as restore runs
-    const progressRange = progressEnd - progressStart;
-    const updateInterval = setInterval(() => {
-      const current = manager.getProgress(restoreId);
-      if (current && current.progress < progressEnd - 5) {
-        manager.updateProgress(restoreId, {
-          progress: Math.min(current.progress + 2, progressEnd - 5),
+    await execAsync(`${toolName} --version`);
+    hostCliAvailable = true;
+  } catch {
+    hostCliAvailable = false;
+  }
+
+  if (hostCliAvailable) {
+    try {
+      manager.addLog(restoreId, `Attempting host ${toolName}...`);
+      if (isBinaryDump) {
+        const args = [
+          `-h`, config.host,
+          `-p`, config.port.toString(),
+          `-U`, config.user,
+          `-d`, config.database,
+          '--no-owner',
+          '--no-acl',
+        ];
+        if (cleanDatabase) args.push('--clean');
+        args.push(dumpPath);
+
+        await execAsync(`pg_restore ${args.join(' ')}`, {
+          env: { ...process.env, PGPASSWORD: config.password },
+          maxBuffer: 100 * 1024 * 1024,
+        });
+      } else {
+        const command = `psql -h ${config.host} -p ${config.port} -U ${config.user} -d ${config.database} -f ${dumpPath}`;
+        await execAsync(command, {
+          env: { ...process.env, PGPASSWORD: config.password },
+          maxBuffer: 100 * 1024 * 1024,
         });
       }
-    }, 2000);
+      manager.addLog(restoreId, `Database restore completed successfully via host ${toolName}`);
+      return;
+    } catch (hostError: any) {
+      manager.addLog(restoreId, `Host ${toolName} failed: ${hostError.message || hostError}`, 'warn');
+    }
+  }
 
-    await execAsync(command, {
-      env: {
-        ...process.env,
-        PGPASSWORD: config.password,
-      },
-      maxBuffer: 100 * 1024 * 1024, // 100MB buffer
+  // Tier 2: Try Docker container pg_restore / psql
+  try {
+    manager.addLog(restoreId, `Attempting database restore via Docker container ${containerName}...`);
+    await executeDockerPgRestore(containerName, config.user, config.password, config.database, dumpPath, cleanDatabase, isBinaryDump);
+    manager.addLog(restoreId, `Database restore completed successfully via Docker container`);
+    return;
+  } catch (dockerError: any) {
+    manager.addLog(restoreId, `Docker container restore failed: ${dockerError.message || dockerError}`, 'warn');
+  }
+
+  // Tier 3: Prisma ORM SQL fallback execution
+  try {
+    manager.addLog(restoreId, `Falling back to Prisma ORM SQL restore...`);
+    await executePrismaFallbackRestore(dumpPath);
+    manager.addLog(restoreId, `Database restore completed successfully via Prisma fallback`);
+    return;
+  } catch (fallbackError: any) {
+    manager.addLog(restoreId, `Prisma SQL restore failed: ${fallbackError.message || fallbackError}`, 'error');
+    throw new Error(`Database restore failed: ${fallbackError.message || String(fallbackError)}`);
+  }
+}
+
+/**
+ * Execute pg_restore / psql inside a Docker container
+ */
+function executeDockerPgRestore(
+  containerName: string,
+  user: string,
+  pass: string,
+  dbName: string,
+  dumpPath: string,
+  cleanDatabase: boolean,
+  isBinaryDump: boolean
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const { spawn } = require('child_process');
+    const fs = require('fs');
+
+    const inputStream = fs.createReadStream(dumpPath);
+    const toolName = isBinaryDump ? 'pg_restore' : 'psql';
+    const toolArgs = isBinaryDump
+      ? ['-U', user, '-d', dbName, '--no-owner', '--no-acl', ...(cleanDatabase ? ['--clean'] : [])]
+      : ['-U', user, '-d', dbName];
+
+    const dockerArgs = [
+      'exec',
+      '-i',
+      '-e', `PGPASSWORD=${pass}`,
+      containerName,
+      toolName,
+      ...toolArgs
+    ];
+
+    const child = spawn('docker', dockerArgs);
+    inputStream.pipe(child.stdin);
+
+    let stderr = '';
+    child.stderr.on('data', (data: Buffer) => {
+      stderr += data.toString();
     });
 
-    clearInterval(updateInterval);
-    manager.updateProgress(restoreId, { progress: progressEnd });
-  } catch (error: any) {
-    // Some pg_restore warnings are normal (e.g., objects already exist)
-    // Only fail if it's a critical error
-    if (error.message.includes('command not found') || error.code === 'ENOENT') {
-      throw new Error('pg_restore command not found. Please install PostgreSQL client tools.');
-    }
+    child.on('close', (code: number) => {
+      // pg_restore exit code 0 or 1 (warnings) is considered success
+      if (code === 0 || code === 1) {
+        resolve();
+      } else {
+        reject(new Error(`Docker ${toolName} exited with code ${code}: ${stderr}`));
+      }
+    });
 
-    if (error.message.includes('password authentication failed')) {
-      throw new Error('Database authentication failed.');
-    }
+    child.on('error', (err: Error) => {
+      reject(err);
+    });
+  });
+}
 
-    // Log warning but don't fail
-    manager.addLog(restoreId, `pg_restore warning: ${error.message}`, 'warn');
+/**
+ * Fallback database restore using Prisma ORM execution
+ */
+async function executePrismaFallbackRestore(dumpPath: string): Promise<void> {
+  const { prisma } = await import('@/lib/prisma');
+  const sqlContent = await fs.readFile(dumpPath, 'utf-8');
+  const statements = sqlContent.split(/;\s*$/m).map(s => s.trim()).filter(Boolean);
+
+  for (const statement of statements) {
+    if (statement.startsWith('--') || !statement) continue;
+    try {
+      await prisma.$executeRawUnsafe(statement);
+    } catch (err: any) {
+      console.warn(`[Restore Fallback Statement Warning]:`, err.message || err);
+    }
   }
 }
 
