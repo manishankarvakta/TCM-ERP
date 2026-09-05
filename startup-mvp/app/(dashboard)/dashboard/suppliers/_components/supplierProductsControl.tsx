@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/dialog";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import Link from "next/link";
-import { FiPlus, FiTrash2, FiPackage, FiLoader, FiUpload } from "react-icons/fi";
+import { FiPlus, FiTrash2, FiPackage, FiLoader, FiUpload, FiDownload, FiAlertTriangle } from "react-icons/fi";
 import { X } from "lucide-react";
 import { toast } from "sonner";
 import { addSupplierProducts, removeSupplierProduct } from "../_actions/supplier.action";
@@ -70,6 +70,7 @@ export default function SupplierProductsControl({
     }>
   >([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [unmatchedCodes, setUnmatchedCodes] = useState<string[]>([]);
   const [loadingItems, setLoadingItems] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -100,7 +101,32 @@ export default function SupplierProductsControl({
   const handleOpenModal = async () => {
     setIsModalOpen(true);
     setSelectedIds([]);
+    setUnmatchedCodes([]);
     await loadAvailableItems();
+  };
+
+  const handleExportUnmatched = (customCodes?: string[]) => {
+    const codesToExport = customCodes || unmatchedCodes;
+    if (codesToExport.length === 0) return;
+
+    const csvRows = ["Product Code / SKU,Status,Reason"];
+    codesToExport.forEach((code) => {
+      const cleanCode = code.replace(/"/g, '""');
+      csvRows.push(`"${cleanCode}","Failed","Product code or SKU not found in database"`);
+    });
+
+    const blob = new Blob([csvRows.join("\n")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const sanitizedName = (supplierName || "supplier").toLowerCase().replace(/[^a-z0-9]/g, "_");
+    const filename = `${sanitizedName}_unmatched_product_codes.csv`;
+    link.setAttribute("href", url);
+    link.setAttribute("download", filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    toast.success(`Exported ${codesToExport.length} unmatched code(s) to ${filename}`);
   };
 
   const currentItemIds = items.map((i) => i.id);
@@ -118,25 +144,91 @@ export default function SupplierProductsControl({
         const text = event.target?.result as string;
         if (!text) return;
 
-        // Parse lines
-        const lines = text.split(/\r\n|\n|\r/);
+        // Strip UTF-8 BOM if present
+        const cleanText = text.replace(/^\uFEFF/, "");
+
+        // 1. Split lines into non-empty rows
+        const rawLines = cleanText.split(/\r\n|\n|\r/).map((l) => l.trim()).filter(Boolean);
+        if (rawLines.length === 0) {
+          toast.error("The uploaded CSV file is empty.");
+          return;
+        }
+
+        // Parse lines into cell arrays (stripping surrounding quotes and hidden whitespace)
+        const rows: string[][] = rawLines.map((line) =>
+          line.split(/[,;\t]/).map((cell) => cell.replace(/^["']|["']$/g, "").replace(/[\uFEFF\u200B-\u200D\u00A0]/g, "").trim())
+        );
+
+        if (rows.length === 0) return;
+
+        // 2. Identify Code Column Index from Header (if header row exists)
+        const headerRow = rows[0];
+        let codeColIndex = -1;
+        const codeHeaderKeywords = [
+          "code",
+          "product_code",
+          "item_code",
+          "sku",
+          "variant_sku",
+          "barcode",
+          "product code",
+          "item code",
+          "productcode",
+          "itemcode",
+        ];
+
+        headerRow.forEach((cell, idx) => {
+          const cleanCell = cell.toLowerCase().replace(/[^a-z0-9]/g, "");
+          if (codeHeaderKeywords.some((kw) => kw.replace(/[^a-z0-9]/g, "") === cleanCell)) {
+            codeColIndex = idx;
+          }
+        });
+
+        let dataRows = rows;
+        // If header detected, skip header row
+        if (codeColIndex !== -1) {
+          dataRows = rows.slice(1);
+        } else {
+          // If header not explicitly matched by index, check if first row contains header keywords
+          const firstRowHeaderMatch = headerRow.some((cell) =>
+            codeHeaderKeywords.some((kw) => cell.toLowerCase().includes(kw))
+          );
+          if (firstRowHeaderMatch) {
+            dataRows = rows.slice(1);
+          }
+          // Default to column 0 if no specific code header found
+          codeColIndex = 0;
+        }
+
+        // Helper for normalized comparison (strips spaces, dashes, underscores, quotes, uppercase)
+        const normalize = (str?: string | null) => {
+          if (!str) return "";
+          return String(str).replace(/[\s\-_"']/g, "").toUpperCase();
+        };
+
+        // 3. Extract codes line-by-line from the identified code column
         const extractedCodes: string[] = [];
 
-        lines.forEach((line) => {
-          if (!line.trim()) return;
-          // Split by comma, semicolon, or tab
-          const cells = line.split(/[,;\t]/).map((c) => c.replace(/^["']|["']$/g, "").trim());
-          cells.forEach((cell) => {
-            if (cell && cell.length >= 2) {
-              const lower = cell.toLowerCase();
-              if (["code", "product_code", "item_code", "sku", "variant_sku", "barcode", "product code", "item code"].includes(lower)) {
-                return;
-              }
-              if (!extractedCodes.includes(cell.toUpperCase())) {
-                extractedCodes.push(cell.toUpperCase());
-              }
+        dataRows.forEach((row) => {
+          if (!row || row.length === 0) return;
+
+          // Target code cell
+          let codeVal = row[codeColIndex];
+
+          // Fallback: if designated column cell is empty, find first non-empty cell in row
+          if (!codeVal && row.length > 0) {
+            codeVal = row.find((c) => Boolean(c)) || "";
+          }
+
+          if (codeVal && codeVal.length >= 1) {
+            const rawCode = codeVal.trim();
+            // Skip header text if somehow present in data rows
+            if (codeHeaderKeywords.includes(rawCode.toLowerCase())) return;
+
+            if (!extractedCodes.includes(rawCode)) {
+              extractedCodes.push(rawCode);
             }
-          });
+          }
         });
 
         if (extractedCodes.length === 0) {
@@ -144,47 +236,77 @@ export default function SupplierProductsControl({
           return;
         }
 
+        // 4. Match against Database Items
         const matchedIds: string[] = [];
         const notFoundCodes: string[] = [];
+        const alreadyConnectedCodes: string[] = [];
+        const alreadySelectedCodes: string[] = [];
 
         extractedCodes.forEach((code) => {
-          const match = dbItems.find((item) => {
-            // Check master item code, barcode, or name
-            if (item.code?.toUpperCase() === code) return true;
-            if (item.barcode?.toUpperCase() === code) return true;
-            if (item.description && item.description.toUpperCase() === code) return true;
-            // Check variant SKUs and barcodes
-            if (
-              item.variants?.some(
-                (v: any) =>
-                  (v.sku && v.sku.toUpperCase() === code) ||
-                  (v.barcode && v.barcode.toUpperCase() === code)
-              )
-            ) {
+          const normCode = normalize(code);
 
+          const match = dbItems.find((item) => {
+            const normItemCode = normalize(item.code);
+            const normItemBarcode = normalize(item.barcode);
+            const normItemDesc = normalize(item.description);
+            const normItemName = normalize((item as any).name);
+
+            if (normItemCode && normItemCode === normCode) return true;
+            if (normItemBarcode && normItemBarcode === normCode) return true;
+            if (normItemDesc && normItemDesc === normCode) return true;
+            if (normItemName && normItemName === normCode) return true;
+
+            if (
+              item.variants?.some((v: any) => {
+                const normSku = normalize(v.sku);
+                const normVariantBarcode = normalize(v.barcode);
+                return (normSku && normSku === normCode) || (normVariantBarcode && normVariantBarcode === normCode);
+              })
+            ) {
               return true;
             }
+
             return false;
           });
 
           if (match) {
-            if (!currentItemIds.includes(match.id) && !selectedIds.includes(match.id) && !matchedIds.includes(match.id)) {
-              matchedIds.push(match.id);
+            if (currentItemIds.includes(match.id)) {
+              alreadyConnectedCodes.push(code);
+            } else if (selectedIds.includes(match.id)) {
+              alreadySelectedCodes.push(code);
+            } else {
+              if (!matchedIds.includes(match.id)) {
+                matchedIds.push(match.id);
+              }
             }
           } else {
             notFoundCodes.push(code);
           }
         });
 
+        // 5. Update state & show feedback
         if (matchedIds.length > 0) {
           setSelectedIds((prev) => Array.from(new Set([...prev, ...matchedIds])));
-          toast.success(`Imported ${matchedIds.length} matching product(s) / SKU(s) to selection list.`);
+          toast.success(`Successfully matched & added ${matchedIds.length} product(s) to selection list.`);
+        } else if (alreadyConnectedCodes.length > 0 || alreadySelectedCodes.length > 0) {
+          const count = alreadyConnectedCodes.length + alreadySelectedCodes.length;
+          toast.info(`${count} product(s) in CSV are already connected to supplier or selected.`);
         } else {
           toast.error("No matching products found in the database for the codes/SKUs in CSV.");
         }
 
+        setUnmatchedCodes(notFoundCodes);
+
         if (notFoundCodes.length > 0) {
-          toast.warning(`${notFoundCodes.length} code/SKU(s) not found: ${notFoundCodes.slice(0, 4).join(", ")}${notFoundCodes.length > 4 ? "..." : ""}`);
+          toast.warning(
+            `${notFoundCodes.length} code/SKU(s) not found in system. You can export them to CSV.`,
+            {
+              action: {
+                label: "Export Failed CSV",
+                onClick: () => handleExportUnmatched(notFoundCodes),
+              },
+            }
+          );
         }
       } catch (err) {
         console.error("CSV Parse error:", err);
@@ -400,6 +522,27 @@ export default function SupplierProductsControl({
                     searchPlaceholder="Search products by code or name..."
                   />
                 </div>
+
+                {unmatchedCodes.length > 0 && (
+                  <div className="flex items-center justify-between gap-2 p-2.5 px-3 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-900 dark:text-amber-200 text-xs flex-shrink-0">
+                    <div className="flex items-center gap-2 overflow-hidden">
+                      <FiAlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+                      <span className="truncate">
+                        <strong>{unmatchedCodes.length}</strong> product code(s) from CSV could not be matched.
+                      </span>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleExportUnmatched()}
+                      className="h-7 text-xs bg-background text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900/30 flex items-center gap-1.5 flex-shrink-0"
+                    >
+                      <FiDownload className="h-3.5 w-3.5" />
+                      Download Failed Codes (.csv)
+                    </Button>
+                  </div>
+                )}
 
 
                 <div className="flex-1 flex flex-col min-h-0 space-y-2">
