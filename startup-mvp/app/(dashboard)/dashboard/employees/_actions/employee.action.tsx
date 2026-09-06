@@ -102,7 +102,17 @@ export async function getEmployees(
         array_contains: skill
       };
     }
-    if (warehouseId && warehouseId !== "all") {
+    const dbUser = session?.user?.id
+      ? await prisma.user.findUnique({
+          where: { id: session.user.id },
+          select: { role: true, defaultWarehouseId: true },
+        })
+      : null;
+    const isNormalUser = dbUser?.role !== "admin" && dbUser?.role !== "superadmin";
+
+    if (isNormalUser && dbUser?.defaultWarehouseId) {
+      where.warehouseId = dbUser.defaultWarehouseId;
+    } else if (warehouseId && warehouseId !== "all") {
       where.warehouseId = warehouseId;
     }
 

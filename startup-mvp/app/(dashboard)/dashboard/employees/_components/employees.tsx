@@ -152,6 +152,11 @@ interface EmployeesListClientProps {
   lineId?: string;
   warehouses?: { id: string; name: string }[];
   warehouseId?: string;
+  userContext?: {
+    isNormalUser?: boolean;
+    userWarehouseId?: string | null;
+    userWarehouseName?: string | null;
+  };
   allSkills?: string[];
   skill?: string;
   permissions?: {
@@ -184,6 +189,7 @@ export default function EmployeesListClient({
   lineId = "all",
   warehouses = [],
   warehouseId = "all",
+  userContext,
   allSkills = [],
   skill = "all",
   permissions,
@@ -191,6 +197,15 @@ export default function EmployeesListClient({
   const router = useRouter();
   const searchParams = useSearchParams();
   const [search, setSearch] = useState(initialSearch);
+  const isNormalUserScoped = Boolean(userContext?.isNormalUser && userContext?.userWarehouseId);
+  const activeWarehouseValue = isNormalUserScoped ? (userContext?.userWarehouseId || "all") : warehouseId;
+  const warehouseOptions = isNormalUserScoped && userContext?.userWarehouseId
+    ? [{ 
+        id: userContext.userWarehouseId, 
+        name: userContext?.userWarehouseName || warehouses.find(w => w.id === userContext.userWarehouseId)?.name || "Default Warehouse" 
+      }]
+    : warehouses;
+
   const hasActiveFilters = !!(
     search || 
     (employeeTypeId && employeeTypeId !== "all") || 
@@ -200,7 +215,7 @@ export default function EmployeesListClient({
     (designationId && designationId !== "all") ||
     (floorId && floorId !== "all") ||
     (lineId && lineId !== "all") ||
-    (warehouseId && warehouseId !== "all") ||
+    (activeWarehouseValue && activeWarehouseValue !== "all") ||
     (skill && skill !== "all")
   );
   const [deleteEmployeeId, setDeleteEmployeeId] = useState<string | null>(null);
@@ -641,15 +656,16 @@ export default function EmployeesListClient({
           {/* Warehouse Filter */}
           <div className="w-[180px]">
             <Select
-              value={warehouseId}
-              onValueChange={(val) => handleFilterChange("warehouseId", val)}
+              value={activeWarehouseValue}
+              onValueChange={(val) => !isNormalUserScoped && handleFilterChange("warehouseId", val)}
+              disabled={isNormalUserScoped}
             >
               <SelectTrigger>
                 <SelectValue placeholder="All Warehouses" />
               </SelectTrigger>
               <SelectContent className="max-h-[250px]">
-                <SelectItem value="all">All Warehouses</SelectItem>
-                {warehouses.map((w) => (
+                {!isNormalUserScoped && <SelectItem value="all">All Warehouses</SelectItem>}
+                {warehouseOptions.map((w) => (
                   <SelectItem key={w.id} value={w.id}>
                     {w.name}
                   </SelectItem>

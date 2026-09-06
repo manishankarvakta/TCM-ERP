@@ -56,11 +56,27 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
   const session = await auth();
   const userId = session?.user?.id;
 
+  const dbUser = userId
+    ? await prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          role: true,
+          defaultWarehouseId: true,
+          defaultWarehouse: { select: { id: true, name: true } },
+        },
+      })
+    : null;
+
+  const isNormalUser = dbUser?.role !== "admin" && dbUser?.role !== "superadmin";
+  const userWarehouseId = dbUser?.defaultWarehouseId || null;
+  const userWarehouseName = dbUser?.defaultWarehouse?.name || null;
+  const effectiveWarehouseId = (isNormalUser && userWarehouseId) ? userWarehouseId : (warehouseId || "all");
+
   const status = tab === "trash" ? "trash" : (statusParam as any);
   
   // Check permissions and fetch data concurrently
   const [result, statsResult, typesResult, departmentsResult, designationsResult, floorsResult, linesResult, warehousesResult, allSkills, canView, canEdit, canCreate, canMoveToTrash, canDeletePermanently, canViewLedger] = await Promise.all([
-    getEmployees(page, limit, search, status, employeeTypeId, gender, departmentId, designationId, floorId, lineId, skill, warehouseId),
+    getEmployees(page, limit, search, status, employeeTypeId, gender, departmentId, designationId, floorId, lineId, skill, effectiveWarehouseId),
     getEmployeeStats(),
     getEmployeeTypes(1, 100, "", "active"),
     getDepartments(1, 100, "", "active"),
@@ -208,7 +224,12 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
               lines={linesResult.success && linesResult.lines ? (linesResult.lines as any[]) : []}
               lineId={lineId}
               warehouses={warehouses}
-              warehouseId={warehouseId}
+              warehouseId={effectiveWarehouseId}
+              userContext={{
+                isNormalUser: Boolean(isNormalUser),
+                userWarehouseId,
+                userWarehouseName,
+              }}
               allSkills={allSkills || []}
               skill={skill}
               permissions={{
@@ -246,7 +267,12 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
               lines={linesResult.success && linesResult.lines ? (linesResult.lines as any[]) : []}
               lineId={lineId}
               warehouses={warehouses}
-              warehouseId={warehouseId}
+              warehouseId={effectiveWarehouseId}
+              userContext={{
+                isNormalUser: Boolean(isNormalUser),
+                userWarehouseId,
+                userWarehouseName,
+              }}
               allSkills={allSkills || []}
               skill={skill}
               permissions={{
