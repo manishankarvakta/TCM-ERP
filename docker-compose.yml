@@ -67,9 +67,11 @@ services:
       EMAIL_FROM: ${EMAIL_FROM:-}
       EMAIL_FROM_NAME: ${EMAIL_FROM_NAME:-Startup MVP}
       
-      # App URL
-      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:${APP_PORT:-3000}}
-      
+      # Encryption Keys
+      BACKUP_ENCRYPTION_KEY: ${BACKUP_ENCRYPTION_KEY:-e1eaea238e6961fbb3f37c0bd2989d0dfd5c3279884aad0b88ef3c024d17c9db}
+      BACKUP_ENCRYPTION_ENABLED: ${BACKUP_ENCRYPTION_ENABLED:-true}
+      INTEGRATION_ENCRYPTION_KEY: ${INTEGRATION_ENCRYPTION_KEY:-00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff}
+
       # Node Environment
       NODE_ENV: production
     depends_on:

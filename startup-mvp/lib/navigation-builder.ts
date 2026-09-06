@@ -16,6 +16,7 @@ export interface SubMenuItemData {
   icon: string;
   module?: string;
   permissionKey?: string;
+  children?: SubMenuItemData[];
 }
 
 export interface SubMenuGroup {
@@ -47,19 +48,28 @@ export const MENU_TEMPLATE: MenuItemData[] = [
     subMenu: [
       { href: "/dashboard/marketing", label: "Dashboard", icon: "FiTarget", module: "marketing" },
       { href: "/dashboard/marketing/marketing-funnel", label: "Marketing Funnel", icon: "FiFilter", module: "marketing" },
-      { href: "/dashboard/marketing/campaigns", label: "Campaigns", icon: "FiLayers", module: "marketing" },
-      { href: "/dashboard/marketing/content-calendar", label: "Content Calendar", icon: "FiCalendar", module: "marketing" },
-      { href: "/dashboard/marketing/social-media", label: "Social Media", icon: "FiShare2", module: "marketing" },
-      { href: "/dashboard/marketing/paid-ads", label: "Paid Ads", icon: "FiDollarSign", module: "marketing" },
+      {
+        href: "/dashboard/marketing/campaigns",
+        label: "Campaigns",
+        icon: "FiLayers",
+        module: "marketing",
+        children: [
+          { href: "/dashboard/marketing/paid-ads", label: "Ads Campaigns", icon: "FiDollarSign", module: "marketing" },
+          { href: "/dashboard/marketing/sms-campaign", label: "SMS Campaigns", icon: "FiMessageSquare", module: "marketing" },
+          { href: "/dashboard/marketing/wa-campaign", label: "WA Campaign", icon: "FiMessageSquare", module: "marketing" },
+          { href: "/dashboard/marketing/email-campaigns", label: "Email Campaign", icon: "FiMail", module: "marketing" },
+          { href: "/dashboard/marketing/physical-campaign", label: "Physical Campaign", icon: "FiBriefcase", module: "marketing" },
+        ],
+      },
       { href: "/dashboard/marketing/seo", label: "SEO", icon: "FiTrendingUp", module: "marketing" },
-      { href: "/dashboard/marketing/email-campaigns", label: "Email Campaigns", icon: "FiMail", module: "marketing" },
-      { href: "/dashboard/marketing/sms-campaign", label: "SMS Campaign", icon: "FiMessageSquare", module: "marketing" },
-      { href: "/dashboard/marketing/landing-pages", label: "Landing Pages", icon: "FiFileText", module: "marketing" },
+      { href: "/dashboard/marketing/social-media", label: "Social Media", icon: "FiShare2", module: "marketing" },
+      { href: "/dashboard/marketing/content-calendar", label: "Content Calendar", icon: "FiCalendar", module: "marketing" },
+      { href: "/dashboard/marketing/landing-pages", label: "Landing Page", icon: "FiFileText", module: "marketing" },
+      { href: "/dashboard/marketing/roi-reports", label: "ROI", icon: "FiBarChart", module: "marketing" },
       { href: "/dashboard/marketing/lead-sources", label: "Lead Sources", icon: "FiUsers", module: "marketing" },
       { href: "/dashboard/marketing/budget", label: "Campaign Budget", icon: "FiCreditCard", module: "marketing" },
       { href: "/dashboard/marketing/expenses", label: "Marketing Expenses", icon: "FiDollarSign", module: "marketing" },
       { href: "/dashboard/marketing/attribution", label: "Attribution", icon: "FiActivity", module: "marketing" },
-      { href: "/dashboard/marketing/roi-reports", label: "ROI Reports", icon: "FiBarChart", module: "marketing" },
     ],
   },
   // 3. Creatives
@@ -510,19 +520,30 @@ export function buildFilteredMenu(
       
       // Filter submenus based on permissions
       if (itemCopy.subMenu) {
-        itemCopy.subMenu = itemCopy.subMenu.filter((subItem) => {
-          const permissionKey = getPermissionKeyFromPath(subItem.href);
-          
-          if (!permissionKey) {
-            return false;
-          }
-          
-          const hasAccess = accessiblePages.get(permissionKey);
-          
-          // Only show if explicitly set to true
-          return hasAccess === true;
-        });
-        
+        itemCopy.subMenu = itemCopy.subMenu
+          .map((subItem) => {
+            if (subItem.children && subItem.children.length > 0) {
+              const filteredChildren = subItem.children.filter((child) => {
+                const childKey = getPermissionKeyFromPath(child.href);
+                if (!childKey) return false;
+                return accessiblePages.get(childKey) === true;
+              });
+
+              const parentKey = getPermissionKeyFromPath(subItem.href);
+              const parentAccess = parentKey ? accessiblePages.get(parentKey) === true : false;
+
+              if (filteredChildren.length > 0 || parentAccess) {
+                return { ...subItem, children: filteredChildren };
+              }
+              return null;
+            }
+
+            const permissionKey = getPermissionKeyFromPath(subItem.href);
+            if (!permissionKey) return null;
+            return accessiblePages.get(permissionKey) === true ? subItem : null;
+          })
+          .filter((subItem): subItem is SubMenuItemData => subItem !== null);
+
         // If no accessible submenu items, hide the parent menu item
         if (itemCopy.subMenu.length === 0) {
           return null;
