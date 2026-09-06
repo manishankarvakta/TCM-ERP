@@ -221,6 +221,7 @@ export const MODULES: Record<Module, ModuleMetadata> = {
       { id: "shifts", label: "Shifts", path: "/dashboard/hr/shifts", module: "hr", permissionKey: "hr.shifts" },
       { id: "holidays", label: "Holidays", path: "/dashboard/hr/holidays", module: "hr", permissionKey: "hr.holidays" },
       { id: "attendance", label: "Attendance", path: "/dashboard/hr/attendance", module: "hr", permissionKey: "hr.attendance" },
+      { id: "appointment_letters", label: "Appointment Letters", path: "/dashboard/hr/appointment-letters", module: "hr", permissionKey: "hr.appointment_letters" },
       { id: "leave", label: "Leave Applications", path: "/dashboard/hr/leave", module: "hr", permissionKey: "hr.leave" },
       { id: "resignation", label: "Resignation Applications", path: "/dashboard/hr/resignation", module: "hr", permissionKey: "hr.resignation" },
       { id: "payroll", label: "Payroll", path: "/dashboard/hr/payroll", module: "hr", permissionKey: "hr.payroll" },
@@ -755,6 +756,12 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
         path: "/dashboard/hr/attendance",
         label: "Attendance",
         operations: ["create", "view", "edit", "manage"],
+      },
+      {
+        permissionKey: "hr.appointment_letters",
+        path: "/dashboard/hr/appointment-letters",
+        label: "Appointment Letters",
+        operations: ["create", "view", "edit", "approve", "move-to-trash", "delete-permanently"],
       },
       {
         permissionKey: "hr.leave",

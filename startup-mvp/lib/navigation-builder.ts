@@ -128,6 +128,7 @@ export const MENU_TEMPLATE: MenuItemData[] = [
       { href: "/dashboard/hr/shifts", label: "Shifts", icon: "FiBox", module: "hr" },
       { href: "/dashboard/hr/holidays", label: "Holidays", icon: "FiCalendar", module: "hr" },
       { href: "/dashboard/hr/attendance", label: "Attendance", icon: "FiClipboard", module: "hr" },
+      { href: "/dashboard/hr/appointment-letters", label: "Appointment Letters", icon: "FiFileText", module: "hr" },
       { href: "/dashboard/hr/leave", label: "Leave", icon: "FiFileText", module: "hr" },
       { href: "/dashboard/hr/resignation", label: "Resignation", icon: "FiFileText", module: "hr" },
       { href: "/dashboard/hr/payroll", label: "Payroll", icon: "FiDollarSign", module: "hr" },

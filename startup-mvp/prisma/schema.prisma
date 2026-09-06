@@ -48,6 +48,7 @@ model User {
   createdResignations              Resignation[]          @relation("ResignationCreator")
   managedResignations              Resignation[]          @relation("ResignationManager")
   adminResignations                Resignation[]          @relation("ResignationAdmin")
+  createdAppointmentLetters        AppointmentLetter[]    @relation("AppointmentLetterCreator")
   createdEmployeeTypes             EmployeeType[]         @relation("EmployeeTypeCreator")
   createdDepartments             Department[]           @relation("DepartmentCreator")
   createdDesignations            Designation[]          @relation("DesignationCreator")
@@ -161,6 +162,7 @@ model Employee {
   salaryStructure        EmployeeSalary?
   leaveApps              LeaveApplication[]
   resignations           Resignation[]
+  appointmentLetters     AppointmentLetter[]
   overtimes              Overtime[]
   payrollItems           PayrollItem[]
   deviceMappings         EmployeeDeviceMap[]
@@ -1477,6 +1479,38 @@ model Resignation {
   @@index([status])
 }
 
+model AppointmentLetter {
+  id                  String                  @id @default(cuid())
+  letterNumber        String                  @unique
+  employeeId          String
+  issueDate           DateTime                @db.Date
+  joiningDate         DateTime                @db.Date
+  designation         String
+  department          String?
+  employmentType      String                  @default("PERMANENT")
+  grossSalary         Decimal                 @db.Decimal(12, 2)
+  basicSalary         Decimal                 @default(0) @db.Decimal(12, 2)
+  houseRent           Decimal                 @default(0) @db.Decimal(12, 2)
+  medicalAllowance    Decimal                 @default(0) @db.Decimal(12, 2)
+  conveyanceAllowance Decimal                 @default(0) @db.Decimal(12, 2)
+  foodAllowance       Decimal                 @default(0) @db.Decimal(12, 2)
+  probationMonths     Int                     @default(3)
+  workLocation        String?
+  termsAndConditions  String?                 @db.Text
+  status              AppointmentLetterStatus @default(ISSUED)
+  isTrash             Boolean                 @default(false)
+  createdBy           String
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
+
+  employee            Employee                @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  creator             User                    @relation("AppointmentLetterCreator", fields: [createdBy], references: [id])
+
+  @@index([employeeId])
+  @@index([status])
+  @@index([issueDate])
+}
+
 model AttendanceLog {
   id         String           @id @default(cuid())
   employeeId String
@@ -1889,6 +1923,13 @@ enum ResignationStatus {
   MANAGER_APPROVED
   APPROVED
   REJECTED
+  CANCELLED
+}
+
+enum AppointmentLetterStatus {
+  DRAFT
+  ISSUED
+  ACCEPTED
   CANCELLED
 }
 
