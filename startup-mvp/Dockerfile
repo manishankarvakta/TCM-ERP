@@ -53,8 +53,9 @@ COPY --from=deps /app/prisma ./prisma
 # Copy all source files
 COPY . .
 
-# Disable telemetry
+# Disable telemetry and skip runtime env validation during build
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV SKIP_ENV_VALIDATION=1
 ENV NODE_OPTIONS="--max-old-space-size=8192"
 
 # Prisma is already generated, so just build

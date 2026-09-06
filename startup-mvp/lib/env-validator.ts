@@ -10,6 +10,17 @@ const REQUIRED_ENV = [
  * Halt startup with a secure exception to prevent starting in an insecure state.
  */
 export function validateEnv(): void {
+  // Skip validation during Next.js build phase, static export, or testing
+  if (
+    process.env.NEXT_PHASE === "phase-production-build" ||
+    process.env.NEXT_PHASE === "phase-export" ||
+    process.env.SKIP_ENV_VALIDATION === "1" ||
+    process.env.SKIP_ENV_VALIDATION === "true" ||
+    process.env.NODE_ENV === "test"
+  ) {
+    return;
+  }
+
   const missing: string[] = [];
   
   for (const env of REQUIRED_ENV) {

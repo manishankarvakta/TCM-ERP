@@ -190,6 +190,25 @@ export default function DashboardSidebar({
     return expanded;
   });
 
+  const [expandedSubItems, setExpandedSubItems] = useState<Set<string>>(() => {
+    const expanded = new Set<string>();
+    menuItems.forEach((item) => {
+      if (item.subMenu) {
+        item.subMenu.forEach((subItem) => {
+          if (subItem.children) {
+            const hasActiveChild = subItem.children.some(
+              (child) => pathname === child.href
+            );
+            if (hasActiveChild) {
+              expanded.add(subItem.label);
+            }
+          }
+        });
+      }
+    });
+    return expanded;
+  });
+
   const toggleMenu = (label: string) => {
     setExpandedMenus((prev) => {
       const next = new Set(prev);
@@ -285,11 +304,83 @@ export default function DashboardSidebar({
                   )}
                 </button>
                 {isExpanded && (
-                  <div className="ml-4 mt-1 space-y-1 border-l pl-4">
+                  <div className="ml-4 mt-1 space-y-1 border-l pl-3">
                     {item.subMenu.map((subItem) => {
                       const SubIcon = ICON_MAP[subItem.icon] || FiFile;
-                      // Only exact match for sub-menu items to avoid false positives
-                      // e.g., /dashboard/items should not be active when on /dashboard/items/units
+
+                      if (subItem.children && subItem.children.length > 0) {
+                        const isChildActive = subItem.children.some(
+                          (child) => pathname === child.href
+                        );
+                        const isSubExpanded =
+                          expandedSubItems.has(subItem.label) || isChildActive;
+
+                        return (
+                          <div key={subItem.label} className="space-y-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setExpandedSubItems((prev) => {
+                                  const next = new Set(prev);
+                                  if (next.has(subItem.label)) {
+                                    next.delete(subItem.label);
+                                  } else {
+                                    next.add(subItem.label);
+                                  }
+                                  return next;
+                                });
+                              }}
+                              className={cn(
+                                "flex w-full items-center justify-between gap-3 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+                                isChildActive || pathname === subItem.href
+                                  ? "bg-accent/70 text-accent-foreground font-semibold"
+                                  : "text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground"
+                              )}
+                            >
+                              <div className="flex items-center gap-2.5">
+                                <SubIcon className="h-4 w-4" />
+                                <span>{subItem.label}</span>
+                              </div>
+                              {isSubExpanded ? (
+                                <FiChevronDown className="h-3.5 w-3.5" />
+                              ) : (
+                                <FiChevronRight className="h-3.5 w-3.5" />
+                              )}
+                            </button>
+
+                            {isSubExpanded && (
+                              <div className="ml-3 space-y-1 border-l pl-3">
+                                {subItem.children.map((child) => {
+                                  const ChildIcon =
+                                    ICON_MAP[child.icon] || FiFile;
+                                  const isActiveChild = pathname === child.href;
+
+                                  return (
+                                    <Link
+                                      key={child.href}
+                                      href={child.href}
+                                      className={cn(
+                                        "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors",
+                                        isActiveChild
+                                          ? "bg-accent text-accent-foreground font-semibold"
+                                          : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                                      )}
+                                      onClick={() =>
+                                        dispatch(setSidebarOpen(false))
+                                      }
+                                    >
+                                      <ChildIcon className="h-3.5 w-3.5" />
+                                      <span>{child.label}</span>
+                                    </Link>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      }
+
+                      // Standard single link item
                       const isActive = pathname === subItem.href;
                       return (
                         <Link
