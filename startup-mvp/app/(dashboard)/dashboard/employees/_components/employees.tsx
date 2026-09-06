@@ -150,6 +150,8 @@ interface EmployeesListClientProps {
   floorId?: string;
   lines?: { id: string; name: string }[];
   lineId?: string;
+  warehouses?: { id: string; name: string }[];
+  warehouseId?: string;
   allSkills?: string[];
   skill?: string;
   permissions?: {
@@ -180,6 +182,8 @@ export default function EmployeesListClient({
   floorId = "all",
   lines = [],
   lineId = "all",
+  warehouses = [],
+  warehouseId = "all",
   allSkills = [],
   skill = "all",
   permissions,
@@ -196,6 +200,7 @@ export default function EmployeesListClient({
     (designationId && designationId !== "all") ||
     (floorId && floorId !== "all") ||
     (lineId && lineId !== "all") ||
+    (warehouseId && warehouseId !== "all") ||
     (skill && skill !== "all")
   );
   const [deleteEmployeeId, setDeleteEmployeeId] = useState<string | null>(null);
@@ -564,6 +569,7 @@ export default function EmployeesListClient({
               employeeTypeId,
               gender,
               departmentId,
+              warehouseId,
             }}
           />
         </div>
@@ -626,6 +632,26 @@ export default function EmployeesListClient({
                 {departments.map((d) => (
                   <SelectItem key={d.id} value={d.id}>
                     {d.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Warehouse Filter */}
+          <div className="w-[180px]">
+            <Select
+              value={warehouseId}
+              onValueChange={(val) => handleFilterChange("warehouseId", val)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="All Warehouses" />
+              </SelectTrigger>
+              <SelectContent className="max-h-[250px]">
+                <SelectItem value="all">All Warehouses</SelectItem>
+                {warehouses.map((w) => (
+                  <SelectItem key={w.id} value={w.id}>
+                    {w.name}
                   </SelectItem>
                 ))}
               </SelectContent>

@@ -12,6 +12,7 @@ export async function getEmployeesForExport(filters: {
   employeeTypeId?: string;
   gender?: string;
   departmentId?: string;
+  warehouseId?: string;
 }) {
   try {
     const session = await auth();
@@ -58,6 +59,10 @@ export async function getEmployeesForExport(filters: {
 
     if (filters.departmentId && filters.departmentId !== "all") {
       where.departmentId = filters.departmentId;
+    }
+
+    if (filters.warehouseId && filters.warehouseId !== "all") {
+      where.warehouseId = filters.warehouseId;
     }
 
     const employees = await prisma.employee.findMany({

@@ -32,6 +32,7 @@ interface ExportButtonsProps {
     employeeTypeId?: string;
     gender?: string;
     departmentId?: string;
+    warehouseId?: string;
   };
 }
 
@@ -56,6 +57,7 @@ export default function ExportButtons({ filters }: ExportButtonsProps) {
       if (filters.employeeTypeId && filters.employeeTypeId !== "all") params.set("employeeTypeId", filters.employeeTypeId);
       if (filters.gender && filters.gender !== "all") params.set("gender", filters.gender);
       if (filters.departmentId && filters.departmentId !== "all") params.set("departmentId", filters.departmentId);
+      if (filters.warehouseId && filters.warehouseId !== "all") params.set("warehouseId", filters.warehouseId);
 
       const url = `/api/export/employees?${params.toString()}`;
 

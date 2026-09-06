@@ -5,6 +5,7 @@ import { getDepartments } from "./departments/_actions/department.action";
 import { getDesignations } from "./designations/_actions/designation.action";
 import { getFloors } from "./floors/_actions/floor.action";
 import { getLines } from "./lines/_actions/line.action";
+import { getWarehouses } from "../master/warehouses/_actions/warehouse.action";
 import { getAllEmployeeSkills } from "./_actions/employee.action";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -31,6 +32,7 @@ interface EmployeesPageProps {
     floorId?: string;
     lineId?: string;
     skill?: string;
+    warehouseId?: string;
     limit?: string;
   }>;
 }
@@ -49,6 +51,7 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
   const floorId = params.floorId || "all";
   const lineId = params.lineId || "all";
   const skill = params.skill || "all";
+  const warehouseId = params.warehouseId || "all";
 
   const session = await auth();
   const userId = session?.user?.id;
@@ -56,14 +59,15 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
   const status = tab === "trash" ? "trash" : (statusParam as any);
   
   // Check permissions and fetch data concurrently
-  const [result, statsResult, typesResult, departmentsResult, designationsResult, floorsResult, linesResult, allSkills, canView, canEdit, canCreate, canMoveToTrash, canDeletePermanently, canViewLedger] = await Promise.all([
-    getEmployees(page, limit, search, status, employeeTypeId, gender, departmentId, designationId, floorId, lineId, skill),
+  const [result, statsResult, typesResult, departmentsResult, designationsResult, floorsResult, linesResult, warehousesResult, allSkills, canView, canEdit, canCreate, canMoveToTrash, canDeletePermanently, canViewLedger] = await Promise.all([
+    getEmployees(page, limit, search, status, employeeTypeId, gender, departmentId, designationId, floorId, lineId, skill, warehouseId),
     getEmployeeStats(),
     getEmployeeTypes(1, 100, "", "active"),
     getDepartments(1, 100, "", "active"),
     getDesignations(1, 100, "", "active"),
     getFloors(1, 100, "", "active"),
     getLines(1, 100, "", "active"),
+    getWarehouses(1, 100),
     getAllEmployeeSkills(),
     userId ? hasPermission(userId, "peoples.employees", "view") : false,
     userId ? hasPermission(userId, "peoples.employees", "edit") : false,
@@ -94,6 +98,7 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
 
   const employeeTypes = typesResult.success && typesResult.employeeTypes ? (typesResult.employeeTypes as any[]) : [];
   const designations = designationsResult.success && designationsResult.designations ? (designationsResult.designations as any[]) : [];
+  const warehouses = warehousesResult.success && warehousesResult.warehouses ? (warehousesResult.warehouses as any[]) : [];
 
   return (
     <PageGuard permissionKey="peoples.employees">
@@ -202,6 +207,8 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
               floorId={floorId}
               lines={linesResult.success && linesResult.lines ? (linesResult.lines as any[]) : []}
               lineId={lineId}
+              warehouses={warehouses}
+              warehouseId={warehouseId}
               allSkills={allSkills || []}
               skill={skill}
               permissions={{
@@ -238,6 +245,8 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
               floorId={floorId}
               lines={linesResult.success && linesResult.lines ? (linesResult.lines as any[]) : []}
               lineId={lineId}
+              warehouses={warehouses}
+              warehouseId={warehouseId}
               allSkills={allSkills || []}
               skill={skill}
               permissions={{

@@ -24,7 +24,8 @@ export async function getEmployees(
   designationId?: string,
   floorId?: string,
   lineId?: string,
-  skill?: string
+  skill?: string,
+  warehouseId?: string
 ) {
   try {
     const session = await auth();
@@ -100,6 +101,9 @@ export async function getEmployees(
       where.skills = {
         array_contains: skill
       };
+    }
+    if (warehouseId && warehouseId !== "all") {
+      where.warehouseId = warehouseId;
     }
 
     // Get total count

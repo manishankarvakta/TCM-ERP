@@ -24,6 +24,7 @@ export async function GET(req: NextRequest) {
     const employeeTypeId = searchParams.get("employeeTypeId");
     const gender = searchParams.get("gender");
     const departmentId = searchParams.get("departmentId");
+    const warehouseId = searchParams.get("warehouseId");
 
     const where: any = {};
 
@@ -52,6 +53,10 @@ export async function GET(req: NextRequest) {
 
     if (departmentId && departmentId !== "all") {
       where.departmentId = departmentId;
+    }
+
+    if (warehouseId && warehouseId !== "all") {
+      where.warehouseId = warehouseId;
     }
 
     const employees = await prisma.employee.findMany({
