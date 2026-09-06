@@ -16,6 +16,7 @@ import SyncBiometricButton from "./_components/sync-biometric-button";
 import PageGuard from "@/components/permissions/page-guard";
 import { auth } from "@/lib/auth";
 import { hasPermission } from "@/lib/permissions";
+import { prisma } from "@/lib/prisma";
 
 import ExportButtons from "./_components/export-buttons";
 
