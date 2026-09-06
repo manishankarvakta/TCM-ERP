@@ -42,9 +42,9 @@ export function AppointmentLetterList() {
   const [pagination, setPagination] = useState<any>(null);
 
   // Filters & State
-  const [search, setSearch] = useState(searchParams.get("search") || "");
-  const [status, setStatus] = useState(searchParams.get("status") || "ALL");
-  const [page, setPage] = useState(Number(searchParams.get("page")) || 1);
+  const [search, setSearch] = useState(searchParams?.get("search") || "");
+  const [status, setStatus] = useState(searchParams?.get("status") || "ALL");
+  const [page, setPage] = useState(Number(searchParams?.get("page")) || 1);
 
   // Print modal state
   const [printLetterId, setPrintLetterId] = useState<string | null>(null);

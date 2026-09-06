@@ -7,7 +7,20 @@ export const metadata = {
   description: "Generate and manage employee appointment letters",
 };
 
-export default function AppointmentLettersPage() {
+interface AppointmentLettersPageProps {
+  searchParams?: Promise<{
+    page?: string;
+    search?: string;
+    status?: string;
+  }>;
+}
+
+export default async function AppointmentLettersPage({
+  searchParams,
+}: AppointmentLettersPageProps) {
+  const params = searchParams ? await searchParams : {};
+  const key = `${params.page || "1"}-${params.search || ""}-${params.status || "ALL"}`;
+
   return (
     <div className="p-6 space-y-6">
       {/* Page Header */}
@@ -26,7 +39,7 @@ export default function AppointmentLettersPage() {
       </div>
 
       {/* Main List & Actions */}
-      <Suspense fallback={<div className="p-8 text-center text-muted-foreground">Loading module...</div>}>
+      <Suspense key={key} fallback={<div className="p-8 text-center text-muted-foreground">Loading module...</div>}>
         <AppointmentLetterList />
       </Suspense>
     </div>
