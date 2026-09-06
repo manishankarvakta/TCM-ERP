@@ -105,6 +105,11 @@ interface AttendanceListClientProps {
     view: boolean;
     edit: boolean;
   };
+  userContext?: {
+    isNormalUser?: boolean;
+    userWarehouseId?: string | null;
+    userWarehouseName?: string | null;
+  };
   weekends?: number[];
 }
 
@@ -128,11 +133,14 @@ export default function AttendanceListClient({
   pagination,
   filters,
   permissions,
+  userContext,
   weekends = [0, 6],
 }: AttendanceListClientProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
+
+  const isNormalUserScoped = Boolean(userContext?.isNormalUser && userContext?.userWarehouseId);
 
   // Local state for filters to allow debouncing/explicit search triggers
   const [localFilters, setLocalFilters] = useState(filters);
@@ -316,7 +324,8 @@ export default function AttendanceListClient({
   };
 
   const pushFilters = useCallback((newFilters: Partial<typeof filters>) => {
-    const updated = { ...localFilters, ...newFilters, page: newFilters.page || 1 };
+    const forcedWarehouseId = isNormalUserScoped ? (userContext?.userWarehouseId || "") : (newFilters.warehouseId !== undefined ? newFilters.warehouseId : localFilters.warehouseId);
+    const updated = { ...localFilters, ...newFilters, warehouseId: forcedWarehouseId, page: newFilters.page || 1 };
     setLocalFilters(updated);
     
     const params = new URLSearchParams();
@@ -342,18 +351,24 @@ export default function AttendanceListClient({
     startTransition(() => {
       router.push(`/dashboard/hr/attendance?${params.toString()}`);
     });
-  }, [localFilters, router]);
+  }, [localFilters, router, isNormalUserScoped, userContext?.userWarehouseId]);
 
   const resetFilters = useCallback(() => {
     const todayStr = format(new Date(), "yyyy-MM-dd");
+    const defaultWh = isNormalUserScoped ? (userContext?.userWarehouseId || "") : "";
     setLocalFilters({ 
-      page: 1, limit: 20, search: "", warehouseId: "", deviceId: "", employeeId: "", status: "ALL", 
+      page: 1, limit: 20, search: "", warehouseId: defaultWh, deviceId: "", employeeId: "", status: "ALL", 
       fromDate: todayStr, toDate: todayStr, departmentId: "", designationId: "", floorId: "", lineId: "", skill: "" 
     });
+    const params = new URLSearchParams();
+    params.set("fromDate", todayStr);
+    params.set("toDate", todayStr);
+    params.set("limit", "20");
+    if (defaultWh) params.set("warehouseId", defaultWh);
     startTransition(() => {
-      router.push(`/dashboard/hr/attendance?fromDate=${todayStr}&toDate=${todayStr}&limit=20`);
+      router.push(`/dashboard/hr/attendance?${params.toString()}`);
     });
-  }, [router]);
+  }, [router, isNormalUserScoped, userContext?.userWarehouseId]);
 
 
   const handleProcessBulk = () => {
@@ -386,6 +401,16 @@ export default function AttendanceListClient({
       value: e.id
     }))
   ];
+
+  const warehouseOptions = isNormalUserScoped && userContext?.userWarehouseId
+    ? [{ 
+        value: userContext.userWarehouseId, 
+        label: userContext?.userWarehouseName || warehouses.find(w => w.id === userContext.userWarehouseId)?.name || "Default Warehouse" 
+      }]
+    : [
+        { value: "all", label: "All Warehouses" },
+        ...warehouses.map(w => ({ value: w.id, label: w.name }))
+      ];
 
   return (
     <div className="space-y-4">
@@ -429,13 +454,11 @@ export default function AttendanceListClient({
           <div className="space-y-1.5 flex-1 min-w-[200px]">
             <label className="text-xs font-semibold text-muted-foreground">Warehouse</label>
             <SearchableSelect 
-              value={localFilters.warehouseId || "all"} 
-              onValueChange={(val) => pushFilters({ warehouseId: val || "all" })}
+              value={isNormalUserScoped ? (userContext?.userWarehouseId || "") : (localFilters.warehouseId || "all")} 
+              onValueChange={(val) => !isNormalUserScoped && pushFilters({ warehouseId: val || "all" })}
               placeholder="All Warehouses"
-              options={[
-                { value: "all", label: "All Warehouses" },
-                ...warehouses.map(w => ({ value: w.id, label: w.name }))
-              ]}
+              disabled={isNormalUserScoped}
+              options={warehouseOptions}
             />
           </div>
 

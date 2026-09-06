@@ -9,6 +9,7 @@ import { hasPermission } from "@/lib/permissions";
 import BiometricSyncButton from "./_components/biometric-sync-button";
 import { getPayrollSettings } from "@/lib/payroll-settings";
 import { getTodayInTimezone } from "@/lib/timezone-utils";
+import { prisma } from "@/lib/prisma";
 
 interface AttendancePageProps {
   searchParams: Promise<{
@@ -53,13 +54,29 @@ export default async function AttendancePage({ searchParams }: AttendancePagePro
   const session = await auth();
   const userId = session?.user?.id;
 
+  const dbUser = userId
+    ? await prisma.user.findUnique({
+        where: { id: userId },
+        select: { 
+          role: true, 
+          defaultWarehouseId: true,
+          defaultWarehouse: { select: { id: true, name: true } },
+        },
+      })
+    : null;
+
+  const isNormalUser = dbUser?.role !== "admin" && dbUser?.role !== "superadmin";
+  const userWarehouseId = dbUser?.defaultWarehouseId || null;
+  const userWarehouseName = dbUser?.defaultWarehouse?.name || null;
+  const effectiveWarehouseId = (isNormalUser && userWarehouseId) ? userWarehouseId : (warehouseId || "");
+
   // Check permissions & settings
   const [result, canView, canEdit, payrollSettings] = await Promise.all([
     getAttendanceRecordsPaginated({
       page,
       limit,
       search,
-      warehouseId,
+      warehouseId: effectiveWarehouseId || undefined,
       deviceId,
       employeeId,
       fromDate,
@@ -135,7 +152,7 @@ export default async function AttendancePage({ searchParams }: AttendancePagePro
           page,
           limit,
           search,
-          warehouseId: warehouseId || "",
+          warehouseId: effectiveWarehouseId || "",
           deviceId: deviceId || "",
           employeeId: employeeId || "",
           fromDate,
@@ -150,6 +167,11 @@ export default async function AttendancePage({ searchParams }: AttendancePagePro
         permissions={{
           view: canView,
           edit: canEdit,
+        }}
+        userContext={{
+          isNormalUser: Boolean(isNormalUser),
+          userWarehouseId,
+          userWarehouseName,
         }}
         weekends={payrollSettings.calculation.weekends}
       />

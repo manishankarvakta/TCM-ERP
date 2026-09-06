@@ -40,6 +40,12 @@ export async function importDirectAttendanceAction(rows: DirectAttendanceImportR
       return { success: false, error: "Permission denied" };
     }
 
+    const dbUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true, defaultWarehouseId: true },
+    });
+    const isNormalUser = dbUser?.role !== "admin" && dbUser?.role !== "superadmin";
+
     if (!rows || !Array.isArray(rows) || rows.length === 0) {
       return { success: false, error: "No attendance rows provided for import" };
     }
@@ -94,6 +100,13 @@ export async function importDirectAttendanceAction(rows: DirectAttendanceImportR
       if (emp.status !== "active") {
         failedCount++;
         errors.push(`Row ${i + 1}: Employee "${emp.name}" (${rawCode}) is inactive or resigned.`);
+        continue;
+      }
+
+      // Default warehouse restriction for normal users
+      if (isNormalUser && dbUser?.defaultWarehouseId && emp.warehouseId !== dbUser.defaultWarehouseId) {
+        failedCount++;
+        errors.push(`Row ${i + 1}: Employee "${emp.name}" (${rawCode}) does not belong to your default warehouse.`);
         continue;
       }
 

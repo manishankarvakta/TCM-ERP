@@ -23,6 +23,7 @@ import { getEmployees } from "../../../employees/_actions/employee.action";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
+import { getCurrentUser } from "@/app/actions/user.action";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 
 const punchFormSchema = z.object({
@@ -51,9 +52,18 @@ export default function ManualPunchForm() {
 
   useEffect(() => {
     async function fetchEmployees() {
-      const res = await getEmployees(1, 1000, "", "active"); // Get active employees
+      const [res, currentUser] = await Promise.all([
+        getEmployees(1, 1000, "", "active"),
+        getCurrentUser()
+      ]);
       if (res.success && res.employees) {
-        setEmployees(res.employees);
+        const isNormalUser = currentUser?.role !== "admin" && currentUser?.role !== "superadmin";
+        if (isNormalUser && currentUser?.defaultWarehouseId) {
+          const filtered = res.employees.filter((e: any) => e.warehouseId === currentUser.defaultWarehouseId);
+          setEmployees(filtered);
+        } else {
+          setEmployees(res.employees);
+        }
       }
     }
     fetchEmployees();

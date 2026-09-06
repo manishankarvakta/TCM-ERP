@@ -83,6 +83,17 @@ export async function processManualAttendance(input: {
       return { success: false, error: "Cannot process attendance for inactive or resigned employee" };
     }
 
+    // Default warehouse restriction for normal users
+    const dbUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true, defaultWarehouseId: true }
+    });
+    const isNormalUser = dbUser?.role !== "admin" && dbUser?.role !== "superadmin";
+
+    if (isNormalUser && dbUser?.defaultWarehouseId && employee.warehouseId !== dbUser.defaultWarehouseId) {
+      return { success: false, error: "Cannot create or edit manual punch for an employee outside your default warehouse." };
+    }
+
     let checkInDate = input.checkIn ? new Date(input.checkIn) : null;
     let checkOutDate = input.checkOut ? new Date(input.checkOut) : null;
     let breakCheckOutDate = input.breakCheckOut ? new Date(input.breakCheckOut) : null;
@@ -356,7 +367,20 @@ export async function processBulkAttendance(
       status: "active"
     };
     
-    if (warehouseId && warehouseId !== "all") whereClause.warehouseId = warehouseId;
+    // Default warehouse restriction for normal users
+    const dbUser = (session?.user?.id && session.user.id !== "cli-user")
+      ? await prisma.user.findUnique({
+          where: { id: session.user.id },
+          select: { role: true, defaultWarehouseId: true }
+        })
+      : null;
+    const isNormalUser = dbUser?.role !== "admin" && dbUser?.role !== "superadmin";
+
+    if (isNormalUser && dbUser?.defaultWarehouseId) {
+      whereClause.warehouseId = dbUser.defaultWarehouseId;
+    } else if (warehouseId && warehouseId !== "all") {
+      whereClause.warehouseId = warehouseId;
+    }
     if (departmentId && departmentId !== "all") whereClause.departmentId = departmentId;
     if (designationId && designationId !== "all") whereClause.designationId = designationId;
     if (floorId && floorId !== "all") whereClause.floorId = floorId;
@@ -610,8 +634,18 @@ export async function getAttendanceRecordsPaginated({
       }
     }
 
+    const dbUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true, defaultWarehouseId: true }
+    });
+    const isNormalUser = dbUser?.role !== "admin" && dbUser?.role !== "superadmin";
+
     const employeeConditions: Prisma.EmployeeWhereInput = {};
-    if (warehouseId && warehouseId !== "all") employeeConditions.warehouseId = warehouseId;
+    if (isNormalUser && dbUser?.defaultWarehouseId) {
+      employeeConditions.warehouseId = dbUser.defaultWarehouseId;
+    } else if (warehouseId && warehouseId !== "all") {
+      employeeConditions.warehouseId = warehouseId;
+    }
     if (departmentId && departmentId !== "all") employeeConditions.departmentId = departmentId;
     if (designationId && designationId !== "all") employeeConditions.designationId = designationId;
     if (floorId && floorId !== "all") employeeConditions.floorId = floorId;
@@ -687,10 +721,21 @@ export async function closeShiftBulk(attendanceIds: string[]) {
       }
     });
 
+    const dbUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true, defaultWarehouseId: true }
+    });
+    const isNormalUser = dbUser?.role !== "admin" && dbUser?.role !== "superadmin";
+
     let successCount = 0;
     const errors: string[] = [];
 
     for (let att of attendances) {
+      if (isNormalUser && dbUser?.defaultWarehouseId && att.employee.warehouseId !== dbUser.defaultWarehouseId) {
+        errors.push(`Employee ${att.employee.name} belongs to another warehouse.`);
+        continue;
+      }
+
       if (att.isLocked) {
         errors.push(`Attendance for employee ${att.employee.name} on ${att.date.toISOString().split("T")[0]} is locked.`);
         continue;
