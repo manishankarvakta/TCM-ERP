@@ -61,8 +61,9 @@ export async function getEmployeesForExport(filters: {
       where.departmentId = filters.departmentId;
     }
 
-    if (filters.warehouseId && filters.warehouseId !== "all") {
-      where.warehouseId = filters.warehouseId;
+    const normalizedWarehouseId = (filters.warehouseId || "").trim();
+    if (normalizedWarehouseId && normalizedWarehouseId !== "all") {
+      where.warehouseId = normalizedWarehouseId;
     }
 
     const employees = await prisma.employee.findMany({

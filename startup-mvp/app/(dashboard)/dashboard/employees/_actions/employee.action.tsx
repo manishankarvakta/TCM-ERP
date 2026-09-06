@@ -110,10 +110,12 @@ export async function getEmployees(
       : null;
     const isNormalUser = dbUser?.role !== "admin" && dbUser?.role !== "superadmin";
 
-    if (isNormalUser && dbUser?.defaultWarehouseId) {
+    const normalizedWarehouseId = (warehouseId || "").trim();
+
+    if (normalizedWarehouseId && normalizedWarehouseId !== "all") {
+      where.warehouseId = normalizedWarehouseId;
+    } else if (isNormalUser && dbUser?.defaultWarehouseId) {
       where.warehouseId = dbUser.defaultWarehouseId;
-    } else if (warehouseId && warehouseId !== "all") {
-      where.warehouseId = warehouseId;
     }
 
     // Get total count

@@ -174,6 +174,47 @@ export async function getWarehouses(
 }
 
 /**
+ * Lightweight fetch of active warehouses for UI select dropdowns
+ */
+export async function getWarehousesForSelect() {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized", warehouses: [] };
+    }
+
+    const [canMasterView, canEmployeeView] = await Promise.all([
+      hasPermission(session.user.id, "master.warehouses", "view"),
+      hasPermission(session.user.id, "peoples.employees", "view"),
+    ]);
+
+    if (!canMasterView && !canEmployeeView) {
+      return { success: false, error: "Permission denied", warehouses: [] };
+    }
+
+    const warehouses = await prisma.warehouse.findMany({
+      where: {
+        isTrash: false,
+        status: "active",
+      },
+      select: {
+        id: true,
+        name: true,
+        code: true,
+      },
+      orderBy: {
+        name: "asc",
+      },
+    });
+
+    return { success: true, warehouses };
+  } catch (error) {
+    console.error("getWarehousesForSelect error:", error);
+    return { success: false, error: "Failed to load warehouses", warehouses: [] };
+  }
+}
+
+/**
  * Get warehouse by ID
  */
 export async function getWarehouseById(warehouseId: string) {

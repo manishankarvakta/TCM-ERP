@@ -5,7 +5,7 @@ import { getDepartments } from "./departments/_actions/department.action";
 import { getDesignations } from "./designations/_actions/designation.action";
 import { getFloors } from "./floors/_actions/floor.action";
 import { getLines } from "./lines/_actions/line.action";
-import { getWarehouses } from "../master/warehouses/_actions/warehouse.action";
+import { getWarehouses, getWarehousesForSelect } from "../master/warehouses/_actions/warehouse.action";
 import { getAllEmployeeSkills } from "./_actions/employee.action";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -71,7 +71,7 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
   const isNormalUser = dbUser?.role !== "admin" && dbUser?.role !== "superadmin";
   const userWarehouseId = dbUser?.defaultWarehouseId || null;
   const userWarehouseName = dbUser?.defaultWarehouse?.name || null;
-  const effectiveWarehouseId = (isNormalUser && userWarehouseId) ? userWarehouseId : (warehouseId || "all");
+  const effectiveWarehouseId = (warehouseId && warehouseId !== "all") ? warehouseId : ((isNormalUser && userWarehouseId) ? userWarehouseId : "all");
 
   const status = tab === "trash" ? "trash" : (statusParam as any);
   
@@ -84,7 +84,7 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
     getDesignations(1, 100, "", "active"),
     getFloors(1, 100, "", "active"),
     getLines(1, 100, "", "active"),
-    getWarehouses(1, 100),
+    getWarehousesForSelect(),
     getAllEmployeeSkills(),
     userId ? hasPermission(userId, "peoples.employees", "view") : false,
     userId ? hasPermission(userId, "peoples.employees", "edit") : false,
