@@ -496,12 +496,12 @@ export default function MarketingFunnelDetailView({ funnelId }: MarketingFunnelD
             <div className="space-y-3">
               <div>
                 <span className="text-muted-foreground text-[10px] uppercase font-semibold block">Value Proposition</span>
-                <p className="font-bold text-foreground text-sm mt-0.5">"The only ERP engineered specifically for Bangladesh Garment Factories."</p>
+                <p className="font-bold text-foreground text-sm mt-0.5">&ldquo;The only ERP engineered specifically for Bangladesh Garment Factories.&rdquo;</p>
               </div>
 
               <div>
                 <span className="text-muted-foreground text-[10px] uppercase font-semibold block">Core Campaign Message</span>
-                <p className="font-medium text-foreground mt-0.5">"Zero fabric wastage, 100% audit compliance & real-time export tracking."</p>
+                <p className="font-medium text-foreground mt-0.5">&ldquo;Zero fabric wastage, 100% audit compliance &amp; real-time export tracking.&rdquo;</p>
               </div>
 
               <div>
@@ -698,7 +698,7 @@ export default function MarketingFunnelDetailView({ funnelId }: MarketingFunnelD
 
               <div className="p-4 rounded-xl border border-border/40 bg-background/50 space-y-2">
                 <div className="font-bold text-foreground text-sm">Google Search PPC Campaign</div>
-                <p className="text-muted-foreground">High-intent keyword search for 'Garments ERP Software Bangladesh', 'RMG Payroll App'.</p>
+                <p className="text-muted-foreground">High-intent keyword search for &apos;Garments ERP Software Bangladesh&apos;, &apos;RMG Payroll App&apos;.</p>
                 <div className="font-mono text-emerald-500 font-semibold">Planned Budget: ৳1,00,000 | Target CPL: &lt;৳400</div>
               </div>
             </div>

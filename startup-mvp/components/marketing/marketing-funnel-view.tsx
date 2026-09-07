@@ -1,32 +1,38 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   FiFilter,
   FiPlus,
-  FiSearch,
-  FiRefreshCw,
   FiEye,
-  FiEdit,
   FiTrash2,
   FiDollarSign,
   FiTrendingUp,
-  FiUsers,
-  FiLayers,
   FiActivity,
   FiX,
-  FiChevronRight,
+  FiInbox,
 } from "react-icons/fi";
 import MarketingStatCard from "./shared/marketing-stat-card";
 import MarketingFilterBar from "./shared/marketing-filter-bar";
+import {
+  MarketingFunnelListItem,
+  deleteMarketingFunnelAction,
+} from "@/app/actions/crm/marketing-operations.action";
+import { toast } from "sonner";
 
-export default function MarketingFunnelView() {
+interface MarketingFunnelViewProps {
+  initialFunnels?: MarketingFunnelListItem[];
+}
+
+export default function MarketingFunnelView({
+  initialFunnels = [],
+}: MarketingFunnelViewProps) {
+  const router = useRouter();
+  const [funnelsList, setFunnelsList] = useState<MarketingFunnelListItem[]>(initialFunnels);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -36,59 +42,24 @@ export default function MarketingFunnelView() {
   const [newFunnelObjective, setNewFunnelObjective] = useState("");
   const [newTargetValue, setNewTargetValue] = useState("10000000");
 
+  useEffect(() => {
+    setFunnelsList(initialFunnels);
+  }, [initialFunnels]);
+
   const handleRefresh = () => {
     setIsRefreshing(true);
-    setTimeout(() => setIsRefreshing(false), 500);
+    router.refresh();
+    setTimeout(() => setIsRefreshing(false), 600);
   };
-
-  const initialFunnels = [
-    {
-      id: "FNL-01",
-      name: "Enterprise ERP Marketing Funnel 2026",
-      targetValue: "৳1,20,00,000",
-      actualRevenue: "৳48,00,000",
-      totalLeads: 1280,
-      sqls: 420,
-      wonDeals: 78,
-      conversionRate: "6.09%",
-      activeCampaigns: 5,
-      status: "ACTIVE",
-    },
-    {
-      id: "FNL-02",
-      name: "Fintech Banking SaaS Acquisition Funnel",
-      targetValue: "৳85,00,000",
-      actualRevenue: "৳32,00,000",
-      totalLeads: 850,
-      sqls: 310,
-      wonDeals: 42,
-      conversionRate: "4.94%",
-      activeCampaigns: 4,
-      status: "ACTIVE",
-    },
-    {
-      id: "FNL-03",
-      name: "Biometric Attendance & HR Suite Funnel",
-      targetValue: "৳50,00,000",
-      actualRevenue: "৳18,50,000",
-      totalLeads: 620,
-      sqls: 190,
-      wonDeals: 28,
-      conversionRate: "4.51%",
-      activeCampaigns: 3,
-      status: "PLANNED",
-    },
-  ];
-
-  const [funnelsList, setFunnelsList] = useState(initialFunnels);
 
   const handleCreateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newFunnelName) return;
-    const newF = {
-      id: `FNL-0${funnelsList.length + 1}`,
+    const newF: MarketingFunnelListItem = {
+      id: `FNL-${Date.now().toString().slice(-4)}`,
+      planId: `plan-${Date.now().toString().slice(-4)}`,
       name: newFunnelName,
-      targetValue: `৳${parseInt(newTargetValue || "0").toLocaleString()}`,
+      targetValue: `৳${parseInt(newTargetValue || "0", 10).toLocaleString()}`,
       actualRevenue: "৳0",
       totalLeads: 0,
       sqls: 0,
@@ -96,24 +67,60 @@ export default function MarketingFunnelView() {
       conversionRate: "0%",
       activeCampaigns: 0,
       status: "ACTIVE",
+      createdAt: new Date().toISOString(),
     };
-    setFunnelsList([newF, ...funnelsList]);
+    setFunnelsList((prev) => [newF, ...prev]);
     setNewFunnelName("");
     setNewFunnelObjective("");
     setShowCreateModal(false);
+    toast.success("Marketing Funnel draft added");
   };
 
-  const handleTrashFunnel = (id: string) => {
-    if (confirm("Move this Marketing Funnel to Trash?")) {
-      setFunnelsList(funnelsList.filter(f => f.id !== id));
+  const handleTrashFunnel = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this Marketing Funnel?")) return;
+    try {
+      const res = await deleteMarketingFunnelAction(id);
+      if (res.success) {
+        setFunnelsList((prev) => prev.filter((f) => f.id !== id && f.planId !== id));
+        toast.success("Marketing funnel removed successfully");
+        router.refresh();
+      } else {
+        toast.error(res.error || "Failed to delete marketing funnel");
+      }
+    } catch {
+      toast.error("An error occurred while deleting the funnel");
     }
   };
 
-  const filteredFunnels = funnelsList.filter(f => {
-    const matchesStatus = statusFilter === "all" || f.status.toLowerCase() === statusFilter.toLowerCase();
+  const filteredFunnels = funnelsList.filter((f) => {
+    const matchesStatus =
+      statusFilter === "all" ||
+      f.status.toLowerCase() === statusFilter.toLowerCase();
     const matchesSearch = f.name.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesStatus && matchesSearch;
   });
+
+  // Dynamic KPI calculations
+  const activeFunnelsCount = funnelsList.filter(
+    (f) => f.status.toUpperCase() === "ACTIVE"
+  ).length;
+
+  const totalTargetSum = funnelsList.reduce((acc, f) => {
+    const num = parseInt(f.targetValue.replace(/[^0-9]/g, ""), 10) || 0;
+    return acc + num;
+  }, 0);
+
+  const totalRevenueSum = funnelsList.reduce((acc, f) => {
+    const num = parseInt(f.actualRevenue.replace(/[^0-9]/g, ""), 10) || 0;
+    return acc + num;
+  }, 0);
+
+  const totalLeadsSum = funnelsList.reduce((acc, f) => acc + (f.totalLeads || 0), 0);
+  const totalWonDealsSum = funnelsList.reduce((acc, f) => acc + (f.wonDeals || 0), 0);
+  const avgConversionRate =
+    totalLeadsSum > 0
+      ? `${((totalWonDealsSum / totalLeadsSum) * 100).toFixed(2)}%`
+      : "0.00%";
 
   return (
     <div className="flex-1 space-y-6 max-w-[1600px] mx-auto text-foreground">
@@ -158,10 +165,38 @@ export default function MarketingFunnelView() {
 
       {/* 2. KPIS STRIP */}
       <div className="grid gap-3 grid-cols-2 sm:grid-cols-4 lg:grid-cols-4">
-        <MarketingStatCard title="Active Marketing Funnels" value="3" change="+1 New" changeType="positive" subtitle="End-to-End Pipelines" icon={FiFilter} />
-        <MarketingStatCard title="Total Funnel Target" value="৳2,55,00,000" change="+18.5%" changeType="positive" subtitle="Pipeline Goal" icon={FiDollarSign} />
-        <MarketingStatCard title="Attributed Revenue" value="৳98,50,000" change="+24.0%" changeType="positive" subtitle="Closed Deals" icon={FiTrendingUp} />
-        <MarketingStatCard title="Overall Funnel Conv. Rate" value="5.42%" change="+0.8%" changeType="positive" subtitle="Lead to Customer" icon={FiActivity} />
+        <MarketingStatCard
+          title="Active Marketing Funnels"
+          value={String(activeFunnelsCount)}
+          change={`${funnelsList.length} Total`}
+          changeType="positive"
+          subtitle="End-to-End Pipelines"
+          icon={FiFilter}
+        />
+        <MarketingStatCard
+          title="Total Funnel Target"
+          value={totalTargetSum > 0 ? `৳${totalTargetSum.toLocaleString()}` : "৳0"}
+          change={funnelsList.length > 0 ? "Configured" : "No Plan"}
+          changeType="positive"
+          subtitle="Pipeline Goal"
+          icon={FiDollarSign}
+        />
+        <MarketingStatCard
+          title="Attributed Revenue"
+          value={totalRevenueSum > 0 ? `৳${totalRevenueSum.toLocaleString()}` : "৳0"}
+          change="Real-time"
+          changeType="positive"
+          subtitle="Closed Deals"
+          icon={FiTrendingUp}
+        />
+        <MarketingStatCard
+          title="Overall Funnel Conv. Rate"
+          value={avgConversionRate}
+          change={`${totalWonDealsSum} Won`}
+          changeType="positive"
+          subtitle="Lead to Customer"
+          icon={FiActivity}
+        />
       </div>
 
       {/* 3. MARKETING FUNNEL LEDGER TABLE */}
@@ -179,57 +214,79 @@ export default function MarketingFunnelView() {
           <span className="text-xs font-mono text-muted-foreground">{filteredFunnels.length} Marketing Funnels</span>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-muted/40 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border/40">
-              <tr>
-                <th className="px-4 py-3">Marketing Funnel Name</th>
-                <th className="px-4 py-3">Target Pipeline Value</th>
-                <th className="px-4 py-3">Attributed Revenue</th>
-                <th className="px-4 py-3">Total Leads</th>
-                <th className="px-4 py-3">Won Deals</th>
-                <th className="px-4 py-3">Conversion Rate</th>
-                <th className="px-4 py-3">Campaigns Assigned</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3 text-center">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/30">
-              {filteredFunnels.map((fnl) => (
-                <tr key={fnl.id} className="hover:bg-accent/20 transition-colors">
-                  <td className="px-4 py-3.5 font-medium text-foreground">
-                    <div className="font-semibold text-foreground">{fnl.name}</div>
-                    <span className="text-[10px] font-mono text-muted-foreground">{fnl.id}</span>
-                  </td>
-                  <td className="px-4 py-3.5 font-mono text-foreground font-semibold">{fnl.targetValue}</td>
-                  <td className="px-4 py-3.5 font-mono font-bold text-emerald-500">{fnl.actualRevenue}</td>
-                  <td className="px-4 py-3.5 font-mono text-blue-500 font-semibold">{fnl.totalLeads}</td>
-                  <td className="px-4 py-3.5 font-mono text-emerald-600 font-bold">{fnl.wonDeals}</td>
-                  <td className="px-4 py-3.5 font-mono text-purple-500 font-bold">{fnl.conversionRate}</td>
-                  <td className="px-4 py-3.5 font-mono text-foreground">{fnl.activeCampaigns} Campaigns</td>
-                  <td className="px-4 py-3.5">
-                    <Badge variant="outline" className="text-[9px] px-2 py-0.2 uppercase font-bold text-emerald-500 border-emerald-500/30 bg-emerald-500/5">
-                      {fnl.status}
-                    </Badge>
-                  </td>
-                  <td className="px-4 py-3.5">
-                    <div className="flex items-center justify-center gap-1.5">
-                      <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] font-medium" asChild title="Open Funnel Pipeline">
-                        <Link href={`/dashboard/marketing/marketing-funnel/${fnl.id}`}>
-                          <FiEye className="mr-1 h-3 w-3 text-blue-500" />
-                          View
-                        </Link>
-                      </Button>
-                      <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] font-medium text-rose-500 border-rose-200 dark:border-rose-900/40 hover:bg-rose-500/10" onClick={() => handleTrashFunnel(fnl.id)} title="Move to Trash">
-                        <FiTrash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </td>
+        {filteredFunnels.length === 0 ? (
+          <div className="p-12 text-center flex flex-col items-center justify-center space-y-3">
+            <div className="p-3 rounded-full bg-muted/60 text-muted-foreground">
+              <FiInbox className="h-6 w-6" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-sm font-semibold text-foreground">No Marketing Funnels Found</h3>
+              <p className="text-xs text-muted-foreground max-w-sm">
+                {searchQuery || statusFilter !== "all"
+                  ? "No funnels match your search or filter criteria. Try resetting filters."
+                  : "You have not created any marketing funnels yet. Start building sequential funnel stages and campaigns."}
+              </p>
+            </div>
+            <Button size="sm" className="mt-2 text-xs font-semibold" asChild>
+              <Link href="/dashboard/marketing/marketing-funnel/create">
+                <FiPlus className="mr-1.5 h-3.5 w-3.5" />
+                Create Marketing Funnel
+              </Link>
+            </Button>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-muted/40 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border/40">
+                <tr>
+                  <th className="px-4 py-3">Marketing Funnel Name</th>
+                  <th className="px-4 py-3">Target Pipeline Value</th>
+                  <th className="px-4 py-3">Attributed Revenue</th>
+                  <th className="px-4 py-3">Total Leads</th>
+                  <th className="px-4 py-3">Won Deals</th>
+                  <th className="px-4 py-3">Conversion Rate</th>
+                  <th className="px-4 py-3">Campaigns Assigned</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3 text-center">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-border/30">
+                {filteredFunnels.map((fnl) => (
+                  <tr key={fnl.id} className="hover:bg-accent/20 transition-colors">
+                    <td className="px-4 py-3.5 font-medium text-foreground">
+                      <div className="font-semibold text-foreground">{fnl.name}</div>
+                      <span className="text-[10px] font-mono text-muted-foreground">{fnl.id}</span>
+                    </td>
+                    <td className="px-4 py-3.5 font-mono text-foreground font-semibold">{fnl.targetValue}</td>
+                    <td className="px-4 py-3.5 font-mono font-bold text-emerald-500">{fnl.actualRevenue}</td>
+                    <td className="px-4 py-3.5 font-mono text-blue-500 font-semibold">{fnl.totalLeads}</td>
+                    <td className="px-4 py-3.5 font-mono text-emerald-600 font-bold">{fnl.wonDeals}</td>
+                    <td className="px-4 py-3.5 font-mono text-purple-500 font-bold">{fnl.conversionRate}</td>
+                    <td className="px-4 py-3.5 font-mono text-foreground">{fnl.activeCampaigns} Campaigns</td>
+                    <td className="px-4 py-3.5">
+                      <Badge variant="outline" className="text-[9px] px-2 py-0.2 uppercase font-bold text-emerald-500 border-emerald-500/30 bg-emerald-500/5">
+                        {fnl.status}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <div className="flex items-center justify-center gap-1.5">
+                        <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] font-medium" asChild title="Open Funnel Pipeline">
+                          <Link href={`/dashboard/marketing/marketing-funnel/${fnl.id}`}>
+                            <FiEye className="mr-1 h-3 w-3 text-blue-500" />
+                            View
+                          </Link>
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] font-medium text-rose-500 border-rose-200 dark:border-rose-900/40 hover:bg-rose-500/10" onClick={() => handleTrashFunnel(fnl.id)} title="Move to Trash">
+                          <FiTrash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* CREATE MARKETING FUNNEL MODAL */}

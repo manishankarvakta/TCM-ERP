@@ -199,8 +199,9 @@ export default function CreateMarketingFunnelView({ initialUsers = [] }: CreateM
     { num: 5, title: "Review & Create" },
   ];
 
-  // Start Editing a Stage
+  // Start Editing a Stage (Inline Card Expansion)
   const handleEditStage = (stageToEdit: FunnelStageItem) => {
+    setIsStageFormOpen(false);
     setEditingStageId(stageToEdit.id);
     setStagePreset(stageToEdit.name);
     setStageName(stageToEdit.name);
@@ -209,7 +210,7 @@ export default function CreateMarketingFunnelView({ initialUsers = [] }: CreateM
     setStageKPI(stageToEdit.mainKPI || "");
     setStageKPITarget(stageToEdit.kpiTarget || "");
     setStageCampaigns(stageToEdit.selectedCampaigns || []);
-    setIsStageFormOpen(true);
+    setSelectedCampaignToAdd("");
   };
 
   // Reset Stage Form
@@ -343,6 +344,10 @@ export default function CreateMarketingFunnelView({ initialUsers = [] }: CreateM
         approvedBudget: totalApproved,
         startDate,
         endDate,
+        channels: selectedChannels,
+        contentPillars,
+        funnelOwner,
+        mainConversionGoal,
         isDraft,
         selectedStages: stages.map((s) => ({
           name: s.name,
@@ -895,8 +900,8 @@ export default function CreateMarketingFunnelView({ initialUsers = [] }: CreateM
               </div>
             </div>
 
-            {/* INLINE STAGE BUILDER / EDITOR FORM */}
-            {isStageFormOpen && (
+            {/* INLINE NEW STAGE BUILDER FORM (ONLY WHEN ADDING NEW STAGE) */}
+            {isStageFormOpen && !editingStageId && (
               <div className="rounded-2xl border border-primary/30 bg-card p-6 shadow-sm space-y-5">
                 <div className="flex items-center justify-between pb-3 border-b border-border/40">
                   <div className="flex items-center gap-2">
@@ -904,18 +909,16 @@ export default function CreateMarketingFunnelView({ initialUsers = [] }: CreateM
                       <FiLayers className="h-3.5 w-3.5" />
                     </span>
                     <span className="text-sm font-bold text-foreground">
-                      {editingStageId ? "Edit Funnel Stage" : "Configure New Funnel Stage"}
+                      Configure New Funnel Stage
                     </span>
                   </div>
-                  <Button
+                  <button
                     type="button"
-                    variant="ghost"
-                    size="sm"
                     onClick={handleResetStageForm}
-                    className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground"
+                    className="h-8 px-2.5 rounded-lg inline-flex items-center text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-accent/60 border border-border/50 transition-all"
                   >
                     <FiX className="h-3.5 w-3.5 mr-1" /> Close
-                  </Button>
+                  </button>
                 </div>
 
                 <div className="space-y-4">
@@ -928,7 +931,7 @@ export default function CreateMarketingFunnelView({ initialUsers = [] }: CreateM
                       <select
                         value={stagePreset}
                         onChange={(e) => handleSelectPreset(e.target.value)}
-                        className="w-full h-10 px-3.5 rounded-xl border border-border/80 bg-background text-foreground text-xs focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                        className="w-full h-10 px-3.5 rounded-xl border border-border/80 bg-background text-foreground text-xs focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
                       >
                         <option value="">-- Choose a standard funnel stage --</option>
                         {STAGE_PRESETS.map((p) => (
@@ -949,7 +952,7 @@ export default function CreateMarketingFunnelView({ initialUsers = [] }: CreateM
                         value={stageName}
                         onChange={(e) => setStageName(e.target.value)}
                         placeholder="e.g. Awareness, Consideration, Lead Gen"
-                        className="w-full h-10 px-3.5 rounded-xl border border-border/80 bg-background text-foreground text-xs focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                        className="w-full h-10 px-3.5 rounded-xl border border-border/80 bg-background text-foreground text-xs focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
                       />
                     </div>
                   </div>
@@ -964,7 +967,7 @@ export default function CreateMarketingFunnelView({ initialUsers = [] }: CreateM
                       value={stageObjective}
                       onChange={(e) => setStageObjective(e.target.value)}
                       placeholder="What is the key goal of this stage in the customer journey?"
-                      className="w-full p-3 rounded-xl border border-border/80 bg-background text-foreground text-xs focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all resize-none"
+                      className="w-full p-3 rounded-xl border border-border/80 bg-background text-foreground text-xs focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all resize-none leading-relaxed"
                     />
                   </div>
 
@@ -994,7 +997,7 @@ export default function CreateMarketingFunnelView({ initialUsers = [] }: CreateM
                             handleAddCampaignToStage(e.target.value);
                           }
                         }}
-                        className="w-full h-10 px-3.5 rounded-xl border border-border/80 bg-background text-foreground text-xs focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                        className="w-full h-10 px-3.5 rounded-xl border border-border/80 bg-background text-foreground text-xs focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
                       >
                         <option value="">+ Click to choose & assign campaign...</option>
                         {AVAILABLE_CAMPAIGNS.map((cmp) => (
@@ -1044,7 +1047,7 @@ export default function CreateMarketingFunnelView({ initialUsers = [] }: CreateM
                           value={stageBudget}
                           onChange={(e) => setStageBudget(e.target.value)}
                           placeholder="0"
-                          className="w-full h-10 pl-8 pr-3.5 rounded-xl border border-border/80 bg-background font-mono text-foreground text-xs focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                          className="w-full h-10 pl-8 pr-3.5 rounded-xl border border-border/80 bg-background font-mono text-foreground text-xs focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
                         />
                       </div>
                     </div>
@@ -1058,7 +1061,7 @@ export default function CreateMarketingFunnelView({ initialUsers = [] }: CreateM
                         value={stageKPI}
                         onChange={(e) => setStageKPI(e.target.value)}
                         placeholder="e.g. Reach, Leads, SQLs, MQLs"
-                        className="w-full h-10 px-3.5 rounded-xl border border-border/80 bg-background text-foreground text-xs focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                        className="w-full h-10 px-3.5 rounded-xl border border-border/80 bg-background text-foreground text-xs focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
                       />
                     </div>
 
@@ -1071,7 +1074,7 @@ export default function CreateMarketingFunnelView({ initialUsers = [] }: CreateM
                         value={stageKPITarget}
                         onChange={(e) => setStageKPITarget(e.target.value)}
                         placeholder="e.g. 50,000"
-                        className="w-full h-10 px-3.5 rounded-xl border border-border/80 bg-background text-foreground text-xs focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                        className="w-full h-10 px-3.5 rounded-xl border border-border/80 bg-background text-foreground text-xs focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
                       />
                     </div>
                   </div>
@@ -1094,14 +1097,14 @@ export default function CreateMarketingFunnelView({ initialUsers = [] }: CreateM
                       className="h-9 px-5 text-xs font-semibold shadow-xs"
                     >
                       <FiPlus className="mr-1.5 h-3.5 w-3.5" />
-                      {editingStageId ? "Update Stage in Funnel" : "Save Stage to Funnel"}
+                      Save Stage to Funnel
                     </Button>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* CONFIGURED STAGES PIPELINE (CARDS) */}
+            {/* CONFIGURED STAGES PIPELINE (CARDS WITH INLINE EXPANDABLE EDITING) */}
             <div className="space-y-4">
               <div className="flex items-center justify-between pb-1">
                 <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
@@ -1173,86 +1176,294 @@ export default function CreateMarketingFunnelView({ initialUsers = [] }: CreateM
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {stages.map((stg) => (
-                    <div
-                      key={stg.id}
-                      className={`rounded-2xl border p-5 shadow-2xs space-y-3 transition-all ${
-                        editingStageId === stg.id
-                          ? "border-primary bg-primary/5 ring-2 ring-primary/20"
-                          : "border-border/60 bg-card hover:border-border"
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-start gap-3">
-                          <span className="w-7 h-7 rounded-lg bg-primary/10 text-primary font-mono text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
-                            0{stg.position}
-                          </span>
-                          <div className="space-y-1">
-                            <h4 className="text-sm font-bold text-foreground">{stg.name}</h4>
-                            {stg.objective && (
-                              <p className="text-xs text-muted-foreground leading-relaxed">{stg.objective}</p>
+                  {stages.map((stg) => {
+                    const isEditing = editingStageId === stg.id;
+                    return (
+                      <div
+                        key={stg.id}
+                        className={`rounded-2xl border transition-all ${
+                          isEditing
+                            ? "border-primary/60 bg-card p-5 shadow-sm space-y-4 ring-2 ring-primary/20"
+                            : "border-border/60 bg-card p-5 shadow-2xs space-y-3 hover:border-border"
+                        }`}
+                      >
+                        {/* Top Card Header */}
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-start gap-3">
+                            <span className="w-7 h-7 rounded-lg bg-primary/10 text-primary font-mono text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
+                              0{stg.position}
+                            </span>
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <h4 className="text-sm font-bold text-foreground">{stg.name}</h4>
+                                {isEditing && (
+                                  <Badge
+                                    variant="outline"
+                                    className="text-[10px] font-semibold text-primary border-primary/30 bg-primary/5"
+                                  >
+                                    Editing Stage
+                                  </Badge>
+                                )}
+                              </div>
+                              {!isEditing && stg.objective && (
+                                <p className="text-xs text-muted-foreground leading-relaxed">{stg.objective}</p>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            {!isEditing && stg.plannedBudget > 0 && (
+                              <Badge
+                                variant="outline"
+                                className="text-xs font-mono text-amber-600 dark:text-amber-400 border-amber-500/30 font-bold"
+                              >
+                                ৳{stg.plannedBudget.toLocaleString()}
+                              </Badge>
+                            )}
+                            {!isEditing ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => handleEditStage(stg)}
+                                  className="h-8 w-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-primary/10 border border-border/50 hover:border-primary/30 transition-all shadow-2xs"
+                                  title="Edit Stage"
+                                >
+                                  <FiEdit2 className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteStage(stg.id)}
+                                  className="h-8 w-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 border border-border/50 hover:border-rose-500/30 transition-all shadow-2xs"
+                                  title="Delete Stage"
+                                >
+                                  <FiTrash2 className="h-3.5 w-3.5" />
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={handleResetStageForm}
+                                className="h-7 px-2.5 rounded-lg inline-flex items-center text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-accent/60 border border-border/50 transition-all"
+                              >
+                                <FiX className="h-3.5 w-3.5 mr-1" /> Close
+                              </button>
                             )}
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-2 shrink-0">
-                          {stg.plannedBudget > 0 && (
-                            <Badge
-                              variant="outline"
-                              className="text-xs font-mono text-amber-600 dark:text-amber-400 border-amber-500/30 font-bold"
-                            >
-                              ৳{stg.plannedBudget.toLocaleString()}
-                            </Badge>
-                          )}
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleEditStage(stg)}
-                            className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
-                            title="Edit Stage"
-                          >
-                            <FiEdit2 className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDeleteStage(stg.id)}
-                            className="h-8 w-8 p-0 text-muted-foreground hover:text-rose-500"
-                            title="Delete Stage"
-                          >
-                            <FiTrash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </div>
+                        {/* Non-editing View: Summary KPI & Campaign tags */}
+                        {!isEditing && (
+                          <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-border/40 text-xs">
+                            {stg.mainKPI ? (
+                              <span className="text-[11px] text-muted-foreground font-semibold">
+                                Target KPI: <span className="text-foreground">{stg.mainKPI}</span> {stg.kpiTarget ? `(${stg.kpiTarget})` : ""}
+                              </span>
+                            ) : (
+                              <span />
+                            )}
 
-                      {/* LINKED CAMPAIGNS & KPI TAGS */}
-                      <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-border/40 text-xs">
-                        {stg.mainKPI ? (
-                          <span className="text-[11px] text-muted-foreground font-semibold">
-                            Target KPI: <span className="text-foreground">{stg.mainKPI}</span> {stg.kpiTarget ? `(${stg.kpiTarget})` : ""}
-                          </span>
-                        ) : (
-                          <span />
+                            {stg.selectedCampaigns && stg.selectedCampaigns.length > 0 && (
+                              <div className="flex flex-wrap gap-1.5 ml-auto">
+                                {stg.selectedCampaigns.map((cmp) => (
+                                  <Badge
+                                    key={cmp}
+                                    variant="secondary"
+                                    className="text-[10px] font-medium bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20"
+                                  >
+                                    {cmp}
+                                  </Badge>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         )}
 
-                        {stg.selectedCampaigns && stg.selectedCampaigns.length > 0 && (
-                          <div className="flex flex-wrap gap-1.5 ml-auto">
-                            {stg.selectedCampaigns.map((cmp) => (
-                              <Badge
-                                key={cmp}
-                                variant="secondary"
-                                className="text-[10px] font-medium bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20"
+                        {/* Inline Expandable Edit View (Opens downwards directly inside this card) */}
+                        {isEditing && (
+                          <div className="space-y-4 pt-3 border-t border-border/40 animate-in fade-in-50 duration-200">
+                            {/* Row 1: Template & Name */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div>
+                                <label className="block text-xs font-semibold text-foreground/90 mb-1.5">
+                                  Standard Funnel Stage (Select from Template)
+                                </label>
+                                <select
+                                  value={stagePreset}
+                                  onChange={(e) => handleSelectPreset(e.target.value)}
+                                  className="w-full h-10 px-3.5 rounded-xl border border-border/80 bg-background text-foreground text-xs focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
+                                >
+                                  <option value="">-- Choose a standard funnel stage --</option>
+                                  {STAGE_PRESETS.map((p) => (
+                                    <option key={p.name} value={p.name}>
+                                      {p.label}
+                                    </option>
+                                  ))}
+                                  <option value="Custom Stage">Custom Stage</option>
+                                </select>
+                              </div>
+
+                              <div>
+                                <label className="block text-xs font-semibold text-foreground/90 mb-1.5">
+                                  Stage Name <span className="text-rose-500">*</span>
+                                </label>
+                                <input
+                                  type="text"
+                                  value={stageName}
+                                  onChange={(e) => setStageName(e.target.value)}
+                                  placeholder="e.g. Awareness, Consideration, Lead Gen"
+                                  className="w-full h-10 px-3.5 rounded-xl border border-border/80 bg-background text-foreground text-xs focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
+                                />
+                              </div>
+                            </div>
+
+                            {/* Row 2: Strategic Objective */}
+                            <div>
+                              <label className="block text-xs font-semibold text-foreground/90 mb-1.5">
+                                Stage Strategic Objective
+                              </label>
+                              <textarea
+                                rows={2}
+                                value={stageObjective}
+                                onChange={(e) => setStageObjective(e.target.value)}
+                                placeholder="What is the key goal of this stage in the customer journey?"
+                                className="w-full p-3 rounded-xl border border-border/80 bg-background text-foreground text-xs focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all resize-none leading-relaxed"
+                              />
+                            </div>
+
+                            {/* Row 3: Linked Marketing Campaigns */}
+                            <div className="p-4 rounded-xl border border-border/60 bg-muted/20 space-y-3">
+                              <div className="flex items-center justify-between">
+                                <label className="block text-xs font-bold text-foreground">
+                                  Linked Marketing Campaigns ({stageCampaigns.length} assigned)
+                                </label>
+                                {stageCampaigns.length > 0 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setStageCampaigns([])}
+                                    className="text-[11px] text-muted-foreground hover:text-rose-500 transition-colors"
+                                  >
+                                    Clear all
+                                  </button>
+                                )}
+                              </div>
+
+                              {/* Dropdown to pick standard campaign */}
+                              <div>
+                                <select
+                                  value={selectedCampaignToAdd}
+                                  onChange={(e) => {
+                                    if (e.target.value) {
+                                      handleAddCampaignToStage(e.target.value);
+                                    }
+                                  }}
+                                  className="w-full h-10 px-3.5 rounded-xl border border-border/80 bg-background text-foreground text-xs focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
+                                >
+                                  <option value="">+ Click to choose & assign campaign...</option>
+                                  {AVAILABLE_CAMPAIGNS.map((cmp) => (
+                                    <option key={cmp} value={cmp} disabled={stageCampaigns.includes(cmp)}>
+                                      {cmp} {stageCampaigns.includes(cmp) ? "(Added)" : ""}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              {/* Selected Campaign Tags */}
+                              {stageCampaigns.length > 0 ? (
+                                <div className="flex flex-wrap gap-1.5 pt-1">
+                                  {stageCampaigns.map((cmp) => (
+                                    <span
+                                      key={cmp}
+                                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20"
+                                    >
+                                      <span>{cmp}</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleRemoveCampaignFromStage(cmp)}
+                                        className="hover:text-rose-500 transition-colors"
+                                      >
+                                        <FiX className="h-3 w-3" />
+                                      </button>
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="text-[11px] text-muted-foreground italic">
+                                  No campaigns linked yet. Choose from the dropdown above to add campaigns to this stage.
+                                </p>
+                              )}
+                            </div>
+
+                            {/* Row 4: Budget & KPI Metrics */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                              <div>
+                                <label className="block text-xs font-semibold text-foreground/90 mb-1.5">
+                                  Planned Stage Budget (৳)
+                                </label>
+                                <div className="relative">
+                                  <span className="absolute left-3.5 top-2.5 text-xs font-bold text-muted-foreground">৳</span>
+                                  <input
+                                    type="number"
+                                    value={stageBudget}
+                                    onChange={(e) => setStageBudget(e.target.value)}
+                                    placeholder="0"
+                                    className="w-full h-10 pl-8 pr-3.5 rounded-xl border border-border/80 bg-background font-mono text-foreground text-xs focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
+                                  />
+                                </div>
+                              </div>
+
+                              <div>
+                                <label className="block text-xs font-semibold text-foreground/90 mb-1.5">
+                                  Main KPI Metric Name
+                                </label>
+                                <input
+                                  type="text"
+                                  value={stageKPI}
+                                  onChange={(e) => setStageKPI(e.target.value)}
+                                  placeholder="e.g. Reach, Leads, SQLs, MQLs"
+                                  className="w-full h-10 px-3.5 rounded-xl border border-border/80 bg-background text-foreground text-xs focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-xs font-semibold text-foreground/90 mb-1.5">
+                                  Target Quantity / Benchmark
+                                </label>
+                                <input
+                                  type="text"
+                                  value={stageKPITarget}
+                                  onChange={(e) => setStageKPITarget(e.target.value)}
+                                  placeholder="e.g. 50,000"
+                                  className="w-full h-10 px-3.5 rounded-xl border border-border/80 bg-background text-foreground text-xs focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
+                                />
+                              </div>
+                            </div>
+
+                            {/* Action Bar inside Card */}
+                            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-border/40">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={handleResetStageForm}
+                                className="h-9 px-4 text-xs font-semibold"
                               >
-                                {cmp}
-                              </Badge>
-                            ))}
+                                Cancel
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={handleSaveStage}
+                                className="h-9 px-5 text-xs font-semibold shadow-xs"
+                              >
+                                <FiCheckCircle className="mr-1.5 h-3.5 w-3.5" />
+                                Update Stage
+                              </Button>
+                            </div>
                           </div>
                         )}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

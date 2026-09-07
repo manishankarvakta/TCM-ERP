@@ -54,6 +54,7 @@ export const MENU_TEMPLATE: MenuItemData[] = [
         icon: "FiLayers",
         module: "marketing",
         children: [
+          { href: "/dashboard/marketing/campaigns", label: "All Campaigns", icon: "FiLayers", module: "marketing" },
           { href: "/dashboard/marketing/paid-ads", label: "Ads Campaigns", icon: "FiDollarSign", module: "marketing" },
           { href: "/dashboard/marketing/sms-campaign", label: "SMS Campaigns", icon: "FiMessageSquare", module: "marketing" },
           { href: "/dashboard/marketing/wa-campaign", label: "WA Campaign", icon: "FiMessageSquare", module: "marketing" },
