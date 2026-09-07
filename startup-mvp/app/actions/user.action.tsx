@@ -1092,6 +1092,55 @@ export async function deleteUsersPermanently(userIds: string[]) {
 }
 
 /**
+ * Get all assignable users in the current organization
+ */
+export async function getAssignableUsers() {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized", users: [] };
+    }
+
+    const where: Prisma.UserWhereInput = {
+      status: { not: "trash" },
+    };
+
+    if (session.user.organizationId) {
+      where.organizationId = session.user.organizationId as string;
+    }
+
+    const users = await prisma.user.findMany({
+      where,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        image: true,
+        role: true,
+      },
+      orderBy: {
+        name: "asc",
+      },
+    });
+
+    return {
+      success: true,
+      users: users.map((u) => ({
+        id: u.id,
+        name: u.name || u.email || "Unnamed User",
+        email: u.email || "",
+        image: u.image || null,
+        role: u.role || "member",
+      })),
+    };
+  } catch (error) {
+    console.error("getAssignableUsers error:", error);
+    return { success: false, error: "Failed to fetch assignable users", users: [] };
+  }
+}
+
+/**
  * Export getUserLogs from user-log for convenience
  */
 export { getUserLogs };
+

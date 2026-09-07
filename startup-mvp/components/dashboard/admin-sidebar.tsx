@@ -27,7 +27,6 @@ import {
   FiArrowDownRight,
   FiArrowUpRight,
   FiFile,
-  FiBriefcase,
   FiTruck,
 } from "react-icons/fi";
 import Logo from "@/components/layout/logo";
@@ -107,49 +106,78 @@ const bottomMenuItems = [
   { href: "/admin/settings", label: "Settings", icon: FiSettings },
 ];
 
+// Helper to determine if a route is active (exact match or nested child match without matching siblings)
+function isRouteActive(pathname: string | null, href?: string, siblingHrefs?: string[]): boolean {
+  if (!pathname || !href) return false;
+  if (pathname === href) return true;
+
+  // Root paths (/dashboard, /admin) should only match exact path to avoid matching all sub-routes
+  if (href === "/dashboard" || href === "/admin") {
+    return false;
+  }
+
+  // Check if pathname starts with href + "/"
+  if (pathname.startsWith(href + "/")) {
+    if (siblingHrefs && siblingHrefs.length > 0) {
+      // If there's another sibling that is a longer and more specific match, prefer that sibling
+      const hasMoreSpecificSibling = siblingHrefs.some(
+        (sibling) =>
+          sibling !== href &&
+          sibling.length > href.length &&
+          (pathname === sibling || pathname.startsWith(sibling + "/"))
+      );
+      if (hasMoreSpecificSibling) return false;
+    }
+    return true;
+  }
+  return false;
+}
+
+// Helper to find which menu should be expanded for a given pathname (returns null for /dashboard and /admin)
+function findActiveMenu(pathname: string | null): string | null {
+  if (!pathname || pathname === "/dashboard" || pathname === "/admin") {
+    return null;
+  }
+  for (const item of menuItems) {
+    if (item.subMenu) {
+      const siblingHrefs = item.subMenu.map((s) => s.href);
+      const hasActiveChild = item.subMenu.some((subItem) =>
+        isRouteActive(pathname, subItem.href, siblingHrefs)
+      );
+      if (hasActiveChild) return item.label;
+    }
+  }
+  return null;
+}
+
 export default function AdminSidebar() {
   const pathname = usePathname();
-  const [expandedMenus, setExpandedMenus] = useState<Set<string>>(() => {
-    // Auto-expand menus if current path matches any sub-menu
-    const expanded = new Set<string>();
-    menuItems.forEach((item) => {
-      if (item.subMenu) {
-        const hasActiveChild = item.subMenu.some((subItem) => {
-          // Exact match or pathname starts with subItem.href followed by / or end of string
-          if (pathname === subItem.href) return true;
-          if (pathname?.startsWith(subItem.href)) {
-            const nextChar = pathname[subItem.href.length];
-            return nextChar === '/' || nextChar === undefined;
-          }
-          return false;
-        });
-        if (hasActiveChild) {
-          expanded.add(item.label);
-        }
-      }
-    });
-    return expanded;
+  const activeMenuFromRoute = findActiveMenu(pathname);
+
+  const [toggledMenu, setToggledMenu] = useState<{ path: string | null; label: string | null }>({
+    path: pathname,
+    label: null,
   });
 
+  const openMenuLabel = toggledMenu.path === pathname ? toggledMenu.label : activeMenuFromRoute;
+
   const toggleMenu = (label: string) => {
-    setExpandedMenus((prev) => {
-      const next = new Set(prev);
-      if (next.has(label)) {
-        next.delete(label);
-      } else {
-        next.add(label);
-      }
-      return next;
+    setToggledMenu((prev) => {
+      const current = prev.path === pathname ? prev.label : activeMenuFromRoute;
+      return {
+        path: pathname,
+        label: current === label ? null : label,
+      };
     });
   };
 
-  const isMenuExpanded = (label: string) => expandedMenus.has(label);
+  const isMenuExpanded = (label: string) => openMenuLabel === label;
 
   const isSubMenuActive = (subMenu: SubMenuItem[]) => {
-    return subMenu.some((subItem) => {
-      // Exact match only - this ensures parent highlights when child is active
-      return pathname === subItem.href;
-    });
+    const siblingHrefs = subMenu.map((s) => s.href);
+    return subMenu.some((subItem) =>
+      isRouteActive(pathname, subItem.href, siblingHrefs)
+    );
   };
 
   return (
@@ -165,6 +193,7 @@ export default function AdminSidebar() {
             if (item.subMenu) {
               const isExpanded = isMenuExpanded(item.label);
               const hasActiveChild = isSubMenuActive(item.subMenu);
+              const siblingHrefs = item.subMenu.map((s) => s.href);
               
               return (
                 <div key={item.label}>
@@ -191,9 +220,7 @@ export default function AdminSidebar() {
                     <div className="ml-4 mt-1 space-y-1 border-l pl-4">
                       {item.subMenu.map((subItem) => {
                         const SubIcon = subItem.icon;
-                        // Only exact match for sub-menu items to avoid false positives
-                        // e.g., /dashboard/items should not be active when on /dashboard/items/units
-                        const isActive = pathname === subItem.href;
+                        const isActive = isRouteActive(pathname, subItem.href, siblingHrefs);
                         return (
                           <Link
                             key={subItem.href}

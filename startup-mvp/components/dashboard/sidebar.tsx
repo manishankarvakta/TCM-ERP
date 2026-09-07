@@ -146,6 +146,61 @@ interface DashboardSidebarProps {
   bottomMenuItems: MenuItemData[];
 }
 
+// Helper to determine if a route is active (exact match or nested child match without matching siblings)
+function isRouteActive(pathname: string | null, href?: string, siblingHrefs?: string[]): boolean {
+  if (!pathname || !href) return false;
+  if (pathname === href) return true;
+
+  // Root paths (/dashboard, /admin) should only match exact path to avoid matching all sub-routes
+  if (href === "/dashboard" || href === "/admin") {
+    return false;
+  }
+
+  // Check if pathname starts with href + "/"
+  if (pathname.startsWith(href + "/")) {
+    if (siblingHrefs && siblingHrefs.length > 0) {
+      // If there's another sibling that is a longer and more specific match, prefer that sibling
+      const hasMoreSpecificSibling = siblingHrefs.some(
+        (sibling) =>
+          sibling !== href &&
+          sibling.length > href.length &&
+          (pathname === sibling || pathname.startsWith(sibling + "/"))
+      );
+      if (hasMoreSpecificSibling) return false;
+    }
+    return true;
+  }
+  return false;
+}
+
+// Helper to find which menu should be expanded for a given pathname (returns null for /dashboard and /admin)
+function findActiveMenu(pathname: string | null, menuItems: MenuItemData[]): string | null {
+  if (!pathname || pathname === "/dashboard" || pathname === "/admin") {
+    return null;
+  }
+  for (const item of menuItems) {
+    if (item.subMenu) {
+      const siblingHrefs = item.subMenu.map((s) => s.href);
+      const hasActiveChild = item.subMenu.some((subItem) => {
+        if (isRouteActive(pathname, subItem.href, siblingHrefs)) return true;
+        if (subItem.children && subItem.children.length > 0) {
+          return subItem.children.some((child) => isRouteActive(pathname, child.href));
+        }
+        return false;
+      });
+      if (hasActiveChild) return item.label;
+    }
+    if (item.subMenuGroups) {
+      const allHrefs = item.subMenuGroups.flatMap((g) => g.items.map((i) => i.href));
+      const hasActiveChild = item.subMenuGroups.some((group) =>
+        group.items.some((subItem) => isRouteActive(pathname, subItem.href, allHrefs))
+      );
+      if (hasActiveChild) return item.label;
+    }
+  }
+  return null;
+}
+
 export default function DashboardSidebar({
   menuItems,
   bottomMenuItems,
@@ -154,41 +209,14 @@ export default function DashboardSidebar({
   const dispatch = useAppDispatch();
   const isSidebarOpen = useAppSelector((state) => state.ui.isSidebarOpen);
 
-  // Auto-expand menus if current path matches any sub-menu
-  const [expandedMenus, setExpandedMenus] = useState<Set<string>>(() => {
-    const expanded = new Set<string>();
-    menuItems.forEach((item) => {
-      if (item.subMenu) {
-        const hasActiveChild = item.subMenu.some((subItem) => {
-          if (pathname === subItem.href) return true;
-          if (pathname?.startsWith(subItem.href)) {
-            const nextChar = pathname[subItem.href.length];
-            return nextChar === '/' || nextChar === undefined;
-          }
-          return false;
-        });
-        if (hasActiveChild) {
-          expanded.add(item.label);
-        }
-      }
-      if (item.subMenuGroups) {
-        const hasActiveChild = item.subMenuGroups.some((group) =>
-          group.items.some((subItem) => {
-            if (pathname === subItem.href) return true;
-            if (pathname?.startsWith(subItem.href)) {
-              const nextChar = pathname[subItem.href.length];
-              return nextChar === '/' || nextChar === undefined;
-            }
-            return false;
-          })
-        );
-        if (hasActiveChild) {
-          expanded.add(item.label);
-        }
-      }
-    });
-    return expanded;
+  const activeMenuFromRoute = findActiveMenu(pathname, menuItems);
+
+  const [toggledMenu, setToggledMenu] = useState<{ path: string | null; label: string | null }>({
+    path: pathname,
+    label: null,
   });
+
+  const openMenuLabel = toggledMenu.path === pathname ? toggledMenu.label : activeMenuFromRoute;
 
   const [expandedSubItems, setExpandedSubItems] = useState<Set<string>>(() => {
     const expanded = new Set<string>();
@@ -196,8 +224,8 @@ export default function DashboardSidebar({
       if (item.subMenu) {
         item.subMenu.forEach((subItem) => {
           if (subItem.children) {
-            const hasActiveChild = subItem.children.some(
-              (child) => pathname === child.href
+            const hasActiveChild = subItem.children.some((child) =>
+              isRouteActive(pathname, child.href)
             );
             if (hasActiveChild) {
               expanded.add(subItem.label);
@@ -210,30 +238,32 @@ export default function DashboardSidebar({
   });
 
   const toggleMenu = (label: string) => {
-    setExpandedMenus((prev) => {
-      const next = new Set(prev);
-      if (next.has(label)) {
-        next.delete(label);
-      } else {
-        next.add(label);
-      }
-      return next;
+    setToggledMenu((prev) => {
+      const current = prev.path === pathname ? prev.label : activeMenuFromRoute;
+      return {
+        path: pathname,
+        label: current === label ? null : label,
+      };
     });
   };
 
-  const isMenuExpanded = (label: string) => expandedMenus.has(label);
+  const isMenuExpanded = (label: string) => openMenuLabel === label;
 
   const isSubMenuActive = (subMenu: SubMenuItemData[]) => {
+    const siblingHrefs = subMenu.map((s) => s.href);
     return subMenu.some((subItem) => {
-      return pathname === subItem.href;
+      if (isRouteActive(pathname, subItem.href, siblingHrefs)) return true;
+      if (subItem.children && subItem.children.length > 0) {
+        return subItem.children.some((child) => isRouteActive(pathname, child.href));
+      }
+      return false;
     });
   };
 
   const isSubMenuGroupsActive = (subMenuGroups: SubMenuGroup[]) => {
+    const allHrefs = subMenuGroups.flatMap((g) => g.items.map((i) => i.href));
     return subMenuGroups.some((group) =>
-      group.items.some((subItem) => {
-        return pathname === subItem.href;
-      })
+      group.items.some((subItem) => isRouteActive(pathname, subItem.href, allHrefs))
     );
   };
 
@@ -305,100 +335,103 @@ export default function DashboardSidebar({
                 </button>
                 {isExpanded && (
                   <div className="ml-4 mt-1 space-y-1 border-l pl-3">
-                    {item.subMenu.map((subItem) => {
-                      const SubIcon = ICON_MAP[subItem.icon] || FiFile;
+                    {(() => {
+                      const siblingHrefs = item.subMenu.map((s) => s.href);
+                      return item.subMenu.map((subItem) => {
+                        const SubIcon = ICON_MAP[subItem.icon] || FiFile;
 
-                      if (subItem.children && subItem.children.length > 0) {
-                        const isChildActive = subItem.children.some(
-                          (child) => pathname === child.href
-                        );
-                        const isSubExpanded =
-                          expandedSubItems.has(subItem.label) || isChildActive;
+                        if (subItem.children && subItem.children.length > 0) {
+                          const isChildActive = subItem.children.some(
+                            (child) => isRouteActive(pathname, child.href)
+                          );
+                          const isSubExpanded =
+                            expandedSubItems.has(subItem.label) || isChildActive;
 
+                          return (
+                            <div key={subItem.label} className="space-y-1">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setExpandedSubItems((prev) => {
+                                    const next = new Set(prev);
+                                    if (next.has(subItem.label)) {
+                                      next.delete(subItem.label);
+                                    } else {
+                                      next.add(subItem.label);
+                                    }
+                                    return next;
+                                  });
+                                }}
+                                className={cn(
+                                  "flex w-full items-center justify-between gap-3 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+                                  isChildActive || isRouteActive(pathname, subItem.href, siblingHrefs)
+                                    ? "bg-accent/70 text-accent-foreground font-semibold"
+                                    : "text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground"
+                                )}
+                              >
+                                <div className="flex items-center gap-2.5">
+                                  <SubIcon className="h-4 w-4" />
+                                  <span>{subItem.label}</span>
+                                </div>
+                                {isSubExpanded ? (
+                                  <FiChevronDown className="h-3.5 w-3.5" />
+                                ) : (
+                                  <FiChevronRight className="h-3.5 w-3.5" />
+                                )}
+                              </button>
+
+                              {isSubExpanded && (
+                                <div className="ml-3 space-y-1 border-l pl-3">
+                                  {subItem.children.map((child) => {
+                                    const ChildIcon =
+                                      ICON_MAP[child.icon] || FiFile;
+                                    const isActiveChild = isRouteActive(pathname, child.href);
+
+                                    return (
+                                      <Link
+                                        key={child.href}
+                                        href={child.href}
+                                        className={cn(
+                                          "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors",
+                                          isActiveChild
+                                            ? "bg-accent text-accent-foreground font-semibold"
+                                            : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                                        )}
+                                        onClick={() =>
+                                          dispatch(setSidebarOpen(false))
+                                        }
+                                      >
+                                        <ChildIcon className="h-3.5 w-3.5" />
+                                        <span>{child.label}</span>
+                                      </Link>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        }
+
+                        // Standard single link item
+                        const isActive = isRouteActive(pathname, subItem.href, siblingHrefs);
                         return (
-                          <div key={subItem.label} className="space-y-1">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setExpandedSubItems((prev) => {
-                                  const next = new Set(prev);
-                                  if (next.has(subItem.label)) {
-                                    next.delete(subItem.label);
-                                  } else {
-                                    next.add(subItem.label);
-                                  }
-                                  return next;
-                                });
-                              }}
-                              className={cn(
-                                "flex w-full items-center justify-between gap-3 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-                                isChildActive || pathname === subItem.href
-                                  ? "bg-accent/70 text-accent-foreground font-semibold"
-                                  : "text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground"
-                              )}
-                            >
-                              <div className="flex items-center gap-2.5">
-                                <SubIcon className="h-4 w-4" />
-                                <span>{subItem.label}</span>
-                              </div>
-                              {isSubExpanded ? (
-                                <FiChevronDown className="h-3.5 w-3.5" />
-                              ) : (
-                                <FiChevronRight className="h-3.5 w-3.5" />
-                              )}
-                            </button>
-
-                            {isSubExpanded && (
-                              <div className="ml-3 space-y-1 border-l pl-3">
-                                {subItem.children.map((child) => {
-                                  const ChildIcon =
-                                    ICON_MAP[child.icon] || FiFile;
-                                  const isActiveChild = pathname === child.href;
-
-                                  return (
-                                    <Link
-                                      key={child.href}
-                                      href={child.href}
-                                      className={cn(
-                                        "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors",
-                                        isActiveChild
-                                          ? "bg-accent text-accent-foreground font-semibold"
-                                          : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                                      )}
-                                      onClick={() =>
-                                        dispatch(setSidebarOpen(false))
-                                      }
-                                    >
-                                      <ChildIcon className="h-3.5 w-3.5" />
-                                      <span>{child.label}</span>
-                                    </Link>
-                                  );
-                                })}
-                              </div>
+                          <Link
+                            key={subItem.href}
+                            href={subItem.href}
+                            className={cn(
+                              "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                              isActive
+                                ? "bg-accent text-accent-foreground"
+                                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                             )}
-                          </div>
+                            onClick={() => dispatch(setSidebarOpen(false))}
+                          >
+                            <SubIcon className="h-4 w-4" />
+                            <span>{subItem.label}</span>
+                          </Link>
                         );
-                      }
-
-                      // Standard single link item
-                      const isActive = pathname === subItem.href;
-                      return (
-                        <Link
-                          key={subItem.href}
-                          href={subItem.href}
-                          className={cn(
-                            "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                            isActive
-                              ? "bg-accent text-accent-foreground"
-                              : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                          )}
-                          onClick={() => dispatch(setSidebarOpen(false))}
-                        >
-                          <SubIcon className="h-4 w-4" />
-                          <span>{subItem.label}</span>
-                        </Link>
-                      );
-                    })}
+                      });
+                    })()}
                   </div>
                 )}
               </div>
@@ -408,6 +441,7 @@ export default function DashboardSidebar({
           if (item.subMenuGroups) {
             const isExpanded = isMenuExpanded(item.label);
             const hasActiveChild = isSubMenuGroupsActive(item.subMenuGroups);
+            const allGroupHrefs = item.subMenuGroups.flatMap((g) => g.items.map((i) => i.href));
             
             return (
               <div key={item.label}>
@@ -439,7 +473,7 @@ export default function DashboardSidebar({
                         </div>
                         {group.items.map((subItem) => {
                           const SubIcon = ICON_MAP[subItem.icon] || FiFile;
-                          const isActive = pathname === subItem.href;
+                          const isActive = isRouteActive(pathname, subItem.href, allGroupHrefs);
                           return (
                             <Link
                               key={subItem.href}

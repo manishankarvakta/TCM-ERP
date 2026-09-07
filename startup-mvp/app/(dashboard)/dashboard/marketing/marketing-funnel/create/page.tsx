@@ -1,6 +1,10 @@
 import React from "react";
 import CreateMarketingFunnelView from "@/components/marketing/create-marketing-funnel-view";
+import { getAssignableUsers } from "@/app/actions/user.action";
 
-export default function CreateMarketingFunnelPage() {
-  return <CreateMarketingFunnelView />;
+export default async function CreateMarketingFunnelPage() {
+  const usersRes = await getAssignableUsers();
+  const users = usersRes.success && usersRes.users ? usersRes.users : [];
+  return <CreateMarketingFunnelView initialUsers={users} />;
 }
+
