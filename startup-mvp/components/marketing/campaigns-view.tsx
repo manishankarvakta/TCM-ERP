@@ -128,6 +128,9 @@ export default function CampaignsView({
   const [searchQuery, setSearchQuery] = useState("");
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  const [deletingCampaign, setDeletingCampaign] = useState<{ id: string; name: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   useEffect(() => {
     setCampaignsList(initialCampaigns);
   }, [initialCampaigns]);
@@ -138,19 +141,23 @@ export default function CampaignsView({
     setTimeout(() => setIsRefreshing(false), 600);
   };
 
-  const handleTrashCampaign = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this marketing campaign?")) return;
+  const confirmDelete = async () => {
+    if (!deletingCampaign) return;
+    setIsDeleting(true);
     try {
-      const res = await deleteMarketingCampaignAction(id);
+      const res = await deleteMarketingCampaignAction(deletingCampaign.id);
       if (res.success) {
-        setCampaignsList((prev) => prev.filter((c) => c.id !== id));
-        toast.success("Campaign deleted successfully");
+        setCampaignsList((prev) => prev.filter((c) => c.id !== deletingCampaign.id));
+        toast.success(`Campaign "${deletingCampaign.name}" deleted successfully`);
+        setDeletingCampaign(null);
         router.refresh();
       } else {
         toast.error(res.error || "Failed to delete campaign");
       }
     } catch {
       toast.error("An error occurred while deleting the campaign");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -542,7 +549,7 @@ export default function CampaignsView({
                             size="sm"
                             variant="outline"
                             className="h-7 px-2 text-[11px] font-medium text-rose-500 border-rose-200 dark:border-rose-900/40 hover:bg-rose-500/10"
-                            onClick={() => handleTrashCampaign(c.id)}
+                            onClick={() => setDeletingCampaign({ id: c.id, name: c.name })}
                             title="Delete Campaign"
                           >
                             <FiTrash2 className="h-3 w-3" />
@@ -673,7 +680,7 @@ export default function CampaignsView({
                       size="sm"
                       variant="outline"
                       className="h-7 px-2 text-[11px] font-medium text-rose-500 border-rose-200 dark:border-rose-900/40 hover:bg-rose-500/10"
-                      onClick={() => handleTrashCampaign(c.id)}
+                      onClick={() => setDeletingCampaign({ id: c.id, name: c.name })}
                       title="Delete Campaign"
                     >
                       <FiTrash2 className="h-3 w-3" />
@@ -683,6 +690,47 @@ export default function CampaignsView({
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* DELETE CONFIRMATION MODAL */}
+      {deletingCampaign && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-in fade-in-50">
+          <div className="bg-card border border-border/60 rounded-2xl w-full max-w-md shadow-xl overflow-hidden p-5 space-y-4 animate-in zoom-in-95">
+            <div className="flex items-start gap-3.5">
+              <div className="p-2.5 rounded-xl bg-rose-500/10 text-rose-500 border border-rose-500/20 shrink-0">
+                <FiTrash2 className="h-5 w-5" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="font-bold text-sm text-foreground">Delete Marketing Campaign?</h3>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Are you sure you want to delete <strong className="text-foreground font-semibold">&ldquo;{deletingCampaign.name}&rdquo;</strong>? This campaign will be moved to trash and removed from your active ledger.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-border/40">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs font-semibold"
+                disabled={isDeleting}
+                onClick={() => setDeletingCampaign(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                className="h-8 px-4 bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold"
+                disabled={isDeleting}
+                onClick={confirmDelete}
+              >
+                {isDeleting ? "Deleting..." : "Confirm & Delete"}
+              </Button>
+            </div>
+          </div>
         </div>
       )}
     </div>

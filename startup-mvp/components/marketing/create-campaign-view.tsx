@@ -35,26 +35,98 @@ import {
   FiUsers,
   FiMapPin,
   FiFileText,
+  FiPlus,
+  FiExternalLink,
+  FiImage,
+  FiLink,
+  FiGlobe,
+  FiVideo,
+  FiTag,
+  FiGift,
+  FiPlay,
 } from "react-icons/fi";
+import MediaSelector from "@/components/MediaSelector";
 import {
   createChannelSpecificCampaignAction,
   quickCreateMarketingCampaignAction,
+  getMarketingFunnelsAction,
+  MarketingFunnelListItem,
 } from "@/app/actions/crm/marketing-operations.action";
 import { toast } from "sonner";
 import { MarketingCampaignType } from "@prisma/client";
 
 type ChannelTab = "funnel" | "ads" | "sms" | "wa" | "email" | "physical";
 
-export default function CreateCampaignView() {
+const CTA_OPTIONS = [
+  "Book a VIP Demo",
+  "Claim 25% Discount",
+  "Get Instant Quote",
+  "Download Brochure",
+  "Talk to an Expert",
+  "Sign Up Free",
+  "Contact Sales Team",
+  "Schedule Consultation",
+  "Learn More",
+];
+
+const CREATIVE_FORMAT_OPTIONS = [
+  { value: "SINGLE_IMAGE_BANNER", label: "Single Image Banner / Graphic (1200x630)", badge: "🖼️ Image Banner" },
+  { value: "CAROUSEL_GRAPHIC", label: "Multi-Slide Carousel (1:1 / 1080x1080)", badge: "📑 Carousel" },
+  { value: "VIDEO_REEL", label: "Short-Form Video / Reel (9:16 vertical)", badge: "📱 Video Reel" },
+  { value: "EXPLAINER_VIDEO", label: "Product Demo / Explainer Video (16:9)", badge: "🎬 Explainer Video" },
+  { value: "INFOGRAPHIC_FLYER", label: "Infographic / Digital Flyer", badge: "📊 Infographic" },
+  { value: "PDF_BROCHURE", label: "PDF Brochure / Case Study Whitepaper", badge: "📄 PDF Brochure" },
+  { value: "SOCIAL_POST", label: "Organic Social Media Post / Article", badge: "💬 Social Post" },
+];
+
+const AUDIENCE_SUGGESTIONS = [
+  "B2B C-Suite & Decision Makers",
+  "SMEs & Business Owners",
+  "Tech Startups & Founders",
+  "Corporate Enterprise Leads",
+  "Retail Consumers",
+];
+
+const OFFER_HOOK_SUGGESTIONS = [
+  "Flat 25% Off + Free Setup",
+  "Free 14-Day Enterprise Trial",
+  "Zero Setup Fee This Month",
+  "Free Product Audit Included",
+];
+
+interface CreateCampaignViewProps {
+  initialFunnels?: MarketingFunnelListItem[];
+}
+
+export default function CreateCampaignView({ initialFunnels = [] }: CreateCampaignViewProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialChannel = (searchParams?.get("channel") as ChannelTab) || "funnel";
   const prefilledStage = searchParams?.get("stageId") || searchParams?.get("stageName") || "Awareness";
+  const prefilledFunnelId = searchParams?.get("funnelId") || searchParams?.get("planId") || "none";
 
   const [activeTab, setActiveTab] = useState<ChannelTab>(
     ["funnel", "ads", "sms", "wa", "email", "physical"].includes(initialChannel) ? initialChannel : "funnel"
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Marketing Funnels list from /dashboard/marketing/marketing-funnel
+  const [funnelsList, setFunnelsList] = useState<MarketingFunnelListItem[]>(initialFunnels);
+  const [selectedFunnelPlanId, setSelectedFunnelPlanId] = useState<string>(prefilledFunnelId);
+
+  React.useEffect(() => {
+    if (initialFunnels.length === 0) {
+      getMarketingFunnelsAction().then((res) => {
+        if (res.success && res.funnels) {
+          setFunnelsList(res.funnels);
+        }
+      });
+    }
+  }, [initialFunnels]);
+
+  const selectedFunnel = funnelsList.find(
+    (f) => f.planId === selectedFunnelPlanId || f.id === selectedFunnelPlanId
+  );
 
   // 1. STRATEGIC FUNNEL FORM STATE
   const [selectedStages, setSelectedStages] = useState([
@@ -72,6 +144,16 @@ export default function CreateCampaignView() {
     primaryStage: prefilledStage,
     channel: "",
     objective: "",
+    mediaUrl: "",
+    headline: "",
+    bodyCopy: "",
+    creativeFormat: "SINGLE_IMAGE_BANNER",
+    offerHook: "",
+    targetAudience: "",
+    utmTag: "",
+    videoUrl: "",
+    ctaLabel: "Book a VIP Demo",
+    destinationUrl: "",
     startDate: "",
     endDate: "",
     budget: "",
@@ -102,6 +184,10 @@ export default function CreateCampaignView() {
     name: "",
     platform: "Google Ads (Search & GDN)",
     objective: "",
+    mediaUrl: "",
+    headline: "",
+    ctaLabel: "Book a VIP Demo",
+    destinationUrl: "",
     targetAudience: "",
     budget: "",
     spend: "",
@@ -129,12 +215,14 @@ export default function CreateCampaignView() {
     senderMask: "",
     audience: "Enterprise Leads & Prospects",
     message: "",
+    destinationUrl: "",
     recipients: "",
     budget: "",
     status: "LAUNCHED",
     startDate: "",
   });
-  const smsCharCount = smsForm.message.length;
+  const smsFullText = smsForm.destinationUrl ? `${smsForm.message}\n${smsForm.destinationUrl}` : smsForm.message;
+  const smsCharCount = smsFullText.length;
   const smsParts = Math.ceil(smsCharCount / 160) || 1;
   const smsRecipientsNum = Number(smsForm.recipients) || 0;
   const smsBudgetNum = Number(smsForm.budget) || 0;
@@ -174,6 +262,9 @@ export default function CreateCampaignView() {
     audience: "Enterprise Leads",
     leadNamePlaceholder: "",
     companyPlaceholder: "",
+    mediaUrl: "",
+    ctaLabel: "Book VIP Demo",
+    destinationUrl: "",
     message: "",
     budget: "",
     status: "Active",
@@ -190,6 +281,9 @@ export default function CreateCampaignView() {
     fromName: "",
     fromEmail: "",
     preheader: "",
+    mediaUrl: "",
+    ctaLabel: "View Live Demo",
+    destinationUrl: "",
     audience: "Enterprise Leads (1,450)",
     body: "",
     budget: "",
@@ -203,6 +297,9 @@ export default function CreateCampaignView() {
     venueType: "Event / Exhibition",
     location: "",
     vendorContractor: "",
+    mediaUrl: "",
+    bannerDimensions: "20ft x 10ft",
+    qrCodeUrl: "",
     objective: "",
     budget: "",
     spend: "",
@@ -228,12 +325,31 @@ export default function CreateCampaignView() {
         name: funnelForm.name,
         campaignType: funnelForm.campaignType,
         channel: funnelForm.channel,
-        stage: funnelForm.primaryStage,
+        stage: funnelForm.primaryStage || selectedStages[0] || "Lead Generation",
         budget: Number(funnelForm.budget) || 0,
-        objective: funnelForm.objective,
+        objective: funnelForm.objective || (selectedFunnel ? `Campaign for Funnel: ${selectedFunnel.name}` : undefined),
         startDate: funnelForm.startDate,
         endDate: funnelForm.endDate,
         status: "ACTIVE",
+        marketingPlanId: selectedFunnel && selectedFunnel.planId !== "none" ? selectedFunnel.planId : undefined,
+        mediaUrl: funnelForm.mediaUrl,
+        headline: funnelForm.headline,
+        bodyCopy: funnelForm.bodyCopy,
+        creativeFormat: funnelForm.creativeFormat,
+        offerHook: funnelForm.offerHook,
+        targetAudience: funnelForm.targetAudience,
+        utmTag: funnelForm.utmTag,
+        videoUrl: funnelForm.videoUrl,
+        ctaLabel: funnelForm.ctaLabel,
+        destinationUrl: funnelForm.destinationUrl,
+        stages: selectedStages.map((stgName, idx) => ({
+          name: stgName,
+          position: idx + 1,
+          plannedBudget:
+            Number(funnelForm.budget) > 0 && selectedStages.length > 0
+              ? Number(funnelForm.budget) / selectedStages.length
+              : 0,
+        })),
       });
       if (res.success) {
         toast.success(`Strategic Campaign "${funnelForm.name}" created!`);
@@ -267,6 +383,10 @@ export default function CreateCampaignView() {
         status: adsForm.status,
         startDate: adsForm.startDate,
         endDate: adsForm.endDate,
+        mediaUrl: adsForm.mediaUrl,
+        headline: adsForm.headline,
+        ctaLabel: adsForm.ctaLabel,
+        destinationUrl: adsForm.destinationUrl,
       });
       if (res.success) {
         toast.success(`Paid ad campaign "${adsForm.name}" created successfully!`);
@@ -287,14 +407,16 @@ export default function CreateCampaignView() {
     if (!smsForm.message.trim()) return toast.error("Please enter the SMS message body");
     setIsSubmitting(true);
     try {
+      const fullMsg = smsForm.destinationUrl ? `${smsForm.message}\n${smsForm.destinationUrl}` : smsForm.message;
       const res = await createChannelSpecificCampaignAction({
         category: "SMS",
         name: smsForm.name,
         channel: `SMS (${smsForm.senderGateway})`,
-        message: smsForm.message,
+        message: fullMsg,
         budget: Number(smsForm.budget) || 0,
         status: smsForm.status,
         startDate: smsForm.startDate,
+        destinationUrl: smsForm.destinationUrl,
       });
       if (res.success) {
         toast.success(`SMS Broadcast "${smsForm.name}" scheduled & saved!`);
@@ -323,6 +445,9 @@ export default function CreateCampaignView() {
         budget: Number(waForm.budget) || 0,
         status: waForm.status,
         startDate: waForm.startDate,
+        mediaUrl: waForm.mediaUrl,
+        ctaLabel: waForm.ctaLabel,
+        destinationUrl: waForm.destinationUrl,
       });
       if (res.success) {
         toast.success(`WhatsApp Broadcast "${waForm.name}" launched successfully!`);
@@ -351,6 +476,9 @@ export default function CreateCampaignView() {
         budget: Number(emailForm.budget) || 0,
         status: emailForm.status,
         startDate: emailForm.startDate,
+        mediaUrl: emailForm.mediaUrl,
+        ctaLabel: emailForm.ctaLabel,
+        destinationUrl: emailForm.destinationUrl,
       });
       if (res.success) {
         toast.success(`Email Broadcast "${emailForm.subject}" scheduled & saved!`);
@@ -383,6 +511,9 @@ export default function CreateCampaignView() {
         status: physicalForm.status,
         startDate: physicalForm.startDate,
         endDate: physicalForm.endDate,
+        mediaUrl: physicalForm.mediaUrl,
+        bannerDimensions: physicalForm.bannerDimensions,
+        qrCodeUrl: physicalForm.qrCodeUrl,
       });
       if (res.success) {
         toast.success(`Physical Campaign "${physicalForm.name}" created successfully!`);
@@ -544,39 +675,409 @@ export default function CreateCampaignView() {
 
           <Card className="border-border/50 bg-card/60 shadow-xs">
             <CardHeader className="pb-4 border-b border-border/40">
-              <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                <FiZap className="h-4 w-4 text-amber-500" />
-                2. Campaign Funnel Stages Setup
-              </CardTitle>
-              <CardDescription className="text-xs">
-                Sequential stage provisioning and customer journey mapping
-              </CardDescription>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <div>
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    <FiZap className="h-4 w-4 text-amber-500" />
+                    2. Link Target Marketing Funnel
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Connect this campaign directly to a strategic Marketing Funnel from your Funnel Ledger.
+                  </CardDescription>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  asChild
+                  className="h-7 text-xs font-semibold text-purple-600 dark:text-purple-400 border-purple-500/30 hover:bg-purple-500/10 gap-1"
+                >
+                  <Link href="/dashboard/marketing/marketing-funnel/create" target="_blank">
+                    <FiPlus className="h-3 w-3" />
+                    + Create New Funnel
+                  </Link>
+                </Button>
+              </div>
             </CardHeader>
             <CardContent className="pt-4 space-y-4 text-xs">
-              <div className="space-y-3">
+              {/* Funnel Selection Dropdown */}
+              <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold text-foreground">Enabled Funnel Stages ({selectedStages.length}):</span>
-                  <span className="text-[11px] text-muted-foreground">Click to toggle stages</span>
+                  <Label className="text-xs font-semibold">
+                    Select Target Marketing Funnel *
+                  </Label>
+                  <Link
+                    href="/dashboard/marketing/marketing-funnel"
+                    target="_blank"
+                    className="text-[11px] text-purple-600 dark:text-purple-400 hover:underline flex items-center gap-1 font-medium"
+                  >
+                    View Funnel Ledger <FiExternalLink className="h-2.5 w-2.5" />
+                  </Link>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  {availableDefaultStages.map((stg) => {
-                    const isSelected = selectedStages.includes(stg);
-                    return (
-                      <button
-                        key={stg}
-                        type="button"
-                        onClick={() => handleToggleStage(stg)}
-                        className={`px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all cursor-pointer ${
-                          isSelected
-                            ? "border-purple-500/40 bg-purple-500/10 text-purple-500"
-                            : "border-border/60 bg-background text-muted-foreground hover:text-foreground"
-                        }`}
+                <Select
+                  value={selectedFunnelPlanId}
+                  onValueChange={(val) => {
+                    setSelectedFunnelPlanId(val);
+                    const found = funnelsList.find((f) => f.planId === val || f.id === val);
+                    if (found && found.stages && found.stages.length > 0) {
+                      setSelectedStages(found.stages.map((s) => s.name));
+                      if (found.stages[0]?.name) {
+                        setFunnelForm((prev) => ({ ...prev, primaryStage: found.stages![0].name }));
+                      }
+                    } else if (val === "none") {
+                      setSelectedStages([
+                        "Awareness",
+                        "Acknowledgment",
+                        "Engagement",
+                        "Lead Generation",
+                        "Lead Nurturing",
+                        "Sales Conversion",
+                        "Retention / Remarketing",
+                      ]);
+                    }
+                  }}
+                >
+                  <SelectTrigger className="h-9.5 text-xs bg-background">
+                    <SelectValue placeholder="Choose a Marketing Funnel to link..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">
+                      <div className="flex items-center gap-2 py-0.5">
+                        <span className="font-semibold text-muted-foreground">⚙️ Standalone / Custom Funnel (No Parent Link)</span>
+                      </div>
+                    </SelectItem>
+                    {funnelsList.map((f) => (
+                      <SelectItem key={f.planId || f.id} value={f.planId || f.id}>
+                        <div className="flex items-center gap-2 py-0.5">
+                          <span className="font-bold text-foreground">{f.name}</span>
+                          <span className="text-[10px] text-muted-foreground">
+                            ({f.targetValue || "৳0 Target"} • {f.status} • {f.stages?.length || 0} Stages)
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* If a Funnel is selected, show info card */}
+              {selectedFunnel && (
+                <div className="p-3.5 rounded-xl border border-purple-500/30 bg-purple-500/5 space-y-2 text-xs">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30 font-semibold"
                       >
-                        {isSelected ? "✓ " : "+ "}
-                        {stg}
-                      </button>
-                    );
-                  })}
+                        Linked Funnel: {selectedFunnel.name}
+                      </Badge>
+                      <span className="text-muted-foreground text-[11px]">
+                        Status: <strong className="text-foreground">{selectedFunnel.status}</strong>
+                      </span>
+                    </div>
+                    <span className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400 font-bold">
+                      Target Revenue: {selectedFunnel.targetValue}
+                    </span>
+                  </div>
+                  {selectedFunnel.objective && (
+                    <p className="text-[11px] text-muted-foreground">
+                      <strong>Objective:</strong> {selectedFunnel.objective}
+                    </p>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="border-border/50 bg-card/60 shadow-xs">
+            <CardHeader className="pb-4 border-b border-border/40">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <div>
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    <FiImage className="h-4 w-4 text-purple-500" />
+                    3. Creative & Content Studio (Visuals, Copy & Live Ad Simulator)
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Configure high-converting creative formats, ad copy, value propositions, and live real-time simulation
+                  </CardDescription>
+                </div>
+                <Badge variant="outline" className="text-[10px] font-semibold bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30 w-fit">
+                  Live Ad Simulator Active
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-5 space-y-6 text-xs">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                {/* LEFT COLUMN: CREATIVE CONFIGURATION (7 Cols) */}
+                <div className="lg:col-span-7 space-y-4">
+                  {/* Row 1: Format & Headline */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold flex items-center gap-1.5">
+                        <FiLayers className="h-3.5 w-3.5 text-purple-500" /> Creative Asset Format
+                      </Label>
+                      <Select
+                        value={funnelForm.creativeFormat}
+                        onValueChange={(val) => setFunnelForm({ ...funnelForm, creativeFormat: val })}
+                      >
+                        <SelectTrigger className="h-9 text-xs bg-background">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {CREATIVE_FORMAT_OPTIONS.map((fmt) => (
+                            <SelectItem key={fmt.value} value={fmt.value}>
+                              <span className="flex items-center gap-2 text-xs">
+                                <span>{fmt.badge}</span>
+                              </span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold">Catchy Headline / Punchline *</Label>
+                      <Input
+                        placeholder="e.g. Next-Gen ERP for High-Growth Enterprises"
+                        value={funnelForm.headline}
+                        onChange={(e) => setFunnelForm({ ...funnelForm, headline: e.target.value })}
+                        className="h-9 text-xs"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Row 2: Value Proposition & Offer Hook */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold flex items-center gap-1.5">
+                      <FiGift className="h-3.5 w-3.5 text-amber-500" /> Key Value Proposition / Special Offer Hook
+                    </Label>
+                    <Input
+                      placeholder="e.g. Flat 25% Off + Free Implementation & Migration"
+                      value={funnelForm.offerHook}
+                      onChange={(e) => setFunnelForm({ ...funnelForm, offerHook: e.target.value })}
+                      className="h-9 text-xs"
+                    />
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      <span className="text-[10px] text-muted-foreground self-center">Suggestions:</span>
+                      {OFFER_HOOK_SUGGESTIONS.map((sug) => (
+                        <button
+                          key={sug}
+                          type="button"
+                          onClick={() => setFunnelForm({ ...funnelForm, offerHook: sug })}
+                          className="text-[10px] px-2 py-0.5 rounded-full border border-border/60 bg-muted/30 hover:bg-amber-500/10 hover:border-amber-500/40 hover:text-amber-600 transition-colors cursor-pointer"
+                        >
+                          + {sug}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Row 3: Target Audience Persona */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold flex items-center gap-1.5">
+                      <FiUsers className="h-3.5 w-3.5 text-blue-500" /> Target Audience Persona / Market Segment
+                    </Label>
+                    <Input
+                      placeholder="e.g. B2B C-Suite Decision Makers & Founders"
+                      value={funnelForm.targetAudience}
+                      onChange={(e) => setFunnelForm({ ...funnelForm, targetAudience: e.target.value })}
+                      className="h-9 text-xs"
+                    />
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      <span className="text-[10px] text-muted-foreground self-center">Quick Select:</span>
+                      {AUDIENCE_SUGGESTIONS.map((aud) => (
+                        <button
+                          key={aud}
+                          type="button"
+                          onClick={() => setFunnelForm({ ...funnelForm, targetAudience: aud })}
+                          className="text-[10px] px-2 py-0.5 rounded-full border border-border/60 bg-muted/30 hover:bg-blue-500/10 hover:border-blue-500/40 hover:text-blue-600 transition-colors cursor-pointer"
+                        >
+                          + {aud}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Row 4: Primary Ad Body Copy */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs font-semibold flex items-center gap-1.5">
+                        <FiFileText className="h-3.5 w-3.5 text-purple-500" /> Primary Ad Body Copy / Marketing Pitch
+                      </Label>
+                      <span className="text-[10px] font-mono text-muted-foreground">
+                        {funnelForm.bodyCopy.length} characters
+                      </span>
+                    </div>
+                    <Textarea
+                      rows={3}
+                      placeholder="e.g. Streamline enterprise operations with intelligent CRM, automated sales funnels, and real-time P&L analytics. Trusted by leading enterprises across South Asia."
+                      value={funnelForm.bodyCopy}
+                      onChange={(e) => setFunnelForm({ ...funnelForm, bodyCopy: e.target.value })}
+                      className="text-xs resize-none"
+                    />
+                  </div>
+
+                  {/* Row 5: CTA & Destination URL */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold flex items-center gap-1.5">
+                        <FiTarget className="h-3.5 w-3.5 text-emerald-500" /> Call to Action (CTA) Button
+                      </Label>
+                      <Select
+                        value={funnelForm.ctaLabel}
+                        onValueChange={(val) => setFunnelForm({ ...funnelForm, ctaLabel: val })}
+                      >
+                        <SelectTrigger className="h-9 text-xs bg-background">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {CTA_OPTIONS.map((cta) => (
+                            <SelectItem key={cta} value={cta}>
+                              {cta}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold flex items-center gap-1.5">
+                        <FiGlobe className="h-3.5 w-3.5 text-teal-500" /> Destination / Landing URL
+                      </Label>
+                      <Input
+                        placeholder="https://techcorp.com/solutions"
+                        value={funnelForm.destinationUrl}
+                        onChange={(e) => setFunnelForm({ ...funnelForm, destinationUrl: e.target.value })}
+                        className="h-9 text-xs font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Row 6: Primary Banner Graphic */}
+                  <div className="space-y-1.5">
+                    <MediaSelector
+                      label="Primary Campaign Banner / Visual Graphic (Recommended: 1200x630px PNG/JPG)"
+                      value={funnelForm.mediaUrl}
+                      onChange={(url) => setFunnelForm({ ...funnelForm, mediaUrl: url })}
+                    />
+                  </div>
+
+                  {/* Row 7: Secondary Video Asset URL */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold flex items-center gap-1.5">
+                      <FiVideo className="h-3.5 w-3.5 text-rose-500" /> Secondary Asset / Video Demo URL (Optional)
+                    </Label>
+                    <Input
+                      placeholder="https://youtube.com/watch?v=demo or Vimeo / Loom video link"
+                      value={funnelForm.videoUrl}
+                      onChange={(e) => setFunnelForm({ ...funnelForm, videoUrl: e.target.value })}
+                      className="h-9 text-xs font-mono"
+                    />
+                  </div>
+                </div>
+
+                {/* RIGHT COLUMN: LIVE REAL-TIME AD SIMULATOR (5 Cols) */}
+                <div className="lg:col-span-5 space-y-3 lg:sticky lg:top-4">
+                  <div className="flex items-center justify-between px-1">
+                    <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                      <FiEye className="h-3.5 w-3.5 text-purple-500" /> Live Creative Simulator
+                    </span>
+                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                      ● Real-Time Rendering
+                    </span>
+                  </div>
+
+                  {/* AD CARD PREVIEW MOCKUP */}
+                  <div className="rounded-2xl border border-border/80 bg-card shadow-md overflow-hidden transition-all">
+                    {/* Simulator Header */}
+                    <div className="p-3 border-b border-border/40 bg-muted/30 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="h-7 w-7 rounded-lg bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center text-white font-bold text-xs shadow-xs">
+                          TS
+                        </div>
+                        <div>
+                          <div className="font-bold text-xs text-foreground leading-tight">TechSoul Enterprise</div>
+                          <div className="text-[10px] text-muted-foreground flex items-center gap-1">
+                            <span>Sponsored</span> • <span>🌐 Global</span>
+                          </div>
+                        </div>
+                      </div>
+                      <Badge variant="outline" className="text-[9px] font-semibold uppercase bg-background text-purple-600 dark:text-purple-400 border-purple-500/30">
+                        {CREATIVE_FORMAT_OPTIONS.find((f) => f.value === funnelForm.creativeFormat)?.badge || "Image Banner"}
+                      </Badge>
+                    </div>
+
+                    {/* Headline & Body Copy inside Preview */}
+                    <div className="p-3.5 space-y-2 text-xs">
+                      {funnelForm.offerHook && (
+                        <div className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                          <FiGift className="h-3 w-3" /> {funnelForm.offerHook}
+                        </div>
+                      )}
+
+                      <div className="font-bold text-sm text-foreground leading-snug">
+                        {funnelForm.headline || "Your High-Converting Campaign Headline Appears Here"}
+                      </div>
+
+                      <p className="text-[11px] text-muted-foreground leading-relaxed line-clamp-4 whitespace-pre-wrap">
+                        {funnelForm.bodyCopy ||
+                          "Your promotional copy, key service features, value propositions, and customer benefits will be previewed right here in real time."}
+                      </p>
+
+                      {funnelForm.targetAudience && (
+                        <div className="flex items-center gap-1 text-[10px] text-blue-600 dark:text-blue-400 font-medium">
+                          <FiTag className="h-2.5 w-2.5" /> For: {funnelForm.targetAudience}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Banner Graphic Preview */}
+                    <div className="relative aspect-[16/9] w-full bg-muted/40 border-y border-border/40 overflow-hidden flex items-center justify-center group">
+                      {funnelForm.mediaUrl ? (
+                        /* eslint-disable-next-line @next/next/no-img-element */
+                        <img
+                          src={funnelForm.mediaUrl}
+                          alt="Campaign Creative Proof"
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                      ) : (
+                        <div className="flex flex-col items-center justify-center text-center p-4 text-muted-foreground space-y-1.5">
+                          <FiImage className="h-8 w-8 opacity-30 text-purple-500" />
+                          <span className="text-[11px] font-semibold text-foreground/70">Creative Visual Preview</span>
+                          <span className="text-[9px] text-muted-foreground">Select an image banner on the left</span>
+                        </div>
+                      )}
+
+                      {funnelForm.videoUrl && (
+                        <div className="absolute inset-0 bg-black/30 backdrop-blur-[2px] flex items-center justify-center">
+                          <div className="h-10 w-10 rounded-full bg-white/90 text-purple-600 flex items-center justify-center shadow-lg">
+                            <FiPlay className="h-5 w-5 ml-0.5" />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Simulator Action Footer */}
+                    <div className="p-3 bg-muted/20 flex items-center justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[9px] uppercase font-bold text-muted-foreground truncate">
+                          {funnelForm.destinationUrl
+                            ? funnelForm.destinationUrl.replace(/^https?:\/\//, "").split("/")[0]
+                            : "techsoul.com/campaign"}
+                        </div>
+                        <div className="text-[11px] font-semibold text-foreground truncate">
+                          {funnelForm.headline ? funnelForm.headline.slice(0, 32) + "..." : "Learn More & Register"}
+                        </div>
+                      </div>
+
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="h-8 px-3.5 text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs shrink-0"
+                      >
+                        {funnelForm.ctaLabel || "Book a VIP Demo"}
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </CardContent>
@@ -586,7 +1087,7 @@ export default function CreateCampaignView() {
             <CardHeader className="pb-4 border-b border-border/40">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
                 <FiDollarSign className="h-4 w-4 text-emerald-500" />
-                3. Budget & Schedule Limits
+                4. Budget & Schedule Limits
               </CardTitle>
               <CardDescription className="text-xs">
                 Total planned budget and campaign execution timeframe
@@ -725,6 +1226,64 @@ export default function CreateCampaignView() {
               <Card className="border-border/50 bg-card/60 shadow-xs">
                 <CardHeader className="pb-4">
                   <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    <FiImage className="h-4 w-4 text-amber-500" />
+                    Ad Creative Assets & Call to Action
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4 text-xs">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold">Ad Headline / Catchy Punchline</Label>
+                      <Input
+                        placeholder="e.g. Transform Enterprise Workflow with Next-Gen CRM"
+                        value={adsForm.headline}
+                        onChange={(e) => setAdsForm({ ...adsForm, headline: e.target.value })}
+                        className="h-9 text-xs"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold">Call to Action (CTA) Button</Label>
+                      <Select
+                        value={adsForm.ctaLabel}
+                        onValueChange={(val) => setAdsForm({ ...adsForm, ctaLabel: val })}
+                      >
+                        <SelectTrigger className="h-9 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {CTA_OPTIONS.map((cta) => (
+                            <SelectItem key={cta} value={cta}>
+                              {cta}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold">Landing Page / Destination URL</Label>
+                    <Input
+                      placeholder="https://techcorp.com/landing/enterprise-erp"
+                      value={adsForm.destinationUrl}
+                      onChange={(e) => setAdsForm({ ...adsForm, destinationUrl: e.target.value })}
+                      className="h-9 text-xs font-mono"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <MediaSelector
+                      label="Ad Visual Banner / Image Asset (Square 1:1 or 16:9 Landscape)"
+                      value={adsForm.mediaUrl}
+                      onChange={(url) => setAdsForm({ ...adsForm, mediaUrl: url })}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-border/50 bg-card/60 shadow-xs">
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
                     <FiDollarSign className="h-4 w-4 text-emerald-500" />
                     Budget, Spend & Telemetry
                   </CardTitle>
@@ -807,11 +1366,66 @@ export default function CreateCampaignView() {
                 <CardHeader className="pb-3 border-b border-border/40">
                   <CardTitle className="text-sm font-semibold flex items-center gap-2">
                     <FiTrendingUp className="h-4 w-4 text-amber-500" />
-                    Live PPC Forecast
+                    Live Ad Mockup & Forecast
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="pt-4 space-y-4 text-xs">
-                  <div className="p-3.5 rounded-xl border border-border/40 bg-background/50 space-y-3">
+                  {/* Visual Ad Preview Card */}
+                  <div className="rounded-xl border border-border/60 bg-card overflow-hidden shadow-xs">
+                    <div className="p-3 border-b border-border/40 flex items-center gap-2">
+                      <div className="h-6 w-6 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold flex items-center justify-center text-[10px]">
+                        AD
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="font-semibold text-xs text-foreground truncate">TechCorp Software</div>
+                        <div className="text-[10px] text-muted-foreground flex items-center gap-1">
+                          Sponsored • <span>{adsForm.platform.split(" ")[0]}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-3 space-y-2">
+                      <p className="text-[11px] text-foreground font-medium line-clamp-2">
+                        {adsForm.headline || adsForm.objective || "Empower your business operations with our industry-leading suite. Book a free demo today."}
+                      </p>
+                    </div>
+
+                    {adsForm.mediaUrl ? (
+                      <div className="relative aspect-video w-full bg-muted overflow-hidden border-y border-border/40">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={adsForm.mediaUrl}
+                          alt="Ad Banner Preview"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    ) : (
+                      <div className="aspect-video w-full bg-muted/40 border-y border-dashed border-border/60 flex flex-col items-center justify-center text-muted-foreground gap-1 p-3 text-center">
+                        <FiImage className="h-6 w-6 opacity-40" />
+                        <span className="text-[10px]">No Banner Uploaded Yet</span>
+                      </div>
+                    )}
+
+                    <div className="p-3 bg-muted/30 flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="text-[10px] text-muted-foreground truncate uppercase tracking-wider font-mono">
+                          {adsForm.destinationUrl ? new URL(adsForm.destinationUrl.startsWith("http") ? adsForm.destinationUrl : `https://${adsForm.destinationUrl}`).hostname : "techcorp.com"}
+                        </div>
+                        <div className="text-xs font-bold text-foreground truncate">
+                          {adsForm.name || "Enterprise Promotion"}
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="h-7 text-xs px-3 bg-amber-600 hover:bg-amber-700 text-white shrink-0 font-semibold"
+                      >
+                        {adsForm.ctaLabel || "Learn More"}
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl border border-border/40 bg-background/50 space-y-2.5">
                     <div className="flex items-center justify-between">
                       <span className="text-muted-foreground flex items-center gap-1.5">
                         <FiEye className="h-3.5 w-3.5 text-blue-500" /> CTR
@@ -920,6 +1534,16 @@ export default function CreateCampaignView() {
                       className="text-xs resize-none"
                     />
                   </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold">Action / Short Destination URL (Optional)</Label>
+                    <Input
+                      placeholder="https://techcorp.com/promo/vip-demo"
+                      value={smsForm.destinationUrl}
+                      onChange={(e) => setSmsForm({ ...smsForm, destinationUrl: e.target.value })}
+                      className="h-9 text-xs font-mono"
+                    />
+                  </div>
                 </CardContent>
               </Card>
 
@@ -979,8 +1603,13 @@ export default function CreateCampaignView() {
                       <div className="text-xs font-bold text-foreground">{smsForm.senderMask || "TechCorp"}</div>
                       <div className="text-[10px] text-muted-foreground font-mono">SMS Broadcast</div>
                     </div>
-                    <div className="bg-rose-500/10 border border-rose-500/20 text-foreground p-3 rounded-2xl rounded-tl-xs text-[11px] leading-relaxed shadow-xs">
-                      {smsForm.message || "Your SMS text message will appear here..."}
+                    <div className="bg-rose-500/10 border border-rose-500/20 text-foreground p-3 rounded-2xl rounded-tl-xs text-[11px] leading-relaxed shadow-xs space-y-1.5">
+                      <p>{smsForm.message || "Your SMS text message will appear here..."}</p>
+                      {smsForm.destinationUrl && (
+                        <div className="text-[10px] text-rose-600 dark:text-rose-400 underline font-mono break-all">
+                          {smsForm.destinationUrl}
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -1113,6 +1742,45 @@ export default function CreateCampaignView() {
                       className="text-xs resize-none"
                     />
                   </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold">Quick Action CTA Button Label</Label>
+                      <Select
+                        value={waForm.ctaLabel}
+                        onValueChange={(val) => setWaForm({ ...waForm, ctaLabel: val })}
+                      >
+                        <SelectTrigger className="h-9 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {CTA_OPTIONS.map((cta) => (
+                            <SelectItem key={cta} value={cta}>
+                              {cta}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold">Destination Website Link</Label>
+                      <Input
+                        placeholder="https://techcorp.com/demo"
+                        value={waForm.destinationUrl}
+                        onChange={(e) => setWaForm({ ...waForm, destinationUrl: e.target.value })}
+                        className="h-9 text-xs font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5 pt-1">
+                    <MediaSelector
+                      label="WhatsApp Header Graphic Banner (Optional Attachment)"
+                      value={waForm.mediaUrl}
+                      onChange={(url) => setWaForm({ ...waForm, mediaUrl: url })}
+                    />
+                  </div>
                 </CardContent>
               </Card>
 
@@ -1170,9 +1838,28 @@ export default function CreateCampaignView() {
                         <div className="text-[10px] text-emerald-400">Official WhatsApp Account</div>
                       </div>
                     </div>
-                    <div className="bg-[#005c4b] text-[#e9edef] p-3 rounded-2xl rounded-tl-xs text-[11px] leading-relaxed shadow-xs">
-                      <p>{waPreviewText}</p>
-                      <div className="text-[9px] text-[#8696a0] text-right mt-1.5">10:30 AM • ✓✓</div>
+
+                    <div className="bg-[#005c4b] text-[#e9edef] rounded-2xl rounded-tl-xs overflow-hidden text-[11px] leading-relaxed shadow-xs">
+                      {waForm.mediaUrl && (
+                        <div className="w-full aspect-video bg-black/40 overflow-hidden">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={waForm.mediaUrl}
+                            alt="WhatsApp Header Graphic"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      )}
+                      <div className="p-3 space-y-1.5">
+                        <p>{waPreviewText}</p>
+                        <div className="text-[9px] text-[#8696a0] text-right">10:30 AM • ✓✓</div>
+                      </div>
+                      {waForm.ctaLabel && (
+                        <div className="border-t border-white/15 bg-black/20 p-2 text-center text-xs font-semibold text-emerald-300 hover:bg-black/30 flex items-center justify-center gap-1.5">
+                          <FiExternalLink className="h-3 w-3" />
+                          {waForm.ctaLabel}
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -1253,17 +1940,59 @@ export default function CreateCampaignView() {
                 <CardHeader className="pb-4">
                   <CardTitle className="text-sm font-semibold flex items-center gap-2">
                     <FiFileText className="h-4 w-4 text-teal-500" />
-                    Message Body
+                    Email Creative Banner, Copy & Call to Action
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4 text-xs">
-                  <Textarea
-                    rows={8}
-                    placeholder="Hello,&#10;&#10;We are excited to share our latest product updates and architectural enhancements for your enterprise workflow. Our modular ERP solutions help reduce operational latency while empowering your finance and management teams with real-time analytics.&#10;&#10;Best regards,&#10;The TechCorp Team"
-                    value={emailForm.body}
-                    onChange={(e) => setEmailForm({ ...emailForm, body: e.target.value })}
-                    className="text-xs resize-none leading-relaxed font-sans"
-                  />
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold">Message Body</Label>
+                    <Textarea
+                      rows={6}
+                      placeholder="Hello,&#10;&#10;We are excited to share our latest product updates and architectural enhancements for your enterprise workflow. Our modular ERP solutions help reduce operational latency while empowering your finance and management teams with real-time analytics.&#10;&#10;Best regards,&#10;The TechCorp Team"
+                      value={emailForm.body}
+                      onChange={(e) => setEmailForm({ ...emailForm, body: e.target.value })}
+                      className="text-xs resize-none leading-relaxed font-sans"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold">Call to Action Button Label</Label>
+                      <Select
+                        value={emailForm.ctaLabel}
+                        onValueChange={(val) => setEmailForm({ ...emailForm, ctaLabel: val })}
+                      >
+                        <SelectTrigger className="h-9 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {CTA_OPTIONS.map((cta) => (
+                            <SelectItem key={cta} value={cta}>
+                              {cta}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold">Destination / Landing URL</Label>
+                      <Input
+                        placeholder="https://techcorp.com/solutions"
+                        value={emailForm.destinationUrl}
+                        onChange={(e) => setEmailForm({ ...emailForm, destinationUrl: e.target.value })}
+                        className="h-9 text-xs font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5 pt-1">
+                    <MediaSelector
+                      label="Email Header Banner Graphic (600x250px Recommended)"
+                      value={emailForm.mediaUrl}
+                      onChange={(url) => setEmailForm({ ...emailForm, mediaUrl: url })}
+                    />
+                  </div>
                 </CardContent>
               </Card>
             </div>
@@ -1281,9 +2010,31 @@ export default function CreateCampaignView() {
                     <div className="p-3 bg-muted/40 border-b border-border/40 space-y-1">
                       <div className="text-[10px] text-muted-foreground">From: <strong className="text-foreground">{emailForm.fromName || "Sender Name"}</strong></div>
                       <div className="text-xs font-bold text-foreground truncate">{emailForm.subject || "Your Subject Line"}</div>
+                      {emailForm.preheader && (
+                        <div className="text-[10px] text-muted-foreground truncate">{emailForm.preheader}</div>
+                      )}
                     </div>
-                    <div className="p-3 bg-background/80 text-foreground text-[11px] leading-relaxed whitespace-pre-wrap max-h-[160px] overflow-y-auto">
-                      {emailForm.body || "Your email newsletter message preview will appear here..."}
+
+                    {emailForm.mediaUrl && (
+                      <div className="w-full aspect-[21/9] bg-muted overflow-hidden border-b border-border/30">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={emailForm.mediaUrl}
+                          alt="Email Banner Header"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    )}
+
+                    <div className="p-3 bg-background/80 text-foreground text-[11px] leading-relaxed whitespace-pre-wrap max-h-[160px] overflow-y-auto space-y-3">
+                      <p>{emailForm.body || "Your email newsletter message preview will appear here..."}</p>
+                      {emailForm.ctaLabel && (
+                        <div className="pt-2 text-center">
+                          <span className="inline-block px-4 py-2 bg-teal-600 text-white rounded-lg text-xs font-semibold shadow-xs">
+                            {emailForm.ctaLabel}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -1373,6 +2124,46 @@ export default function CreateCampaignView() {
               <Card className="border-border/50 bg-card/60 shadow-xs">
                 <CardHeader className="pb-4">
                   <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    <FiImage className="h-4 w-4 text-amber-500" />
+                    Signage Artwork, Dimensions & QR Link
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4 text-xs">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold">Artwork Dimensions</Label>
+                      <Input
+                        placeholder="e.g. 20ft x 10ft / A4 Flyer"
+                        value={physicalForm.bannerDimensions}
+                        onChange={(e) => setPhysicalForm({ ...physicalForm, bannerDimensions: e.target.value })}
+                        className="h-9 text-xs"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold">QR Code Action URL</Label>
+                      <Input
+                        placeholder="https://techcorp.com/expo-registration"
+                        value={physicalForm.qrCodeUrl}
+                        onChange={(e) => setPhysicalForm({ ...physicalForm, qrCodeUrl: e.target.value })}
+                        className="h-9 text-xs font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <MediaSelector
+                      label="Physical Artwork Visual Proof / Mockup Blueprint"
+                      value={physicalForm.mediaUrl}
+                      onChange={(url) => setPhysicalForm({ ...physicalForm, mediaUrl: url })}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-border/50 bg-card/60 shadow-xs">
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
                     <FiDollarSign className="h-4 w-4 text-emerald-500" />
                     Budget, Spend & Leads
                   </CardTitle>
@@ -1441,6 +2232,23 @@ export default function CreateCampaignView() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="pt-4 space-y-4 text-xs">
+                  {physicalForm.mediaUrl && (
+                    <div className="rounded-xl border border-border/60 bg-card overflow-hidden shadow-xs space-y-1">
+                      <div className="p-2.5 bg-muted/40 border-b border-border/40 flex items-center justify-between">
+                        <span className="font-semibold text-foreground text-[11px]">Artwork Proof</span>
+                        <span className="text-[10px] text-muted-foreground font-mono">{physicalForm.bannerDimensions}</span>
+                      </div>
+                      <div className="relative aspect-video w-full bg-muted overflow-hidden">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={physicalForm.mediaUrl}
+                          alt="Artwork Preview"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    </div>
+                  )}
+
                   <div className="p-3.5 rounded-xl border border-border/40 bg-background/50 space-y-3">
                     <div className="flex items-center justify-between">
                       <span className="text-muted-foreground flex items-center gap-1.5">

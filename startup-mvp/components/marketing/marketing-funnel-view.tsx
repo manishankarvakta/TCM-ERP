@@ -76,19 +76,26 @@ export default function MarketingFunnelView({
     toast.success("Marketing Funnel draft added");
   };
 
-  const handleTrashFunnel = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this Marketing Funnel?")) return;
+  const [deletingFunnel, setDeletingFunnel] = useState<{ id: string; name: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const confirmDeleteFunnel = async () => {
+    if (!deletingFunnel) return;
+    setIsDeleting(true);
     try {
-      const res = await deleteMarketingFunnelAction(id);
+      const res = await deleteMarketingFunnelAction(deletingFunnel.id);
       if (res.success) {
-        setFunnelsList((prev) => prev.filter((f) => f.id !== id && f.planId !== id));
-        toast.success("Marketing funnel removed successfully");
+        setFunnelsList((prev) => prev.filter((f) => f.id !== deletingFunnel.id && f.planId !== deletingFunnel.id));
+        toast.success(`Marketing funnel "${deletingFunnel.name}" removed successfully`);
+        setDeletingFunnel(null);
         router.refresh();
       } else {
         toast.error(res.error || "Failed to delete marketing funnel");
       }
     } catch {
       toast.error("An error occurred while deleting the funnel");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -276,7 +283,7 @@ export default function MarketingFunnelView({
                             View
                           </Link>
                         </Button>
-                        <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] font-medium text-rose-500 border-rose-200 dark:border-rose-900/40 hover:bg-rose-500/10" onClick={() => handleTrashFunnel(fnl.id)} title="Move to Trash">
+                        <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] font-medium text-rose-500 border-rose-200 dark:border-rose-900/40 hover:bg-rose-500/10" onClick={() => setDeletingFunnel({ id: fnl.id, name: fnl.name })} title="Delete Funnel">
                           <FiTrash2 className="h-3 w-3" />
                         </Button>
                       </div>
@@ -288,6 +295,50 @@ export default function MarketingFunnelView({
           </div>
         )}
       </div>
+
+      {/* DELETE MARKETING FUNNEL MODAL */}
+      {deletingFunnel && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="w-full max-w-md rounded-2xl bg-card border border-border/80 p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150">
+            <div className="flex items-start gap-3">
+              <div className="p-2.5 rounded-xl bg-rose-500/10 text-rose-500 shrink-0">
+                <FiTrash2 className="h-5 w-5" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-base font-semibold text-foreground">
+                  Delete Marketing Funnel?
+                </h3>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Are you sure you want to delete <span className="font-semibold text-foreground">"{deletingFunnel.name}"</span>? All stage configurations and mappings will be removed.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={isDeleting}
+                onClick={() => setDeletingFunnel(null)}
+                className="text-xs"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="destructive"
+                disabled={isDeleting}
+                onClick={confirmDeleteFunnel}
+                className="text-xs font-semibold"
+              >
+                {isDeleting ? "Deleting..." : "Delete Funnel"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* CREATE MARKETING FUNNEL MODAL */}
       {showCreateModal && (

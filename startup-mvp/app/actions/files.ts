@@ -17,16 +17,36 @@ type ActionResult<T = unknown> = {
 };
 
 /**
- * Helper function to verify user is authenticated
+ * Helper function to verify user is authenticated and resolve organizationId
  */
-async function getAuthenticatedUser(): Promise<{ id: string }> {
+async function getAuthenticatedUser(): Promise<{ id: string; organizationId: string }> {
   const session = await auth();
   
   if (!session?.user?.id) {
     throw new Error("Unauthorized: User must be logged in");
   }
+
+  let organizationId = (session.user as any).organizationId;
+  if (!organizationId) {
+    const dbUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { organizationId: true },
+    });
+    organizationId = dbUser?.organizationId;
+  }
+
+  if (!organizationId) {
+    const defaultOrg = await prisma.organization.findFirst({
+      select: { id: true },
+    });
+    organizationId = defaultOrg?.id;
+  }
+
+  if (!organizationId) {
+    throw new Error("Unauthorized: No active organization found for user");
+  }
   
-  return { id: session.user.id };
+  return { id: session.user.id, organizationId };
 }
 
 /**
@@ -144,9 +164,9 @@ export async function uploadFileServerSide(input: {
     } else {
       // Create new file record
       file = await prisma.file.create({
-// @ts-expect-error - Legacy compatibility
         data: {
           ownerId: user.id,
+          organizationId: user.organizationId,
           name,
           path: path || "/",
           storageKey,
@@ -269,9 +289,9 @@ export async function confirmUpload(input: {
     } else {
       // Create new file record
       file = await prisma.file.create({
-// @ts-expect-error - Legacy compatibility
         data: {
           ownerId: user.id,
+          organizationId: user.organizationId,
           name: filename,
           path: path || "/",
           storageKey: key,
@@ -561,9 +581,9 @@ export async function copyFile(input: {
         const newName = newStorageKey.split("/").pop() || sourceFileRecord.name;
         
         await prisma.file.create({
-// @ts-expect-error - Legacy compatibility
           data: {
             ownerId: user.id,
+            organizationId: user.organizationId,
             name: newName,
             path: newPath,
             storageKey: newStorageKey,
@@ -576,9 +596,9 @@ export async function copyFile(input: {
       
       // Create the folder record itself
       await prisma.file.create({
-// @ts-expect-error - Legacy compatibility
         data: {
           ownerId: user.id,
+          organizationId: user.organizationId,
           name: destFilename,
           path: destPath || "/",
           storageKey: destKey,
@@ -590,9 +610,9 @@ export async function copyFile(input: {
     } else {
       // Create new file record for destination
       await prisma.file.create({
-// @ts-expect-error - Legacy compatibility
         data: {
           ownerId: user.id,
+          organizationId: user.organizationId,
           name: destFilename,
           path: destPath || "/",
           storageKey: destKey,
@@ -729,9 +749,9 @@ export async function moveFile(input: {
         
         // Create new record
         await prisma.file.create({
-// @ts-expect-error - Legacy compatibility
           data: {
             ownerId: user.id,
+            organizationId: user.organizationId,
             name: newName,
             path: newPath,
             storageKey: newStorageKey,
@@ -748,9 +768,9 @@ export async function moveFile(input: {
       });
       
       await prisma.file.create({
-// @ts-expect-error - Legacy compatibility
         data: {
           ownerId: user.id,
+          organizationId: user.organizationId,
           name: destFilename,
           path: destPath || "/",
           storageKey: destKey,
@@ -766,9 +786,9 @@ export async function moveFile(input: {
       });
 
       await prisma.file.create({
-// @ts-expect-error - Legacy compatibility
         data: {
           ownerId: user.id,
+          organizationId: user.organizationId,
           name: destFilename,
           path: destPath || "/",
           storageKey: destKey,
@@ -835,9 +855,9 @@ export async function createFolder(input: {
 
     // Create folder record in database
     await prisma.file.create({
-// @ts-expect-error - Legacy compatibility
       data: {
         ownerId: user.id,
+        organizationId: user.organizationId,
         name,
         path: normalizedPath || "/",
         storageKey,
@@ -919,9 +939,9 @@ export async function renameFileOrFolder(input: {
     });
 
     const updatedFile = await prisma.file.create({
-// @ts-expect-error - Legacy compatibility
       data: {
         ownerId: user.id,
+        organizationId: user.organizationId,
         name: newName,
         path: file.path,
         storageKey: newStorageKey,

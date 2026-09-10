@@ -134,9 +134,9 @@ export const MENU_TEMPLATE: MenuItemData[] = [
       { href: "/dashboard/clients/activity", label: "Client Activity", icon: "FiActivity", module: "peoples" },
     ],
   },
-  // 7. Project Management
+  // 7. Projects
   {
-    label: "Project Management",
+    label: "Projects",
     icon: "FiBriefcase",
     module: "projects",
     subMenu: [

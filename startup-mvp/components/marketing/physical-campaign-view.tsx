@@ -35,7 +35,8 @@ export default function PhysicalCampaignView({ initialCampaigns = [] }: Physical
   const [campaigns, setCampaigns] = useState<ChannelCampaignData[]>(initialCampaigns);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deletingCampaign, setDeletingCampaign] = useState<{ id: string; name: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -52,21 +53,22 @@ export default function PhysicalCampaignView({ initialCampaigns = [] }: Physical
     }
   };
 
-  const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`Are you sure you want to delete "${name}"?`)) return;
-    setDeletingId(id);
+  const confirmDelete = async () => {
+    if (!deletingCampaign) return;
+    setIsDeleting(true);
     try {
-      const res = await deleteMarketingCampaignAction(id);
+      const res = await deleteMarketingCampaignAction(deletingCampaign.id);
       if (res.success) {
         toast.success("Physical campaign deleted");
-        setCampaigns((prev) => prev.filter((c) => c.id !== id));
+        setCampaigns((prev) => prev.filter((c) => c.id !== deletingCampaign.id));
+        setDeletingCampaign(null);
       } else {
         toast.error(res.error || "Failed to delete campaign");
       }
     } catch {
       toast.error("Failed to delete campaign");
     } finally {
-      setDeletingId(null);
+      setIsDeleting(false);
     }
   };
 
@@ -300,8 +302,7 @@ export default function PhysicalCampaignView({ initialCampaigns = [] }: Physical
                           variant="ghost"
                           size="icon"
                           className="h-7 w-7 text-muted-foreground hover:text-rose-500"
-                          onClick={() => handleDelete(c.id, c.name)}
-                          disabled={deletingId === c.id}
+                          onClick={() => setDeletingCampaign({ id: c.id, name: c.name })}
                           title="Delete Campaign"
                         >
                           <FiTrash2 className="h-3.5 w-3.5" />
@@ -315,6 +316,50 @@ export default function PhysicalCampaignView({ initialCampaigns = [] }: Physical
           )}
         </CardContent>
       </Card>
+
+      {/* DELETE CONFIRMATION MODAL */}
+      {deletingCampaign && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="w-full max-w-md rounded-2xl bg-card border border-border/80 p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150">
+            <div className="flex items-start gap-3">
+              <div className="p-2.5 rounded-xl bg-rose-500/10 text-rose-500 shrink-0">
+                <FiTrash2 className="h-5 w-5" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-base font-semibold text-foreground">
+                  Delete Physical Campaign?
+                </h3>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Are you sure you want to delete <span className="font-semibold text-foreground">"{deletingCampaign.name}"</span>? This physical campaign activation record and venue analytics will be removed.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={isDeleting}
+                onClick={() => setDeletingCampaign(null)}
+                className="text-xs"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="destructive"
+                disabled={isDeleting}
+                onClick={confirmDelete}
+                className="text-xs font-semibold"
+              >
+                {isDeleting ? "Deleting..." : "Delete Campaign"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

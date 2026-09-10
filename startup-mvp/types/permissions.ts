@@ -624,10 +624,10 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
       { permissionKey: "peoples.client-activity", path: "/dashboard/clients/activity", label: "Client Activity", operations: ["view"] },
     ],
   },
-  // 7. Project Management
+  // 7. Projects
   {
     id: "projects",
-    label: "Project Management",
+    label: "Projects",
     pages: [
       { permissionKey: "projects.projects", path: "/dashboard/projects", label: "PM Dashboard", operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"] },
       { permissionKey: "projects.intake", path: "/dashboard/projects/intake", label: "Project Intake", operations: ["create", "view", "edit"] },
