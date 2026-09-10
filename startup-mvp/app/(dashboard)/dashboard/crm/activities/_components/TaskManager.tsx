@@ -133,7 +133,7 @@ export default function TaskManager({ entityId, entityType, tasks, users }: Task
                             initialData={selectedTask ? {
                                 ...selectedTask,
                                 description: selectedTask.description || undefined,
-                                assigneeId: selectedTask.User?.id
+                                assigneeId: (selectedTask as any).assigneeId || (selectedTask as any).Assignee?.id || selectedTask.User?.id
                             } as any : null}
                             onSuccess={() => {
                                 setIsSheetOpen(false);
@@ -156,6 +156,7 @@ export default function TaskManager({ entityId, entityType, tasks, users }: Task
                 ) : (
                     taskList.map((task) => {
                         const isCompleted = task.status === "completed";
+                        const displayUser = (task as any).Assignee || task.User;
                         return (
                             <Card key={task.id} className={cn(
                                 "group transition-all duration-200 hover:shadow-md border-border/50 cursor-pointer",
@@ -203,17 +204,17 @@ export default function TaskManager({ entityId, entityType, tasks, users }: Task
                                                         {format(new Date(task.dueDate), "MMM d, yyyy")}
                                                     </div>
                                                 )}
-                                                {task.User && (
+                                                {displayUser && (
                                                     <div className="flex items-center gap-2 ml-auto">
                                                         <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">
-                                                            Assignee: {task.User.name || "User"}
+                                                            Assignee: {displayUser.name || displayUser.email || "User"}
                                                         </span>
-                                                        <div className="h-6 w-6 rounded-full ring-2 ring-background overflow-hidden bg-muted border border-primary/20" title={`Assigned to: ${task.User.name || task.User.email}`}>
-                                                            {task.User.image ? (
-                                                                <img src={task.User.image} alt={task.User.name || ""} className="h-full w-full object-cover" />
+                                                        <div className="h-6 w-6 rounded-full ring-2 ring-background overflow-hidden bg-muted border border-primary/20" title={`Assigned to: ${displayUser.name || displayUser.email}`}>
+                                                            {displayUser.image ? (
+                                                                <img src={displayUser.image} alt={displayUser.name || ""} className="h-full w-full object-cover" />
                                                             ) : (
                                                                 <div className="h-full w-full flex items-center justify-center text-[10px] font-bold uppercase text-primary">
-                                                                    {(task.User.name || task.User.email || "?").charAt(0)}
+                                                                    {(displayUser.name || displayUser.email || "?").charAt(0)}
                                                                 </div>
                                                             )}
                                                         </div>

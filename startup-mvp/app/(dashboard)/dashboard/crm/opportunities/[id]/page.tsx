@@ -118,11 +118,6 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
         </div>
         
         <div className="flex items-center gap-3 ml-auto md:ml-0">
-          <Link href={`/dashboard/crm/requirements/new?opportunityId=${opportunity.id}`}>
-            <Button variant="outline" className="font-semibold text-xs h-10 border-indigo-200 text-indigo-700 dark:border-indigo-800 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/50">
-              <FileText className="h-4 w-4 mr-1.5" /> Requirement Package
-            </Button>
-          </Link>
             <PromoteToProject opportunity={opportunity} />
         </div>
       </div>

@@ -82,7 +82,6 @@ export async function createOrderFromQuotation(quotationId: string) {
     const order = await prisma.$transaction(async (tx) => {
       // Create the order
       const newOrder = await tx.order.create({
-// @ts-expect-error - Legacy compatibility
         data: {
           orderNumber,
           quotationId,
@@ -433,7 +432,6 @@ export async function createDirectOrder(data: {
     const order = await prisma.$transaction(async (tx) => {
       // Create the order
       const newOrder = await tx.order.create({
-// @ts-expect-error - Legacy compatibility
         data: {
           orderNumber,
           quotationId: null,

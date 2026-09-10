@@ -323,9 +323,9 @@ export default function DashboardSidebar({
                       : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                   )}
                 >
-                  <div className="flex items-center gap-3">
-                    <Icon className="h-4 w-4" />
-                    <span>{item.label}</span>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Icon className="h-4 w-4 shrink-0" />
+                    <span className="truncate whitespace-nowrap">{item.label}</span>
                   </div>
                   {isExpanded ? (
                     <FiChevronDown className="h-4 w-4" />
@@ -454,9 +454,9 @@ export default function DashboardSidebar({
                       : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                   )}
                 >
-                  <div className="flex items-center gap-3">
-                    <Icon className="h-4 w-4" />
-                    <span>{item.label}</span>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Icon className="h-4 w-4 shrink-0" />
+                    <span className="truncate whitespace-nowrap">{item.label}</span>
                   </div>
                   {isExpanded ? (
                     <FiChevronDown className="h-4 w-4" />

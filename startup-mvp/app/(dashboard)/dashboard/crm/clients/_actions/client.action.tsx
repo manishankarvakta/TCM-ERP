@@ -247,15 +247,42 @@ async function findAccountsReceivableParent(tx?: Prisma.TransactionClient): Prom
   return account?.id || null;
 }
 
-import { getNextSequenceNumber } from "@/lib/sequence";
-
 /**
- * Generate unique client code atomically via BusinessSequence
+ * Helper function to generate unique client code
+ * Format: CLI{NNNNNNN} (e.g., CLI1000001, CLI1000002, CLI1000003)
+ * @param tx Optional transaction client - if provided, uses transaction for consistency
  */
-export async function generateClientCode(tx?: Prisma.TransactionClient, organizationId: string = "default-org"): Promise<string> {
-  const num = await getNextSequenceNumber(organizationId, "CLIENT", "CLI", 2026, 7);
-  const parts = num.split("-");
-  return `CLI${parts[parts.length - 1]}`;
+async function generateClientCode(tx?: Prisma.TransactionClient): Promise<string> {
+  const prefix = "CLI";
+  const client = tx || prisma;
+
+  // Find the highest existing code
+  const lastClient = await client.client.findFirst({
+    where: {
+      clientCode: {
+        startsWith: prefix,
+      },
+    },
+    orderBy: {
+      clientCode: "desc",
+    },
+    select: {
+      clientCode: true,
+    },
+  });
+
+  let nextNumber = 1000001;
+  if (lastClient?.clientCode) {
+    // Extract number from code (e.g., "CLI1000001" -> 1000001)
+    const codeWithoutPrefix = lastClient.clientCode.replace(prefix, "");
+    const lastNumber = parseInt(codeWithoutPrefix, 10);
+    if (!isNaN(lastNumber) && lastNumber >= 1000001) {
+      nextNumber = lastNumber + 1;
+    }
+  }
+
+  // Always use 7 digits for 10-digit total (3 prefix + 7 digits)
+  return `${prefix}${nextNumber.toString().padStart(7, "0")}`;
 }
 
 /**
@@ -427,6 +454,8 @@ export async function createClient(input: {
         throw new Error("Unable to generate unique account code. Please try again.");
       }
 
+      const organizationId = (session.user as any)?.organizationId || "cmltc6oik002yn1011ghceakr";
+
       // Create Chart of Account for customer
       const customerName = input.name || input.email;
       const accountName = `AR - ${customerName}`;
@@ -441,12 +470,12 @@ export async function createClient(input: {
           description: `Accounts Receivable account for customer: ${customerName}`,
           status: "active",
           createdBy: session.user.id,
+          organizationId,
         },
       });
 
       // Create client with chartOfAccountId reference
       const client = await tx.client.create({
-// @ts-expect-error - Legacy compatibility
         data: {
           name: input.name || null,
           clientCode,
@@ -462,6 +491,7 @@ export async function createClient(input: {
           status: input.status || "active",
           createdBy: session.user.id,
           chartOfAccountId: chartOfAccount.id,
+          organizationId,
         },
         select: {
           id: true,

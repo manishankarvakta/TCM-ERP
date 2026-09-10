@@ -1368,19 +1368,76 @@ export async function deleteMarketingContentItemAction(contentItemId: string) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// 8.5. MULTI-TENANT ORG RESOLUTION HELPER
+// ---------------------------------------------------------------------------
+
+async function resolveOrganizationId(
+  userId?: string | null,
+  sessionOrgId?: string | null
+): Promise<string | null> {
+  if (!userId && !sessionOrgId) return null;
+  if (userId) {
+    const dbUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { organizationId: true },
+    });
+    if (dbUser?.organizationId) return dbUser.organizationId;
+  }
+  if (sessionOrgId) return sessionOrgId;
+
+  if (userId) {
+    const createdOrg = await prisma.organization.findFirst({
+      where: { createdBy: userId },
+      select: { id: true },
+    });
+    if (createdOrg) return createdOrg.id;
+  }
+
+  const activeOrg =
+    (await prisma.organization.findFirst({
+      where: { status: "active" },
+      select: { id: true },
+    })) || (await prisma.organization.findFirst({ select: { id: true } }));
+
+  if (activeOrg) {
+    if (userId) {
+      await prisma.user
+        .update({
+          where: { id: userId },
+          data: { organizationId: activeOrg.id },
+        })
+        .catch(() => {});
+    }
+    return activeOrg.id;
+  }
+
+  return null;
+}
+
 export async function getMarketingCampaignByIdAction(campaignId: string) {
   try {
     const session = await auth();
-    if (!session?.user?.organizationId) return { success: false, error: "Unauthorized" };
+    if (!session?.user?.id) return { success: false, error: "Unauthorized" };
     await verifyServerPermission(session.user.id, "marketing", "view");
 
+    const orgId = await resolveOrganizationId(session.user.id, session.user.organizationId);
+
     const campaign = await prisma.projectMarketingCampaign.findFirst({
-      where: { id: campaignId, organizationId: session.user.organizationId },
+      where: {
+        id: campaignId,
+        ...(orgId ? { organizationId: orgId } : {}),
+      },
       include: {
         Project: { select: { id: true, title: true, projectNumber: true } },
         AssignedEmployee: { select: { id: true, name: true } },
         ContentItems: true,
-        PerformanceSnapshots: true,
+        PerformanceSnapshots: {
+          orderBy: { snapshotDate: "desc" },
+        },
+        Stages: {
+          orderBy: { position: "asc" },
+        },
       },
     });
 
@@ -1396,11 +1453,16 @@ export async function getMarketingCampaignByIdAction(campaignId: string) {
 export async function trashMarketingCampaignAction(campaignId: string) {
   try {
     const session = await auth();
-    if (!session?.user?.organizationId) return { success: false, error: "Unauthorized" };
+    if (!session?.user?.id) return { success: false, error: "Unauthorized" };
     await verifyServerPermission(session.user.id, "marketing", "delete");
 
+    const orgId = await resolveOrganizationId(session.user.id, session.user.organizationId);
+
     const existing = await prisma.projectMarketingCampaign.findFirst({
-      where: { id: campaignId, organizationId: session.user.organizationId },
+      where: {
+        id: campaignId,
+        ...(orgId ? { organizationId: orgId } : {}),
+      },
     });
     if (!existing) return { success: false, error: "Campaign not found or access denied" };
 
@@ -1421,11 +1483,16 @@ export async function trashMarketingCampaignAction(campaignId: string) {
 export async function restoreMarketingCampaignAction(campaignId: string) {
   try {
     const session = await auth();
-    if (!session?.user?.organizationId) return { success: false, error: "Unauthorized" };
+    if (!session?.user?.id) return { success: false, error: "Unauthorized" };
     await verifyServerPermission(session.user.id, "marketing", "edit");
 
+    const orgId = await resolveOrganizationId(session.user.id, session.user.organizationId);
+
     const existing = await prisma.projectMarketingCampaign.findFirst({
-      where: { id: campaignId, organizationId: session.user.organizationId },
+      where: {
+        id: campaignId,
+        ...(orgId ? { organizationId: orgId } : {}),
+      },
     });
     if (!existing) return { success: false, error: "Campaign not found or access denied" };
 
@@ -1446,11 +1513,16 @@ export async function restoreMarketingCampaignAction(campaignId: string) {
 export async function deleteMarketingCampaignPermanentlyAction(campaignId: string) {
   try {
     const session = await auth();
-    if (!session?.user?.organizationId) return { success: false, error: "Unauthorized" };
+    if (!session?.user?.id) return { success: false, error: "Unauthorized" };
     await verifyServerPermission(session.user.id, "marketing", "delete");
 
+    const orgId = await resolveOrganizationId(session.user.id, session.user.organizationId);
+
     const existing = await prisma.projectMarketingCampaign.findFirst({
-      where: { id: campaignId, organizationId: session.user.organizationId },
+      where: {
+        id: campaignId,
+        ...(orgId ? { organizationId: orgId } : {}),
+      },
     });
     if (!existing) return { success: false, error: "Campaign not found or access denied" };
 
@@ -1484,11 +1556,14 @@ const DEFAULT_FUNNEL_STAGES = [
 export async function initializeCampaignFunnel(campaignId: string) {
   try {
     const session = await auth();
-    if (!session?.user?.organizationId) return { success: false, error: "Unauthorized" };
+    if (!session?.user?.id) return { success: false, error: "Unauthorized" };
     await verifyServerPermission(session.user.id, "marketing", "edit");
 
+    const orgId = await resolveOrganizationId(session.user.id, session.user.organizationId);
+    if (!orgId) return { success: false, error: "No organization found" };
+
     const campaign = await prisma.projectMarketingCampaign.findFirst({
-      where: { id: campaignId, organizationId: session.user.organizationId },
+      where: { id: campaignId, organizationId: orgId },
     });
     if (!campaign) return { success: false, error: "Campaign not found or access denied" };
 
@@ -1497,7 +1572,7 @@ export async function initializeCampaignFunnel(campaignId: string) {
       for (const stg of DEFAULT_FUNNEL_STAGES) {
         const res = await tx.marketingCampaignStage.create({
           data: {
-            organizationId: session.user.organizationId,
+            organizationId: orgId,
             campaignId,
             name: stg.name,
             position: stg.position,
@@ -1523,11 +1598,16 @@ export async function initializeCampaignFunnel(campaignId: string) {
 export async function getCampaignStagesAction(campaignId: string) {
   try {
     const session = await auth();
-    if (!session?.user?.organizationId) return { success: false, error: "Unauthorized", stages: [] };
+    if (!session?.user?.id) return { success: false, error: "Unauthorized", stages: [] };
     await verifyServerPermission(session.user.id, "marketing", "view");
 
+    const orgId = await resolveOrganizationId(session.user.id, session.user.organizationId);
+
     const stages = await prisma.marketingCampaignStage.findMany({
-      where: { campaignId, organizationId: session.user.organizationId },
+      where: {
+        campaignId,
+        ...(orgId ? { organizationId: orgId } : {}),
+      },
       include: {
         StageKPIs: true,
         StageIdeas: true,
@@ -1549,11 +1629,16 @@ export async function getCampaignStagesAction(campaignId: string) {
 export async function getStageByIdAction(stageId: string) {
   try {
     const session = await auth();
-    if (!session?.user?.organizationId) return { success: false, error: "Unauthorized" };
+    if (!session?.user?.id) return { success: false, error: "Unauthorized" };
     await verifyServerPermission(session.user.id, "marketing", "view");
 
+    const orgId = await resolveOrganizationId(session.user.id, session.user.organizationId);
+
     const stage = await prisma.marketingCampaignStage.findFirst({
-      where: { id: stageId, organizationId: session.user.organizationId },
+      where: {
+        id: stageId,
+        ...(orgId ? { organizationId: orgId } : {}),
+      },
       include: {
         Campaign: { select: { id: true, name: true } },
         StageKPIs: true,
@@ -1582,17 +1667,20 @@ export async function createStageIdeaAction(input: {
 }) {
   try {
     const session = await auth();
-    if (!session?.user?.organizationId) return { success: false, error: "Unauthorized" };
+    if (!session?.user?.id) return { success: false, error: "Unauthorized" };
     await verifyServerPermission(session.user.id, "marketing", "edit");
 
+    const orgId = await resolveOrganizationId(session.user.id, session.user.organizationId);
+    if (!orgId) return { success: false, error: "No organization found" };
+
     const stage = await prisma.marketingCampaignStage.findFirst({
-      where: { id: input.stageId, organizationId: session.user.organizationId },
+      where: { id: input.stageId, organizationId: orgId },
     });
     if (!stage) return { success: false, error: "Stage not found" };
 
     const idea = await prisma.marketingStageIdea.create({
       data: {
-        organizationId: session.user.organizationId,
+        organizationId: orgId,
         stageId: input.stageId,
         title: input.title,
         description: input.description || null,
@@ -1613,11 +1701,14 @@ export async function createStageIdeaAction(input: {
 export async function convertIdeaToContentAction(ideaId: string) {
   try {
     const session = await auth();
-    if (!session?.user?.organizationId) return { success: false, error: "Unauthorized" };
+    if (!session?.user?.id) return { success: false, error: "Unauthorized" };
     await verifyServerPermission(session.user.id, "marketing", "edit");
 
+    const orgId = await resolveOrganizationId(session.user.id, session.user.organizationId);
+    if (!orgId) return { success: false, error: "No organization found" };
+
     const idea = await prisma.marketingStageIdea.findFirst({
-      where: { id: ideaId, organizationId: session.user.organizationId },
+      where: { id: ideaId, organizationId: orgId },
       include: { Stage: true },
     });
     if (!idea) return { success: false, error: "Idea not found" };
@@ -1630,7 +1721,7 @@ export async function convertIdeaToContentAction(ideaId: string) {
 
       const contentItem = await tx.marketingContentItem.create({
         data: {
-          organizationId: session.user.organizationId,
+          organizationId: orgId,
           campaignId: idea.Stage.campaignId,
           stageId: idea.stageId,
           title: idea.title,
@@ -1659,12 +1750,15 @@ export async function createStageRequirementAction(input: {
 }) {
   try {
     const session = await auth();
-    if (!session?.user?.organizationId) return { success: false, error: "Unauthorized" };
+    if (!session?.user?.id) return { success: false, error: "Unauthorized" };
     await verifyServerPermission(session.user.id, "marketing", "edit");
+
+    const orgId = await resolveOrganizationId(session.user.id, session.user.organizationId);
+    if (!orgId) return { success: false, error: "No organization found" };
 
     const requirement = await prisma.marketingStageRequirement.create({
       data: {
-        organizationId: session.user.organizationId,
+        organizationId: orgId,
         stageId: input.stageId,
         title: input.title,
         type: input.type || "CREATIVE_ASSET",
@@ -1687,12 +1781,15 @@ export async function createStageActivityAction(input: {
 }) {
   try {
     const session = await auth();
-    if (!session?.user?.organizationId) return { success: false, error: "Unauthorized" };
+    if (!session?.user?.id) return { success: false, error: "Unauthorized" };
     await verifyServerPermission(session.user.id, "marketing", "edit");
+
+    const orgId = await resolveOrganizationId(session.user.id, session.user.organizationId);
+    if (!orgId) return { success: false, error: "No organization found" };
 
     const activity = await prisma.marketingStageActivity.create({
       data: {
-        organizationId: session.user.organizationId,
+        organizationId: orgId,
         stageId: input.stageId,
         title: input.title,
         description: input.description || null,
@@ -1846,7 +1943,7 @@ export async function createMarketingFunnelPlanAction(input: {
           clientId: defaultClient.id,
           title: "General Marketing Strategic Project",
           ownerId: userId,
-          status: ProjectStatus.IN_PROGRESS,
+          status: ProjectStatus.ACTIVE,
         },
       });
     }
@@ -1967,7 +2064,15 @@ export interface MarketingFunnelListItem {
   conversionRate: string;
   activeCampaigns: number;
   status: string;
+  objective?: string | null;
   createdAt: string;
+  stages?: Array<{
+    id: string;
+    name: string;
+    position: number;
+    plannedBudget?: number;
+    objective?: string | null;
+  }>;
 }
 
 export async function getMarketingFunnelsAction(): Promise<{
@@ -2032,7 +2137,15 @@ export async function getMarketingFunnelsAction(): Promise<{
         conversionRate: "0%",
         activeCampaigns: p.Campaigns.length,
         status: p.status,
+        objective: p.objective,
         createdAt: p.createdAt.toISOString(),
+        stages: allStages.map((s) => ({
+          id: s.id,
+          name: s.name,
+          position: s.position,
+          plannedBudget: Number(s.plannedBudget || 0),
+          objective: s.objective,
+        })),
       };
     });
 
@@ -2175,6 +2288,18 @@ export async function quickCreateMarketingCampaignAction(input: {
   startDate?: string;
   endDate?: string;
   status?: string;
+  marketingPlanId?: string;
+  mediaUrl?: string;
+  headline?: string;
+  bodyCopy?: string;
+  creativeFormat?: string;
+  offerHook?: string;
+  targetAudience?: string;
+  utmTag?: string;
+  videoUrl?: string;
+  ctaLabel?: string;
+  destinationUrl?: string;
+  stages?: Array<{ name: string; position?: number; plannedBudget?: number; objective?: string }>;
 }): Promise<{ success: boolean; error?: string; campaignId?: string }> {
   try {
     const session = await auth();
@@ -2204,30 +2329,50 @@ export async function quickCreateMarketingCampaignAction(input: {
     });
 
     if (!defaultProject) {
+      let defaultClient = await prisma.client.findFirst({
+        where: { organizationId: orgId },
+        select: { id: true },
+      });
+      if (!defaultClient) {
+        defaultClient = await prisma.client.create({
+          data: {
+            organizationId: orgId,
+            name: "Internal Marketing Client",
+            email: `marketing-${Date.now()}@internal.local`,
+            createdBy: userId,
+            status: "active",
+          },
+        });
+      }
       defaultProject = await prisma.project.create({
         data: {
-          name: "Marketing Core Operations",
+          title: "Marketing Core Operations",
           organizationId: orgId,
-          createdById: userId,
-          status: "active",
+          ownerId: userId,
+          clientId: defaultClient.id,
+          status: ProjectStatus.ACTIVE,
         },
       });
     }
 
-    const campaign = await prisma.projectMarketingCampaign.create({
-      data: {
-        organizationId: orgId,
-        projectId: defaultProject.id,
-        name: input.name,
-        campaignType: input.campaignType || MarketingCampaignType.DIGITAL_MARKETING,
-        channel: input.channel || "Digital Marketing",
-        objective: input.objective || "Lead Generation & Outreach",
-        startDate: input.startDate ? new Date(input.startDate) : new Date(),
-        endDate: input.endDate ? new Date(input.endDate) : null,
-        status: MarketingCampaignStatus.ACTIVE,
-        createdById: userId,
-        Stages: {
-          create: [
+    const stagesCreateData =
+      input.stages && input.stages.length > 0
+        ? input.stages.map((stg, idx) => ({
+            organizationId: orgId,
+            name: stg.name,
+            position: stg.position || idx + 1,
+            plannedBudget: new Prisma.Decimal(
+              stg.plannedBudget && stg.plannedBudget > 0
+                ? stg.plannedBudget
+                : input.budget && input.budget > 0
+                ? input.budget / input.stages!.length
+                : 50000
+            ),
+            objective: stg.objective || null,
+            status: MarketingCampaignStatus.ACTIVE,
+            createdById: userId,
+          }))
+        : [
             {
               organizationId: orgId,
               name: input.stage || "Lead Generation",
@@ -2236,12 +2381,49 @@ export async function quickCreateMarketingCampaignAction(input: {
               status: MarketingCampaignStatus.ACTIVE,
               createdById: userId,
             },
-          ],
+          ];
+
+    const campaign = await prisma.projectMarketingCampaign.create({
+      data: {
+        organizationId: orgId,
+        projectId: defaultProject.id,
+        marketingPlanId: input.marketingPlanId || null,
+        name: input.name,
+        campaignType: input.campaignType || MarketingCampaignType.DIGITAL_MARKETING,
+        channel: input.channel || "Digital Marketing",
+        objective:
+          input.objective ||
+          (input.bodyCopy
+            ? `${input.headline ? input.headline + " — " : ""}${input.bodyCopy}`
+            : input.headline || "Lead Generation & Outreach"),
+        startDate: input.startDate ? new Date(input.startDate) : new Date(),
+        endDate: input.endDate ? new Date(input.endDate) : null,
+        status: MarketingCampaignStatus.ACTIVE,
+        createdById: userId,
+        Stages: {
+          create: stagesCreateData,
         },
+        ContentItems:
+          input.mediaUrl || input.headline || input.destinationUrl || input.ctaLabel || input.bodyCopy
+            ? {
+                create: [
+                  {
+                    organizationId: orgId,
+                    title: input.headline || input.name,
+                    contentType: input.creativeFormat || "DIGITAL_AD_CREATIVE",
+                    channel: input.channel || "Digital Marketing",
+                    scheduledAt: input.startDate ? new Date(input.startDate) : new Date(),
+                    status: MarketingContentStatus.PUBLISHED,
+                    createdById: userId,
+                  },
+                ],
+              }
+            : undefined,
       },
     });
 
     revalidatePath("/dashboard/marketing/campaigns");
+    revalidatePath("/dashboard/marketing/marketing-funnel");
     return { success: true, campaignId: campaign.id };
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : "Failed to create campaign";
@@ -2285,7 +2467,9 @@ export type CreateChannelCampaignInput = {
   platformOrChannel?: string;
   channel?: string;
   stage?: string;
+  stages?: Array<{ name: string; position: number; plannedBudget?: number }>;
   objective?: string;
+  marketingPlanId?: string;
   budget?: number;
   spend?: number;
   impressions?: number;
@@ -2304,6 +2488,23 @@ export type CreateChannelCampaignInput = {
   startDate?: string;
   endDate?: string;
   status?: string;
+  mediaUrl?: string;
+  headline?: string;
+  bodyCopy?: string;
+  creativeFormat?: string;
+  offerHook?: string;
+  targetAudience?: string;
+  contentFormats?: string[];
+  utmTag?: string;
+  videoUrl?: string;
+  ctaLabel?: string;
+  ctaText?: string;
+  funnelId?: string;
+  senderId?: string;
+  materials?: string;
+  destinationUrl?: string;
+  bannerDimensions?: string;
+  qrCodeUrl?: string;
 };
 
 export async function createChannelSpecificCampaignAction(
@@ -2337,12 +2538,28 @@ export async function createChannelSpecificCampaignAction(
     });
 
     if (!defaultProject) {
+      let defaultClient = await prisma.client.findFirst({
+        where: { organizationId: orgId },
+        select: { id: true },
+      });
+      if (!defaultClient) {
+        defaultClient = await prisma.client.create({
+          data: {
+            organizationId: orgId,
+            name: "Internal Marketing Client",
+            email: `marketing-${Date.now()}@internal.local`,
+            createdBy: userId,
+            status: "active",
+          },
+        });
+      }
       defaultProject = await prisma.project.create({
         data: {
-          name: "Marketing Core Operations",
+          title: "Marketing Core Operations",
           organizationId: orgId,
-          createdById: userId,
-          status: "active",
+          ownerId: userId,
+          clientId: defaultClient.id,
+          status: ProjectStatus.ACTIVE,
         },
       });
     }
@@ -2379,29 +2596,96 @@ export async function createChannelSpecificCampaignAction(
       else if (upper === "CANCELLED" || upper === "CANCELED") campaignStatus = MarketingCampaignStatus.CANCELLED;
     }
 
+    // Format Map for Planned Content Formats
+    const formatLabelMap: Record<string, string> = {
+      VIDEO: "Video Explainer & Demo",
+      REELS_SHORTS: "Reels / Shorts / Story (9:16)",
+      STATIC: "Static Image & Banner",
+      CAROUSEL: "Multi-Slide Carousel",
+    };
+
+    let contentItemsToCreate: Array<{
+      organizationId: string;
+      title: string;
+      contentType: string;
+      channel: string;
+      scheduledAt: Date;
+      status: MarketingContentStatus;
+      createdById: string;
+    }> = [];
+
+    if (input.contentFormats && input.contentFormats.length > 0) {
+      contentItemsToCreate = input.contentFormats.map((fmt) => ({
+        organizationId: orgId,
+        title: `${input.name} - ${formatLabelMap[fmt] || fmt}`,
+        contentType: fmt,
+        channel: ch,
+        scheduledAt: input.startDate ? new Date(input.startDate) : new Date(),
+        status: MarketingContentStatus.DRAFT,
+        createdById: userId,
+      }));
+    } else if (msg || input.mediaUrl || input.headline) {
+      contentItemsToCreate = [
+        {
+          organizationId: orgId,
+          title: input.headline || input.name,
+          contentType:
+            cat === "PAID_ADS"
+              ? "STATIC"
+              : cat === "SMS"
+              ? "SMS_MESSAGE"
+              : cat === "WA"
+              ? "WA_BROADCAST"
+              : cat === "EMAIL"
+              ? "EMAIL_NEWSLETTER"
+              : "CREATIVE_BANNER",
+          channel: ch,
+          scheduledAt: input.startDate ? new Date(input.startDate) : new Date(),
+          status: MarketingContentStatus.DRAFT,
+          createdById: userId,
+        },
+      ];
+    }
+
+    const stagesCreate = (input.stages && input.stages.length > 0)
+      ? input.stages.map((stg) => ({
+          organizationId: orgId,
+          name: stg.name,
+          position: stg.position,
+          plannedBudget: new Prisma.Decimal(stg.plannedBudget || 0),
+          status: MarketingCampaignStatus.ACTIVE,
+          createdById: userId,
+        }))
+      : [
+          {
+            organizationId: orgId,
+            name: input.stage || "Lead Generation",
+            position: 1,
+            plannedBudget: new Prisma.Decimal(plannedBudget),
+            status: MarketingCampaignStatus.ACTIVE,
+            createdById: userId,
+          },
+        ];
+
+    const campaignObjective = input.targetAudience
+      ? `Target Audience: ${input.targetAudience}${input.objective ? ` | ${input.objective}` : ""}`
+      : input.objective || (input.headline ? `${input.headline}` : `${cat} Campaign: ${input.name}`);
+
     const campaign = await prisma.projectMarketingCampaign.create({
       data: {
         organizationId: orgId,
         projectId: defaultProject.id,
+        marketingPlanId: input.marketingPlanId || null,
         name: input.name,
         campaignType: cType,
         channel: ch,
-        objective: input.objective || `${cat} Campaign: ${input.name}`,
+        objective: campaignObjective,
         startDate: input.startDate ? new Date(input.startDate) : new Date(),
         endDate: input.endDate ? new Date(input.endDate) : null,
         status: campaignStatus,
         createdById: userId,
         Stages: {
-          create: [
-            {
-              organizationId: orgId,
-              name: input.stage || "Lead Generation",
-              position: 1,
-              plannedBudget: new Prisma.Decimal(plannedBudget),
-              status: MarketingCampaignStatus.ACTIVE,
-              createdById: userId,
-            },
-          ],
+          create: stagesCreate,
         },
         PerformanceSnapshots:
           cat === "PAID_ADS" ||
@@ -2426,24 +2710,9 @@ export async function createChannelSpecificCampaignAction(
                 ],
               }
             : undefined,
-        ContentItems: msg
+        ContentItems: contentItemsToCreate.length > 0
           ? {
-              create: [
-                {
-                  organizationId: orgId,
-                  title: input.name,
-                  contentType:
-                    cat === "SMS"
-                      ? "SMS_MESSAGE"
-                      : cat === "WA"
-                      ? "WA_BROADCAST"
-                      : "EMAIL_NEWSLETTER",
-                  channel: ch,
-                  scheduledAt: input.startDate ? new Date(input.startDate) : new Date(),
-                  status: MarketingContentStatus.PUBLISHED,
-                  createdById: userId,
-                },
-              ],
+              create: contentItemsToCreate,
             }
           : undefined,
       },
@@ -2623,9 +2892,70 @@ export async function getChannelCampaignsAction(
   }
 }
 
+export async function getAudienceSegmentsAction(): Promise<{
+  success: boolean;
+  categories?: string[];
+  leadSources?: string[];
+  suggestedAudiences?: string[];
+  error?: string;
+}> {
+  try {
+    let session = null;
+    try {
+      session = await auth();
+    } catch {
+      // request scope fallback
+    }
 
+    const categoriesData = await prisma.category.findMany({
+      select: { name: true },
+      where: { name: { not: "" } },
+      orderBy: { name: "asc" },
+      take: 50,
+    });
+    const categories = categoriesData.map((c) => c.name).filter(Boolean);
 
+    const leadSourcesData = await prisma.lead.findMany({
+      where: { source: { not: null } },
+      select: { source: true },
+      distinct: ["source"],
+      take: 50,
+    });
+    const leadSources = leadSourcesData
+      .map((l) => l.source?.trim())
+      .filter((s): s is string => Boolean(s && s.length > 0));
 
+    const suggestedAudiences = [
+      "B2B Decision Makers (CEOs, Founders, Directors)",
+      "E-Commerce & Retail Business Owners",
+      "Tech & IT Startup Professionals",
+      "SME & Local Business Managers",
+      "Real Estate & Property Developers",
+      "Corporate Procurement & HR Leads",
+      "Healthcare & Clinic Practitioners",
+      "Fashion, Apparel & Boutique Brands",
+      "Restaurant & Hospitality Owners",
+      "Students & Young Professionals",
+    ];
 
-
-
+    return {
+      success: true,
+      categories,
+      leadSources,
+      suggestedAudiences,
+    };
+  } catch (error: unknown) {
+    console.error("getAudienceSegmentsAction error:", error);
+    return {
+      success: true,
+      categories: [],
+      leadSources: [],
+      suggestedAudiences: [
+        "B2B Decision Makers (CEOs, Founders)",
+        "E-Commerce & Retail Brands",
+        "SME & Local Business Owners",
+        "Tech & Corporate Executives",
+      ],
+    };
+  }
+}

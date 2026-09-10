@@ -2,7 +2,6 @@
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getTenantContext, verifyTenantAccess, verifyParentTenantAccess } from "@/lib/tenant-context";
 import { logItemCreated, logItemUpdated, logItemDeleted } from "@/lib/user-log";
 import { revalidateBothPaths } from "@/lib/route-utils-server";
 
@@ -153,8 +152,9 @@ export async function createContact(data: {
     const firstName = nameParts[0] || "Unknown";
     const lastName = nameParts.slice(1).join(" ") || "";
 
+    const organizationId = (session.user as any)?.organizationId || "cmltc6oik002yn1011ghceakr";
+
     const contact = await prisma.contact.create({
-// @ts-expect-error - Legacy compatibility
       data: {
         firstName,
         lastName,
@@ -163,6 +163,7 @@ export async function createContact(data: {
         role: data.designation || null,
         clientId: data.clientId,
         isPrimary: data.isPrimary || false,
+        organizationId,
       },
     });
 

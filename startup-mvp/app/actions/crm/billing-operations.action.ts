@@ -357,7 +357,6 @@ export async function createInvoiceFromBillingMilestoneAction(
           },
         });
         const newOrder = await tx.order.create({
-// @ts-expect-error - Legacy compatibility
           data: {
             orderNumber: `ORD-BILL-${Date.now().toString().slice(-6)}`,
             quotationId: quoId,
