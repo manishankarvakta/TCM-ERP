@@ -94,16 +94,16 @@ export const MENU_TEMPLATE: MenuItemData[] = [
   // 4. CRM
   {
     label: "CRM",
+    href: "/dashboard/crm",
     icon: "FiUsers",
     module: "crm",
     subMenu: [
-      { href: "/dashboard/crm", label: "CRM Dashboard", icon: "FiTarget", module: "crm" },
+      { href: "/dashboard/crm", label: "Dashboard", icon: "FiTarget", module: "crm" },
       { href: "/dashboard/crm/leads", label: "Leads", icon: "FiTarget", module: "crm" },
       { href: "/dashboard/crm/opportunities", label: "Opportunities", icon: "FiTrendingUp", module: "crm" },
+      { href: "/dashboard/crm/clients", label: "Clients", icon: "FiUsers", module: "peoples" },
       { href: "/dashboard/crm/contacts", label: "Contacts", icon: "FiUser", module: "crm" },
       { href: "/dashboard/crm/activities", label: "Activities", icon: "FiActivity", module: "crm" },
-      { href: "/dashboard/crm/follow-ups", label: "Follow-ups", icon: "FiClock", module: "crm" },
-      { href: "/dashboard/crm/pipeline", label: "Pipeline", icon: "FiLayers", module: "crm" },
     ],
   },
   // 5. Sales
@@ -113,13 +113,8 @@ export const MENU_TEMPLATE: MenuItemData[] = [
     module: "quotations",
     subMenu: [
       { href: "/dashboard/sales", label: "Sales Dashboard", icon: "FiBarChart", module: "quotations" },
-      { href: "/dashboard/crm/requirements", label: "Requirements", icon: "FiFileText", module: "crm" },
-      { href: "/dashboard/crm/estimations", label: "Internal Estimations", icon: "SlCalculator", module: "crm" },
       { href: "/dashboard/quotations", label: "Quotations", icon: "FiFileText", module: "quotations" },
-      { href: "/dashboard/crm/agreements", label: "Agreements", icon: "FiFileText", module: "crm" },
-      { href: "/dashboard/crm/service-sales", label: "Service Sales", icon: "FiShoppingCart", module: "crm" },
       { href: "/dashboard/quotations/orders", label: "Work Orders", icon: "FiPackage", module: "quotations" },
-      { href: "/dashboard/crm/project-handovers", label: "Project Handovers", icon: "FiBriefcase", module: "crm" },
     ],
   },
   // 6. Clients

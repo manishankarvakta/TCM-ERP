@@ -159,7 +159,7 @@ model Client {
   Organization     Organization    @relation(fields: [organizationId], references: [id])
   id               String             @id @default(cuid())
   name             String?
-  email            String             @unique
+  email            String?       @unique
   phone            String?
   address          String?
   city             String?
@@ -212,7 +212,7 @@ model Contact {
   id          String        @id @default(cuid())
   firstName   String
   lastName    String
-  email       String?       @unique
+  email       String?
   phone       String?
   role        String?
   clientId    String
@@ -765,8 +765,8 @@ model Opportunity {
 }
 
 model Order {
-  organizationId   String    
-  Organization     Organization @relation(fields: [organizationId], references: [id])
+  organizationId   String?    
+  Organization     Organization? @relation(fields: [organizationId], references: [id])
   id               String             @id @default(cuid())
   orderNumber      String             @unique
   quotationId      String?            @unique
@@ -932,6 +932,7 @@ model Organization {
   AutomationExecutions        AutomationExecution[]
   DomainOutboxEvents          DomainOutboxEvent[]
   QueueJobs                   QueueJob[]
+  BusinessSequences           BusinessSequence[]
 
   @@index([createdBy])
   @@index([name])
@@ -1190,7 +1191,7 @@ model Session {
 model Supplier {
   id               String             @id @default(cuid())
   name             String?
-  email            String             @unique
+  email            String?            @unique
   phone            String?
   address          String?
   city             String?
@@ -2137,22 +2138,24 @@ model Warehouse {
 }
 
 model Shift {
-  id           String       @id @default(cuid())
-  name         String
-  startTime    String
-  endTime      String
-  graceMinutes Int          @default(0)
-  lateAfter    Int          @default(15)
-  halfDayAfter Int          @default(120)
-  otStartAfter Int          @default(30)
-  status       String       @default("active")
-  isTrash      Boolean      @default(false)
-  createdBy    String
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
-  attendances  Attendance[]
-  employees    Employee[]   @relation("EmployeeShift")
-  creator      User         @relation("ShiftCreator", fields: [createdBy], references: [id])
+  id                String       @id @default(cuid())
+  name              String
+  startTime         String
+  endTime           String
+  graceMinutes      Int          @default(0)
+  lateAfter         Int          @default(15)
+  halfDayAfter      Int          @default(240)
+  isNightShift      Boolean      @default(false)
+  overtimeAllowed   Boolean      @default(true)
+  otStartAfter      Int          @default(30)
+  status            String       @default("active")
+  isTrash           Boolean      @default(false)
+  createdBy         String
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  attendances       Attendance[]
+  employees         Employee[]   @relation("EmployeeShift")
+  creator           User         @relation("ShiftCreator", fields: [createdBy], references: [id])
 
   @@index([status])
   @@index([isTrash])
@@ -2362,30 +2365,30 @@ model Payroll {
 }
 
 model PayrollItem {
-  id              String   @id @default(cuid())
-  payrollId       String
-  employeeId      String
-  basic           Decimal  @default(0) @db.Decimal(12, 2)
-  houseRent       Decimal  @default(0) @db.Decimal(12, 2)
-  medical         Decimal  @default(0) @db.Decimal(12, 2)
-  transport       Decimal  @default(0) @db.Decimal(12, 2)
-  foodAllowance   Decimal  @default(0) @db.Decimal(12, 2)
-  otAmount        Decimal  @default(0) @db.Decimal(12, 2)
-  bonus           Decimal  @default(0) @db.Decimal(12, 2)
-  grossPay        Decimal  @default(0) @db.Decimal(12, 2)
-  absentDeduction Decimal  @default(0) @db.Decimal(12, 2)
-  loanDeduction   Decimal  @default(0) @db.Decimal(12, 2)
-  taxDeduction    Decimal  @default(0) @db.Decimal(12, 2)
-  pfDeduction     Decimal  @default(0) @db.Decimal(12, 2)
-  totalDeduction  Decimal  @default(0) @db.Decimal(12, 2)
-  netPay          Decimal  @default(0) @db.Decimal(12, 2)
-  status          String   @default("unpaid")
-  projectId       String?
-  Project         Project? @relation(fields: [projectId], references: [id])
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  employee        Employee @relation(fields: [employeeId], references: [id])
-  payroll         Payroll  @relation(fields: [payrollId], references: [id], onDelete: Cascade)
+  id                   String   @id @default(cuid())
+  payrollId            String
+  employeeId           String
+  basic                Decimal  @default(0) @db.Decimal(12, 2)
+  houseRent            Decimal  @default(0) @db.Decimal(12, 2)
+  medical              Decimal  @default(0) @db.Decimal(12, 2)
+  transport            Decimal  @default(0) @db.Decimal(12, 2)
+  foodAllowance        Decimal  @default(0) @db.Decimal(12, 2)
+  otAmount             Decimal  @default(0) @db.Decimal(12, 2)
+  bonus                Decimal  @default(0) @db.Decimal(12, 2)
+  grossPay             Decimal  @default(0) @db.Decimal(12, 2)
+  absentDeduction      Decimal  @default(0) @db.Decimal(12, 2)
+  loanDeduction        Decimal  @default(0) @db.Decimal(12, 2)
+  taxDeduction         Decimal  @default(0) @db.Decimal(12, 2)
+  pfDeduction          Decimal  @default(0) @db.Decimal(12, 2)
+  totalDeduction       Decimal  @default(0) @db.Decimal(12, 2)
+  netPay               Decimal  @default(0) @db.Decimal(12, 2)
+  status               String   @default("unpaid")
+  projectId            String?
+  Project              Project? @relation(fields: [projectId], references: [id])
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  employee             Employee @relation(fields: [employeeId], references: [id])
+  payroll              Payroll  @relation(fields: [payrollId], references: [id], onDelete: Cascade)
 
   @@unique([payrollId, employeeId])
   @@index([employeeId])
@@ -2412,36 +2415,39 @@ model BiometricSyncLog {
 }
 
 model BiometricDevice {
-  id               String             @id @default(cuid())
+  id               String                 @id @default(cuid())
   name             String
   vendor           String
-  connectionType   String             @default("IP")
+  connectionType   String                 @default("IP")
   ipAddress        String?
-  port             Int?               @default(4370)
+  port             Int?                   @default(4370)
   apiKey           String?
-  serialNumber     String?            @unique
+  serialNumber     String?                @unique
   location         String?
-  status           String             @default("active")
+  status           String                 @default("active")
   lastSyncAt       DateTime?
   createdBy        String
-  createdAt        DateTime           @default(now())
-  updatedAt        DateTime           @updatedAt
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
   brand            String?
   model            String?
-  protocol         String?            @default("TCP_IP")
+  protocol         String?                @default("TCP_IP")
   company          String?
   branchId         String?
-  timeZone         String?            @default("Asia/Dhaka")
-  connectionStatus String?            @default("unknown")
-  autoSync         Boolean            @default(false)
-  syncInterval     Int                @default(60)
-  branch           Warehouse?         @relation("WarehouseDevices", fields: [branchId], references: [id])
+  timeZone         String?                @default("Asia/Dhaka")
+  connectionStatus String?                @default("unknown")
+  autoSync         Boolean                @default(false)
+  syncInterval     Int                    @default(60)
+  branch           Warehouse?             @relation("WarehouseDevices", fields: [branchId], references: [id])
   attendanceLogs   AttendanceLog[]
   syncLogs         BiometricSyncLog[]
 
   @@index([vendor])
   @@index([status])
 }
+
+// ============================================
+
 
 enum EmploymentType {
   PERMANENT
@@ -5511,4 +5517,20 @@ model QueueJob {
   @@index([availableAt])
   @@index([claimedBy])
 }
+
+model BusinessSequence {
+  id             String        @id
+  organizationId String        @default("default-org")
+  key            String
+  year           Int
+  currentValue   Int           @default(0)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  Organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, key, year])
+  @@index([organizationId, key])
+}
+
 

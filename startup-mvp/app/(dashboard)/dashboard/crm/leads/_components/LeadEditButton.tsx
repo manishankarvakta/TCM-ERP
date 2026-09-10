@@ -8,9 +8,10 @@ import { useRouter } from "next/navigation";
 
 interface LeadEditButtonProps {
   lead: any;
+  categories?: { id: string; name: string }[];
 }
 
-export function LeadEditButton({ lead }: LeadEditButtonProps) {
+export function LeadEditButton({ lead, categories = [] }: LeadEditButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
   const router = useRouter();
 
@@ -27,10 +28,10 @@ export function LeadEditButton({ lead }: LeadEditButtonProps) {
       </Button>
 
       <LeadSheet
-        categories={[]}
         open={isOpen}
         onOpenChange={setIsOpen}
         lead={lead}
+        categories={categories}
         onSuccess={() => {
           setIsOpen(false);
           router.refresh();

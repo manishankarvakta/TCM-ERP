@@ -2467,7 +2467,9 @@ export type CreateChannelCampaignInput = {
   platformOrChannel?: string;
   channel?: string;
   stage?: string;
+  stages?: Array<{ name: string; position: number; plannedBudget?: number }>;
   objective?: string;
+  marketingPlanId?: string;
   budget?: number;
   spend?: number;
   impressions?: number;
@@ -2492,9 +2494,14 @@ export type CreateChannelCampaignInput = {
   creativeFormat?: string;
   offerHook?: string;
   targetAudience?: string;
+  contentFormats?: string[];
   utmTag?: string;
   videoUrl?: string;
   ctaLabel?: string;
+  ctaText?: string;
+  funnelId?: string;
+  senderId?: string;
+  materials?: string;
   destinationUrl?: string;
   bannerDimensions?: string;
   qrCodeUrl?: string;
@@ -2589,29 +2596,96 @@ export async function createChannelSpecificCampaignAction(
       else if (upper === "CANCELLED" || upper === "CANCELED") campaignStatus = MarketingCampaignStatus.CANCELLED;
     }
 
+    // Format Map for Planned Content Formats
+    const formatLabelMap: Record<string, string> = {
+      VIDEO: "Video Explainer & Demo",
+      REELS_SHORTS: "Reels / Shorts / Story (9:16)",
+      STATIC: "Static Image & Banner",
+      CAROUSEL: "Multi-Slide Carousel",
+    };
+
+    let contentItemsToCreate: Array<{
+      organizationId: string;
+      title: string;
+      contentType: string;
+      channel: string;
+      scheduledAt: Date;
+      status: MarketingContentStatus;
+      createdById: string;
+    }> = [];
+
+    if (input.contentFormats && input.contentFormats.length > 0) {
+      contentItemsToCreate = input.contentFormats.map((fmt) => ({
+        organizationId: orgId,
+        title: `${input.name} - ${formatLabelMap[fmt] || fmt}`,
+        contentType: fmt,
+        channel: ch,
+        scheduledAt: input.startDate ? new Date(input.startDate) : new Date(),
+        status: MarketingContentStatus.DRAFT,
+        createdById: userId,
+      }));
+    } else if (msg || input.mediaUrl || input.headline) {
+      contentItemsToCreate = [
+        {
+          organizationId: orgId,
+          title: input.headline || input.name,
+          contentType:
+            cat === "PAID_ADS"
+              ? "STATIC"
+              : cat === "SMS"
+              ? "SMS_MESSAGE"
+              : cat === "WA"
+              ? "WA_BROADCAST"
+              : cat === "EMAIL"
+              ? "EMAIL_NEWSLETTER"
+              : "CREATIVE_BANNER",
+          channel: ch,
+          scheduledAt: input.startDate ? new Date(input.startDate) : new Date(),
+          status: MarketingContentStatus.DRAFT,
+          createdById: userId,
+        },
+      ];
+    }
+
+    const stagesCreate = (input.stages && input.stages.length > 0)
+      ? input.stages.map((stg) => ({
+          organizationId: orgId,
+          name: stg.name,
+          position: stg.position,
+          plannedBudget: new Prisma.Decimal(stg.plannedBudget || 0),
+          status: MarketingCampaignStatus.ACTIVE,
+          createdById: userId,
+        }))
+      : [
+          {
+            organizationId: orgId,
+            name: input.stage || "Lead Generation",
+            position: 1,
+            plannedBudget: new Prisma.Decimal(plannedBudget),
+            status: MarketingCampaignStatus.ACTIVE,
+            createdById: userId,
+          },
+        ];
+
+    const campaignObjective = input.targetAudience
+      ? `Target Audience: ${input.targetAudience}${input.objective ? ` | ${input.objective}` : ""}`
+      : input.objective || (input.headline ? `${input.headline}` : `${cat} Campaign: ${input.name}`);
+
     const campaign = await prisma.projectMarketingCampaign.create({
       data: {
         organizationId: orgId,
         projectId: defaultProject.id,
+        marketingPlanId: input.marketingPlanId || null,
         name: input.name,
         campaignType: cType,
         channel: ch,
-        objective: input.objective || (input.headline ? `${input.headline}` : `${cat} Campaign: ${input.name}`),
+        objective: campaignObjective,
         startDate: input.startDate ? new Date(input.startDate) : new Date(),
         endDate: input.endDate ? new Date(input.endDate) : null,
         status: campaignStatus,
         createdById: userId,
         Stages: {
-          create: [
-            {
-              organizationId: orgId,
-              name: input.stage || "Lead Generation",
-              position: 1,
-              plannedBudget: new Prisma.Decimal(plannedBudget),
-              status: MarketingCampaignStatus.ACTIVE,
-              createdById: userId,
-            },
-          ],
+          create: stagesCreate,
         },
         PerformanceSnapshots:
           cat === "PAID_ADS" ||
@@ -2636,28 +2710,9 @@ export async function createChannelSpecificCampaignAction(
                 ],
               }
             : undefined,
-        ContentItems: (msg || input.mediaUrl || input.headline)
+        ContentItems: contentItemsToCreate.length > 0
           ? {
-              create: [
-                {
-                  organizationId: orgId,
-                  title: input.headline || input.name,
-                  contentType:
-                    cat === "PAID_ADS"
-                      ? "PAID_AD_CREATIVE"
-                      : cat === "SMS"
-                      ? "SMS_MESSAGE"
-                      : cat === "WA"
-                      ? "WA_BROADCAST"
-                      : cat === "EMAIL"
-                      ? "EMAIL_NEWSLETTER"
-                      : "CREATIVE_BANNER",
-                  channel: ch,
-                  scheduledAt: input.startDate ? new Date(input.startDate) : new Date(),
-                  status: MarketingContentStatus.PUBLISHED,
-                  createdById: userId,
-                },
-              ],
+              create: contentItemsToCreate,
             }
           : undefined,
       },
@@ -2837,9 +2892,70 @@ export async function getChannelCampaignsAction(
   }
 }
 
+export async function getAudienceSegmentsAction(): Promise<{
+  success: boolean;
+  categories?: string[];
+  leadSources?: string[];
+  suggestedAudiences?: string[];
+  error?: string;
+}> {
+  try {
+    let session = null;
+    try {
+      session = await auth();
+    } catch {
+      // request scope fallback
+    }
 
+    const categoriesData = await prisma.category.findMany({
+      select: { name: true },
+      where: { name: { not: "" } },
+      orderBy: { name: "asc" },
+      take: 50,
+    });
+    const categories = categoriesData.map((c) => c.name).filter(Boolean);
 
+    const leadSourcesData = await prisma.lead.findMany({
+      where: { source: { not: null } },
+      select: { source: true },
+      distinct: ["source"],
+      take: 50,
+    });
+    const leadSources = leadSourcesData
+      .map((l) => l.source?.trim())
+      .filter((s): s is string => Boolean(s && s.length > 0));
 
+    const suggestedAudiences = [
+      "B2B Decision Makers (CEOs, Founders, Directors)",
+      "E-Commerce & Retail Business Owners",
+      "Tech & IT Startup Professionals",
+      "SME & Local Business Managers",
+      "Real Estate & Property Developers",
+      "Corporate Procurement & HR Leads",
+      "Healthcare & Clinic Practitioners",
+      "Fashion, Apparel & Boutique Brands",
+      "Restaurant & Hospitality Owners",
+      "Students & Young Professionals",
+    ];
 
-
-
+    return {
+      success: true,
+      categories,
+      leadSources,
+      suggestedAudiences,
+    };
+  } catch (error: unknown) {
+    console.error("getAudienceSegmentsAction error:", error);
+    return {
+      success: true,
+      categories: [],
+      leadSources: [],
+      suggestedAudiences: [
+        "B2B Decision Makers (CEOs, Founders)",
+        "E-Commerce & Retail Brands",
+        "SME & Local Business Owners",
+        "Tech & Corporate Executives",
+      ],
+    };
+  }
+}

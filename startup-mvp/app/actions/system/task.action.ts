@@ -89,8 +89,55 @@ export async function createTask(input: {
       }
     }
 
+    // Resolve organizationId
+    let organizationId = (session.user as any).organizationId;
+    if (!organizationId) {
+      const dbUser = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { organizationId: true }
+      });
+      organizationId = dbUser?.organizationId;
+    }
+    if (!organizationId && input.leadId) {
+      const lead = await prisma.lead.findUnique({
+        where: { id: input.leadId },
+        select: { organizationId: true }
+      });
+      organizationId = lead?.organizationId;
+    }
+    if (!organizationId && input.opportunityId) {
+      const opp = await prisma.opportunity.findUnique({
+        where: { id: input.opportunityId },
+        select: { organizationId: true }
+      });
+      organizationId = opp?.organizationId;
+    }
+    if (!organizationId && input.contactId) {
+      const contact = await prisma.contact.findUnique({
+        where: { id: input.contactId },
+        select: { organizationId: true }
+      });
+      organizationId = contact?.organizationId;
+    }
+    if (!organizationId && input.projectId) {
+      const project = await prisma.project.findUnique({
+        where: { id: input.projectId },
+        select: { organizationId: true }
+      });
+      organizationId = project?.organizationId;
+    }
+    if (!organizationId) {
+      const defaultOrg = await prisma.organization.findFirst({ select: { id: true } });
+      organizationId = defaultOrg?.id;
+    }
+
+    if (!organizationId) {
+      return { success: false, error: "Organization not found" };
+    }
+
     const task = await prisma.task.create({
       data: {
+        organizationId,
         title: input.title,
         description: input.description,
         status: input.status || "todo",
@@ -153,6 +200,15 @@ export async function createTask(input: {
     revalidateBothPaths("tasks");
     if (task.projectId) {
       revalidateBothPaths(`projects/${task.projectId}`);
+    }
+    if (task.leadId) {
+      revalidateBothPaths(`crm/leads/${task.leadId}`);
+    }
+    if (task.opportunityId) {
+      revalidateBothPaths(`crm/opportunities/${task.opportunityId}`);
+    }
+    if (task.contactId) {
+      revalidateBothPaths(`crm/contacts/${task.contactId}`);
     }
     return { success: true, task };
   } catch (error) {
@@ -328,6 +384,15 @@ export async function updateTask(
     if (task.projectId) {
       revalidateBothPaths(`projects/${task.projectId}`);
     }
+    if (task.leadId) {
+      revalidateBothPaths(`crm/leads/${task.leadId}`);
+    }
+    if (task.opportunityId) {
+      revalidateBothPaths(`crm/opportunities/${task.opportunityId}`);
+    }
+    if (task.contactId) {
+      revalidateBothPaths(`crm/contacts/${task.contactId}`);
+    }
     return { success: true, task };
   } catch (error) {
     console.error("updateTask error:", error);
@@ -375,6 +440,15 @@ export async function deleteTask(id: string) {
     revalidateBothPaths("tasks");
     if (task && task.projectId) {
       revalidateBothPaths(`projects/${task.projectId}`);
+    }
+    if (task && task.leadId) {
+      revalidateBothPaths(`crm/leads/${task.leadId}`);
+    }
+    if (task && task.opportunityId) {
+      revalidateBothPaths(`crm/opportunities/${task.opportunityId}`);
+    }
+    if (task && task.contactId) {
+      revalidateBothPaths(`crm/contacts/${task.contactId}`);
     }
     return { success: true };
   } catch (error) {
@@ -425,6 +499,14 @@ export async function getTasks(
             email: true,
             image: true,
           }
+        },
+        Assignee: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            image: true,
+          }
         }
       }
     });
@@ -461,6 +543,14 @@ export async function getTaskById(id: string) {
       where: { id },
       include: {
         User: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            image: true,
+          }
+        },
+        Assignee: {
           select: {
             id: true,
             name: true,

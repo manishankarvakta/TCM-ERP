@@ -101,6 +101,15 @@ export async function hasPermission(
   operation: Operation
 ): Promise<boolean> {
   try {
+    // Admin has full access to all permissions
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+    if (user?.role === "admin") {
+      return true;
+    }
+
     let permissions;
     try {
       permissions = await getUserPermissionsEnhanced(userId);
@@ -146,6 +155,7 @@ export async function hasPermission(
   }
 }
 
+
 /**
  * Check if user can access a module at all (has at least one permission)
  * Checks both module-level and sub-module permissions
@@ -155,6 +165,12 @@ export async function canAccessModule(
   module: Module
 ): Promise<boolean> {
   try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+    if (user?.role === "admin") return true;
+
     const permissions = await getUserPermissions(userId);
     
     // Check module-level permission
@@ -191,6 +207,12 @@ export async function canAccessSubModule(
   permissionKey: string
 ): Promise<boolean> {
   try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+    if (user?.role === "admin") return true;
+
     const permissions = await getUserPermissionsEnhanced(userId);
     const pagePermission = permissions[permissionKey] as PagePermission | undefined;
     
@@ -222,6 +244,11 @@ export async function canSeeNavigation(
   navigationId: string
 ): Promise<boolean> {
   try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+    if (user?.role === "admin") return true;
     const navItem = NAVIGATION_STRUCTURE.find((nav) => nav.id === navigationId);
     if (!navItem) return false;
     
