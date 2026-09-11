@@ -35,6 +35,9 @@ import {
   FiAlertCircle,
   FiTrendingUp,
   FiActivity,
+  FiClock,
+  FiCalendar,
+  FiCpu,
 } from "react-icons/fi";
 import Logo from "@/components/layout/logo";
 import { SlCalculator } from "react-icons/sl";
@@ -172,6 +175,45 @@ const menuItems: MenuItem[] = [
     ],
   },
   {
+    label: "HR & Payroll",
+    icon: FiUsers,
+    module: "hr",
+    subMenuGroups: [
+      {
+        label: "Workforce & Operations",
+        items: [
+          { href: "/dashboard/employees", label: "Employees", icon: FiUser, module: "peoples" },
+          { href: "/dashboard/hr/attendance", label: "Attendance", icon: FiClock, module: "hr" },
+          { href: "/dashboard/hr/shifts", label: "Shifts", icon: FiCalendar, module: "hr" },
+          { href: "/dashboard/hr/holidays", label: "Holidays", icon: FiCalendar, module: "hr" },
+          { href: "/dashboard/hr/calendar", label: "HR Calendar", icon: FiCalendar, module: "hr" },
+        ],
+      },
+      {
+        label: "Leave & Resignation",
+        items: [
+          { href: "/dashboard/hr/leave", label: "Leave Applications", icon: FiFileText, module: "hr" },
+          { href: "/dashboard/hr/resignation", label: "Resignations", icon: FiFileText, module: "hr" },
+          { href: "/dashboard/hr/appointment-letters", label: "Appointment Letters", icon: FiFileText, module: "hr" },
+        ],
+      },
+      {
+        label: "Payroll & Finance",
+        items: [
+          { href: "/dashboard/hr/payroll", label: "Monthly Payroll", icon: FiDollarSign, module: "hr" },
+          { href: "/dashboard/hr/loans", label: "Employee Loans", icon: FiCreditCard, module: "hr" },
+        ],
+      },
+      {
+        label: "Hardware & Sync",
+        items: [
+          { href: "/dashboard/hr/biometric", label: "Biometric Dashboard", icon: FiActivity, module: "hr" },
+          { href: "/dashboard/hr/devices", label: "Biometric Devices", icon: FiCpu, module: "hr" },
+        ],
+      },
+    ],
+  },
+  {
     label: "System",
     icon: FiSettings,
     module: "system", 
@@ -196,6 +238,7 @@ function getNavigationIdForMenuItem(item: MenuItem): string | null {
     "quotations": "quotations",
     "accounts": "accounts",
     "peoples": "peoples",
+    "hr": "hr",
     "/dashboard/files": "files",
     "/dashboard/notifications": "notifications",
     // "/dashboard/analytics": "analytics",
@@ -491,7 +534,7 @@ export default function DashboardSidebar({
   const activeMenuFromRoute = findActiveMenu();
 
   const [toggledMenu, setToggledMenu] = useState<{ path: string | null; label: string | null }>({
-    path: pathname,
+    path: null,
     label: null,
   });
 

@@ -1,6 +1,19 @@
-import { Card, CardContent } from "@/components/ui/card";
+import { getBalanceSheet } from "../reports/_actions/report.action";
+import BalanceSheetView from "./_components/balance-sheet-view";
 
-export default function BalanceSheetPage() {
+interface BalanceSheetPageProps {
+  searchParams: Promise<{
+    date?: string;
+  }>;
+}
+
+export default async function BalanceSheetPage({ searchParams }: BalanceSheetPageProps) {
+  const params = await searchParams;
+  const dateParam = params.date;
+  const date = dateParam ? new Date(dateParam) : new Date();
+
+  const reportData = await getBalanceSheet(date);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -9,13 +22,24 @@ export default function BalanceSheetPage() {
           <p className="text-sm text-muted-foreground">View balance sheet report</p>
         </div>
       </div>
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex items-center justify-center h-[400px] text-sm text-muted-foreground">
-            No data yet
-          </div>
-        </CardContent>
-      </Card>
+
+      {!reportData.success ? (
+        <div className="p-4 text-sm text-red-600 bg-red-50 rounded-md border border-red-200">
+          {reportData.error || "Failed to load Balance Sheet"}
+        </div>
+      ) : (
+        <BalanceSheetView
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          assets={reportData.assets as any}
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          liabilities={reportData.liabilities as any}
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          equity={reportData.equity as any}
+          validation={reportData.validation}
+          date={reportData.date}
+          dateParam={dateParam}
+        />
+      )}
     </div>
   );
 }

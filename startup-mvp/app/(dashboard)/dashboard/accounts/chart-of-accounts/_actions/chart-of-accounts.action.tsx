@@ -709,8 +709,10 @@ export async function deleteChartOfAccountsPermanently(accountIds: string[]) {
       };
     }
 
-    // Check if any account has children (even in trash)
+    // Check if any account has children (even in trash) or transactions
     const accountsWithChildren: string[] = [];
+    const accountsWithTransactions: string[] = [];
+
     for (const account of accounts) {
       const childCount = await prisma.chartOfAccount.count({
         where: {
@@ -721,12 +723,25 @@ export async function deleteChartOfAccountsPermanently(accountIds: string[]) {
       if (childCount > 0) {
         accountsWithChildren.push(`${account.code} - ${account.name}`);
       }
+
+      const isUsed = await checkAccountIsUsed(account.id);
+      if (isUsed) {
+        accountsWithTransactions.push(`${account.code} - ${account.name}`);
+      }
     }
 
     if (accountsWithChildren.length > 0) {
       return {
         success: false,
         error: `Cannot delete account(s) with child accounts: ${accountsWithChildren.join(", ")}. Please delete child accounts first.`,
+        count: 0,
+      };
+    }
+
+    if (accountsWithTransactions.length > 0) {
+      return {
+        success: false,
+        error: `Cannot permanently delete account(s) with transaction history: ${accountsWithTransactions.join(", ")}.`,
         count: 0,
       };
     }
@@ -766,4 +781,69 @@ export async function deleteChartOfAccountsPermanently(accountIds: string[]) {
     };
   }
 }
+
+/**
+ * Bulk update status for multiple chart of accounts
+ */
+export async function bulkUpdateChartOfAccountsStatus(accountIds: string[], status: "active" | "inactive" | "trash") {
+  try {
+    const session = await auth();
+
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized", count: 0 };
+    }
+
+    if (!accountIds || accountIds.length === 0) {
+      return { success: false, error: "No accounts selected", count: 0 };
+    }
+
+    if (status === "trash") {
+      // Check for children or usage before moving to trash
+      for (const id of accountIds) {
+        const childCount = await prisma.chartOfAccount.count({ where: { parentId: id } });
+        if (childCount > 0) {
+          const acc = await prisma.chartOfAccount.findUnique({ where: { id }, select: { code: true, name: true } });
+          return {
+            success: false,
+            error: `Cannot trash account ${acc?.code || id}: It has child accounts.`,
+            count: 0,
+          };
+        }
+
+        const isUsed = await checkAccountIsUsed(id);
+        if (isUsed) {
+          const acc = await prisma.chartOfAccount.findUnique({ where: { id }, select: { code: true, name: true } });
+          return {
+            success: false,
+            error: `Cannot trash account ${acc?.code || id}: It is used in vouchers or journal entries.`,
+            count: 0,
+          };
+        }
+      }
+    }
+
+    const result = await prisma.chartOfAccount.updateMany({
+      where: { id: { in: accountIds } },
+      data: { status },
+    });
+
+    await createUserLog({
+      userId: session.user.id,
+      action: LogAction.ITEM_UPDATED,
+      details: `Bulk updated status of ${result.count} chart of account(s) to ${status}`,
+    });
+
+    revalidateBothPaths("accounts/chart-of-accounts", "page");
+
+    return { success: true, count: result.count };
+  } catch (error) {
+    console.error("bulkUpdateChartOfAccountsStatus error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to bulk update status",
+      count: 0,
+    };
+  }
+}
+
 

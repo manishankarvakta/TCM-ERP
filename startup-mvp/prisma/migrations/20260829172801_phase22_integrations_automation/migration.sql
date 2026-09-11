@@ -34,73 +34,73 @@
 
 */
 -- CreateEnum
-CREATE TYPE "EmploymentType" AS ENUM ('PERMANENT', 'TEMPORARY', 'CONTRACT', 'INTERN', 'DAILY_WORKER');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'EmploymentType') THEN CREATE TYPE "EmploymentType" AS ENUM ('PERMANENT', 'TEMPORARY', 'CONTRACT', 'INTERN', 'DAILY_WORKER'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "AttendanceStatus" AS ENUM ('PRESENT', 'ABSENT', 'LEAVE', 'LATE', 'HALF_DAY', 'HOLIDAY', 'WEEKEND');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'AttendanceStatus') THEN CREATE TYPE "AttendanceStatus" AS ENUM ('PRESENT', 'ABSENT', 'LEAVE', 'LATE', 'HALF_DAY', 'HOLIDAY', 'WEEKEND'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "LeaveCategory" AS ENUM ('CASUAL', 'SICK', 'ANNUAL', 'MATERNITY', 'UNPAID', 'OTHER');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'LeaveCategory') THEN CREATE TYPE "LeaveCategory" AS ENUM ('CASUAL', 'SICK', 'ANNUAL', 'MATERNITY', 'UNPAID', 'OTHER'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "LeaveStatus" AS ENUM ('PENDING', 'MANAGER_APPROVED', 'HR_APPROVED', 'REJECTED', 'CANCELLED');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'LeaveStatus') THEN CREATE TYPE "LeaveStatus" AS ENUM ('PENDING', 'MANAGER_APPROVED', 'HR_APPROVED', 'REJECTED', 'CANCELLED'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "PayrollStatus" AS ENUM ('DRAFT', 'REVIEWED', 'APPROVED', 'POSTED', 'PAID');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'PayrollStatus') THEN CREATE TYPE "PayrollStatus" AS ENUM ('DRAFT', 'REVIEWED', 'APPROVED', 'POSTED', 'PAID'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "LoanStatus" AS ENUM ('PENDING', 'APPROVED', 'REJECTED', 'CLOSED');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'LoanStatus') THEN CREATE TYPE "LoanStatus" AS ENUM ('PENDING', 'APPROVED', 'REJECTED', 'CLOSED'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "AttendanceSource" AS ENUM ('MANUAL', 'WEB', 'MOBILE', 'BIOMETRIC', 'API');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'AttendanceSource') THEN CREATE TYPE "AttendanceSource" AS ENUM ('MANUAL', 'WEB', 'MOBILE', 'BIOMETRIC', 'API'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "RequirementStatus" AS ENUM ('DRAFT', 'DISCOVERY', 'WAITING_CLIENT', 'READY_FOR_REVIEW', 'CONFIRMED', 'READY_FOR_ESTIMATION', 'CANCELLED');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'RequirementStatus') THEN CREATE TYPE "RequirementStatus" AS ENUM ('DRAFT', 'DISCOVERY', 'WAITING_CLIENT', 'READY_FOR_REVIEW', 'CONFIRMED', 'READY_FOR_ESTIMATION', 'CANCELLED'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "RequirementPriority" AS ENUM ('LOW', 'MEDIUM', 'HIGH', 'URGENT');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'RequirementPriority') THEN CREATE TYPE "RequirementPriority" AS ENUM ('LOW', 'MEDIUM', 'HIGH', 'URGENT'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "RequirementItemType" AS ENUM ('FEATURE', 'INTEGRATION', 'REPORT', 'MOBILE', 'WEB', 'INFRASTRUCTURE', 'MIGRATION', 'TRAINING', 'SUPPORT', 'OTHER');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'RequirementItemType') THEN CREATE TYPE "RequirementItemType" AS ENUM ('FEATURE', 'INTEGRATION', 'REPORT', 'MOBILE', 'WEB', 'INFRASTRUCTURE', 'MIGRATION', 'TRAINING', 'SUPPORT', 'OTHER'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "ClarificationStatus" AS ENUM ('OPEN', 'ANSWERED', 'CLOSED');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'ClarificationStatus') THEN CREATE TYPE "ClarificationStatus" AS ENUM ('OPEN', 'ANSWERED', 'CLOSED'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "EstimationStatus" AS ENUM ('DRAFT', 'IN_PROGRESS', 'READY_FOR_REVIEW', 'APPROVED', 'READY_FOR_QUOTATION', 'REJECTED', 'SUPERSEDED', 'CANCELLED');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'EstimationStatus') THEN CREATE TYPE "EstimationStatus" AS ENUM ('DRAFT', 'IN_PROGRESS', 'READY_FOR_REVIEW', 'APPROVED', 'READY_FOR_QUOTATION', 'REJECTED', 'SUPERSEDED', 'CANCELLED'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "CostingMethod" AS ENUM ('HOURLY', 'FIXED', 'QUANTITY', 'DAILY', 'MONTHLY', 'MILESTONE', 'VENDOR_COST', 'OTHER');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'CostingMethod') THEN CREATE TYPE "CostingMethod" AS ENUM ('HOURLY', 'FIXED', 'QUANTITY', 'DAILY', 'MONTHLY', 'MILESTONE', 'VENDOR_COST', 'OTHER'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "CreativeRequirementStatus" AS ENUM ('NOT_REQUIRED', 'REQUIRED', 'READY', 'IN_PROGRESS', 'REVIEW', 'REVISION', 'APPROVED', 'COMPLETED', 'BLOCKED');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'CreativeRequirementStatus') THEN CREATE TYPE "CreativeRequirementStatus" AS ENUM ('NOT_REQUIRED', 'REQUIRED', 'READY', 'IN_PROGRESS', 'REVIEW', 'REVISION', 'APPROVED', 'COMPLETED', 'BLOCKED'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "CreativeBriefStatus" AS ENUM ('DRAFT', 'SUBMITTED', 'APPROVED', 'REJECTED');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'CreativeBriefStatus') THEN CREATE TYPE "CreativeBriefStatus" AS ENUM ('DRAFT', 'SUBMITTED', 'APPROVED', 'REJECTED'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "CreativeDeliverableType" AS ENUM ('LOGO', 'BRAND_GUIDELINE', 'LANDING_PAGE_UI', 'DASHBOARD_UI', 'MOBILE_APP_UI', 'SOCIAL_MEDIA_ARTWORK', 'BANNER', 'WIREFRAME', 'PROTOTYPE', 'OTHER');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'CreativeDeliverableType') THEN CREATE TYPE "CreativeDeliverableType" AS ENUM ('LOGO', 'BRAND_GUIDELINE', 'LANDING_PAGE_UI', 'DASHBOARD_UI', 'MOBILE_APP_UI', 'SOCIAL_MEDIA_ARTWORK', 'BANNER', 'WIREFRAME', 'PROTOTYPE', 'OTHER'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "CreativeDeliverableStatus" AS ENUM ('DRAFT', 'IN_PROGRESS', 'SUBMITTED_FOR_REVIEW', 'CHANGES_REQUESTED', 'APPROVED', 'COMPLETED');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'CreativeDeliverableStatus') THEN CREATE TYPE "CreativeDeliverableStatus" AS ENUM ('DRAFT', 'IN_PROGRESS', 'SUBMITTED_FOR_REVIEW', 'CHANGES_REQUESTED', 'APPROVED', 'COMPLETED'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "CreativeReviewStatus" AS ENUM ('NOT_APPLICABLE', 'PENDING', 'SUBMITTED', 'CHANGES_REQUESTED', 'APPROVED');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'CreativeReviewStatus') THEN CREATE TYPE "CreativeReviewStatus" AS ENUM ('NOT_APPLICABLE', 'PENDING', 'SUBMITTED', 'CHANGES_REQUESTED', 'APPROVED'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "MarketingRequirementStatus" AS ENUM ('NOT_REQUIRED', 'REQUIRED', 'READY', 'IN_PROGRESS', 'REVIEW', 'COMPLETED', 'BLOCKED');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'MarketingRequirementStatus') THEN CREATE TYPE "MarketingRequirementStatus" AS ENUM ('NOT_REQUIRED', 'REQUIRED', 'READY', 'IN_PROGRESS', 'REVIEW', 'COMPLETED', 'BLOCKED'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "MarketingCampaignType" AS ENUM ('DIGITAL_MARKETING', 'SEO', 'SEM', 'SOCIAL_MEDIA', 'CONTENT_MARKETING', 'EMAIL_CAMPAIGN', 'PAID_ADS', 'OTHER');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'MarketingCampaignType') THEN CREATE TYPE "MarketingCampaignType" AS ENUM ('DIGITAL_MARKETING', 'SEO', 'SEM', 'SOCIAL_MEDIA', 'CONTENT_MARKETING', 'EMAIL_CAMPAIGN', 'PAID_ADS', 'OTHER'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "MarketingCampaignStatus" AS ENUM ('DRAFT', 'PLANNED', 'READY', 'ACTIVE', 'PAUSED', 'COMPLETED', 'CANCELLED');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'MarketingCampaignStatus') THEN CREATE TYPE "MarketingCampaignStatus" AS ENUM ('DRAFT', 'PLANNED', 'READY', 'ACTIVE', 'PAUSED', 'COMPLETED', 'CANCELLED'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "MarketingContentStatus" AS ENUM ('DRAFT', 'READY_FOR_REVIEW', 'CHANGES_REQUESTED', 'APPROVED', 'PUBLISHED', 'CANCELLED');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'MarketingContentStatus') THEN CREATE TYPE "MarketingContentStatus" AS ENUM ('DRAFT', 'READY_FOR_REVIEW', 'CHANGES_REQUESTED', 'APPROVED', 'PUBLISHED', 'CANCELLED'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "DevelopmentRequirementStatus" AS ENUM ('NOT_REQUIRED', 'REQUIRED', 'READY', 'IN_PROGRESS', 'REVIEW', 'COMPLETED', 'BLOCKED');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'DevelopmentRequirementStatus') THEN CREATE TYPE "DevelopmentRequirementStatus" AS ENUM ('NOT_REQUIRED', 'REQUIRED', 'READY', 'IN_PROGRESS', 'REVIEW', 'COMPLETED', 'BLOCKED'); END IF; END $$;
 
 -- AlterEnum
 BEGIN;
@@ -170,7 +170,7 @@ ALTER TABLE "ProjectDevelopmentWorkstream" ALTER COLUMN "type" SET DEFAULT 'BACK
 COMMIT;
 
 -- AlterEnum
-ALTER TYPE "OpportunityStage" ADD VALUE 'UNQUALIFIED';
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_enum JOIN pg_type ON pg_enum.enumtypid = pg_type.oid WHERE pg_type.typname = 'OpportunityStage' AND pg_enum.enumlabel = 'UNQUALIFIED') THEN ALTER TYPE "OpportunityStage" ADD VALUE 'UNQUALIFIED'; END IF; END $$;
 
 -- AlterEnum
 BEGIN;
@@ -191,14 +191,14 @@ COMMIT;
 -- the enum.
 
 
-ALTER TYPE "ProjectStatus" ADD VALUE 'DRAFT';
-ALTER TYPE "ProjectStatus" ADD VALUE 'ARCHIVED';
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_enum JOIN pg_type ON pg_enum.enumtypid = pg_type.oid WHERE pg_type.typname = 'ProjectStatus' AND pg_enum.enumlabel = 'DRAFT') THEN ALTER TYPE "ProjectStatus" ADD VALUE 'DRAFT'; END IF; END $$;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_enum JOIN pg_type ON pg_enum.enumtypid = pg_type.oid WHERE pg_type.typname = 'ProjectStatus' AND pg_enum.enumlabel = 'ARCHIVED') THEN ALTER TYPE "ProjectStatus" ADD VALUE 'ARCHIVED'; END IF; END $$;
 
 -- AlterEnum
-ALTER TYPE "SectionType" ADD VALUE 'PAYMENT_TERMS';
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_enum JOIN pg_type ON pg_enum.enumtypid = pg_type.oid WHERE pg_type.typname = 'SectionType' AND pg_enum.enumlabel = 'PAYMENT_TERMS') THEN ALTER TYPE "SectionType" ADD VALUE 'PAYMENT_TERMS'; END IF; END $$;
 
 -- AlterEnum
-ALTER TYPE "VoucherType" ADD VALUE 'RETURN';
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_enum JOIN pg_type ON pg_enum.enumtypid = pg_type.oid WHERE pg_type.typname = 'VoucherType' AND pg_enum.enumlabel = 'RETURN') THEN ALTER TYPE "VoucherType" ADD VALUE 'RETURN'; END IF; END $$;
 
 -- DropForeignKey
 ALTER TABLE "Lead" DROP CONSTRAINT "Lead_ownerId_fkey";
@@ -230,8 +230,41 @@ ALTER TABLE "ApprovalRequest" ALTER COLUMN "updatedAt" DROP DEFAULT;
 -- AlterTable
 ALTER TABLE "ApprovalStepInstance" ALTER COLUMN "updatedAt" DROP DEFAULT;
 
+-- Data Backfill for organizationId
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Client' AND column_name = 'organizationId') THEN
+    UPDATE "Client" SET "organizationId" = 'default-org' WHERE "organizationId" IS NULL;
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Contact' AND column_name = 'organizationId') THEN
+    UPDATE "Contact" SET "organizationId" = 'default-org' WHERE "organizationId" IS NULL;
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Employee' AND column_name = 'organizationId') THEN
+    UPDATE "Employee" SET "organizationId" = 'default-org' WHERE "organizationId" IS NULL;
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Issue' AND column_name = 'organizationId') THEN
+    UPDATE "Issue" SET "organizationId" = 'default-org' WHERE "organizationId" IS NULL;
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Order' AND column_name = 'organizationId') THEN
+    UPDATE "Order" SET "organizationId" = 'default-org' WHERE "organizationId" IS NULL;
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Project' AND column_name = 'organizationId') THEN
+    UPDATE "Project" SET "organizationId" = 'default-org' WHERE "organizationId" IS NULL;
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Quotation' AND column_name = 'organizationId') THEN
+    UPDATE "Quotation" SET "organizationId" = 'default-org' WHERE "organizationId" IS NULL;
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Task' AND column_name = 'organizationId') THEN
+    UPDATE "Task" SET "organizationId" = 'default-org' WHERE "organizationId" IS NULL;
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Voucher' AND column_name = 'organizationId') THEN
+    UPDATE "Voucher" SET "organizationId" = 'default-org' WHERE "organizationId" IS NULL;
+  END IF;
+END $$;
+
 -- AlterTable
 ALTER TABLE "Client" ALTER COLUMN "organizationId" SET NOT NULL;
+
 
 -- AlterTable
 ALTER TABLE "Contact" ALTER COLUMN "organizationId" SET NOT NULL;
@@ -240,27 +273,27 @@ ALTER TABLE "Contact" ALTER COLUMN "organizationId" SET NOT NULL;
 ALTER TABLE "DevelopmentTechnicalDeliverable" ALTER COLUMN "updatedAt" DROP DEFAULT;
 
 -- AlterTable
-ALTER TABLE "Employee" ADD COLUMN     "dateOfBirth" TIMESTAMP(3),
-ADD COLUMN     "departmentId" TEXT,
-ADD COLUMN     "deviceUserId" TEXT,
-ADD COLUMN     "emergencyContact" JSONB,
-ADD COLUMN     "employmentType" "EmploymentType" DEFAULT 'PERMANENT',
-ADD COLUMN     "fingerprintDeviceId" TEXT,
-ADD COLUMN     "gender" TEXT,
-ADD COLUMN     "joiningDate" TIMESTAMP(3),
-ADD COLUMN     "nationalId" TEXT,
-ADD COLUMN     "photo" TEXT,
-ADD COLUMN     "reportingManagerId" TEXT,
-ADD COLUMN     "shiftId" TEXT,
-ADD COLUMN     "teamId" TEXT,
-ADD COLUMN     "utilizationTarget" DOUBLE PRECISION DEFAULT 80.0,
-ADD COLUMN     "warehouseId" TEXT,
+ALTER TABLE "Employee" ADD COLUMN IF NOT EXISTS     "dateOfBirth" TIMESTAMP(3),
+ADD COLUMN IF NOT EXISTS     "departmentId" TEXT,
+ADD COLUMN IF NOT EXISTS     "deviceUserId" TEXT,
+ADD COLUMN IF NOT EXISTS     "emergencyContact" JSONB,
+ADD COLUMN IF NOT EXISTS     "employmentType" "EmploymentType" DEFAULT 'PERMANENT',
+ADD COLUMN IF NOT EXISTS     "fingerprintDeviceId" TEXT,
+ADD COLUMN IF NOT EXISTS     "gender" TEXT,
+ADD COLUMN IF NOT EXISTS     "joiningDate" TIMESTAMP(3),
+ADD COLUMN IF NOT EXISTS     "nationalId" TEXT,
+ADD COLUMN IF NOT EXISTS     "photo" TEXT,
+ADD COLUMN IF NOT EXISTS     "reportingManagerId" TEXT,
+ADD COLUMN IF NOT EXISTS     "shiftId" TEXT,
+ADD COLUMN IF NOT EXISTS     "teamId" TEXT,
+ADD COLUMN IF NOT EXISTS     "utilizationTarget" DOUBLE PRECISION DEFAULT 80.0,
+ADD COLUMN IF NOT EXISTS     "warehouseId" TEXT,
 ALTER COLUMN "organizationId" SET NOT NULL,
-DROP COLUMN "address",
-ADD COLUMN     "address" JSONB;
+DROP COLUMN IF EXISTS "address",
+ADD COLUMN IF NOT EXISTS     "address" JSONB;
 
 -- AlterTable
-ALTER TABLE "File" ADD COLUMN     "organizationId" TEXT NOT NULL;
+ALTER TABLE "File" ADD COLUMN IF NOT EXISTS     "organizationId" TEXT NOT NULL DEFAULT 'default-org';
 
 -- AlterTable
 ALTER TABLE "Holiday" ALTER COLUMN "updatedAt" DROP DEFAULT;
@@ -269,32 +302,33 @@ ALTER TABLE "Holiday" ALTER COLUMN "updatedAt" DROP DEFAULT;
 ALTER TABLE "Issue" ALTER COLUMN "organizationId" SET NOT NULL;
 
 -- AlterTable
-ALTER TABLE "Lead" ADD COLUMN     "alternativePhone" TEXT,
-ADD COLUMN     "categoryId" TEXT,
-ADD COLUMN     "closingReason" TEXT,
-ADD COLUMN     "externalId" TEXT,
-ADD COLUMN     "formId" TEXT,
-ADD COLUMN     "location" TEXT,
-ADD COLUMN     "messageText" TEXT,
-ADD COLUMN     "organizationId" TEXT NOT NULL,
-ADD COLUMN     "pageId" TEXT,
-ADD COLUMN     "photo" TEXT,
-ADD COLUMN     "rawPayload" JSONB,
-ADD COLUMN     "reference" TEXT,
-ADD COLUMN     "startingDate" TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP,
+ALTER TABLE "Lead" ADD COLUMN IF NOT EXISTS     "alternativePhone" TEXT,
+ADD COLUMN IF NOT EXISTS     "categoryId" TEXT,
+ADD COLUMN IF NOT EXISTS     "closingReason" TEXT,
+ADD COLUMN IF NOT EXISTS     "externalId" TEXT,
+ADD COLUMN IF NOT EXISTS     "formId" TEXT,
+ADD COLUMN IF NOT EXISTS     "location" TEXT,
+ADD COLUMN IF NOT EXISTS     "messageText" TEXT,
+ADD COLUMN IF NOT EXISTS     "organizationId" TEXT NOT NULL DEFAULT 'default-org',
+ADD COLUMN IF NOT EXISTS     "pageId" TEXT,
+ADD COLUMN IF NOT EXISTS     "photo" TEXT,
+ADD COLUMN IF NOT EXISTS     "rawPayload" JSONB,
+ADD COLUMN IF NOT EXISTS     "reference" TEXT,
+ADD COLUMN IF NOT EXISTS     "startingDate" TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP,
 ALTER COLUMN "name" DROP NOT NULL,
 ALTER COLUMN "phone" DROP NOT NULL,
 ALTER COLUMN "ownerId" DROP NOT NULL;
 
 -- AlterTable
-ALTER TABLE "Milestone" ADD COLUMN     "departmentId" TEXT,
-ADD COLUMN     "startDate" TIMESTAMP(3),
-ADD COLUMN     "teamId" TEXT;
+ALTER TABLE "Milestone" ADD COLUMN IF NOT EXISTS     "departmentId" TEXT,
+ADD COLUMN IF NOT EXISTS     "startDate" TIMESTAMP(3),
+ADD COLUMN IF NOT EXISTS     "teamId" TEXT;
 
 -- AlterTable
-ALTER TABLE "Opportunity" ADD COLUMN     "closingReason" TEXT,
-ADD COLUMN     "leadId" TEXT,
-ADD COLUMN     "organizationId" TEXT NOT NULL;
+ALTER TABLE "Opportunity" ADD COLUMN IF NOT EXISTS     "closingReason" TEXT,
+ADD COLUMN IF NOT EXISTS     "leadId" TEXT,
+ADD COLUMN IF NOT EXISTS     "organizationId" TEXT NOT NULL DEFAULT 'default-org';
+
 
 -- AlterTable
 ALTER TABLE "Order" ALTER COLUMN "quotationId" DROP NOT NULL,
@@ -305,12 +339,12 @@ ALTER TABLE "OrderItem" ALTER COLUMN "quotationItemId" DROP NOT NULL;
 
 -- AlterTable
 ALTER TABLE "Project" ALTER COLUMN "organizationId" SET NOT NULL,
-DROP COLUMN "creativeWorkRequirement",
-ADD COLUMN     "creativeWorkRequirement" "CreativeRequirementStatus" NOT NULL DEFAULT 'NOT_REQUIRED',
-DROP COLUMN "marketingWorkRequirement",
-ADD COLUMN     "marketingWorkRequirement" "MarketingRequirementStatus" NOT NULL DEFAULT 'NOT_REQUIRED',
-DROP COLUMN "developmentWorkRequirement",
-ADD COLUMN     "developmentWorkRequirement" "DevelopmentRequirementStatus" NOT NULL DEFAULT 'NOT_REQUIRED';
+DROP COLUMN IF EXISTS "creativeWorkRequirement",
+ADD COLUMN IF NOT EXISTS     "creativeWorkRequirement" "CreativeRequirementStatus" NOT NULL DEFAULT 'NOT_REQUIRED',
+DROP COLUMN IF EXISTS "marketingWorkRequirement",
+ADD COLUMN IF NOT EXISTS     "marketingWorkRequirement" "MarketingRequirementStatus" NOT NULL DEFAULT 'NOT_REQUIRED',
+DROP COLUMN IF EXISTS "developmentWorkRequirement",
+ADD COLUMN IF NOT EXISTS     "developmentWorkRequirement" "DevelopmentRequirementStatus" NOT NULL DEFAULT 'NOT_REQUIRED';
 
 -- AlterTable
 ALTER TABLE "ProjectCostAllocation" ALTER COLUMN "allocationMethod" DROP DEFAULT;
@@ -319,17 +353,17 @@ ALTER TABLE "ProjectCostAllocation" ALTER COLUMN "allocationMethod" DROP DEFAULT
 ALTER TABLE "ProjectDepartmentDependency" ALTER COLUMN "updatedAt" DROP DEFAULT;
 
 -- AlterTable
-ALTER TABLE "ProjectDevelopmentPlan" DROP COLUMN "description",
-ADD COLUMN     "apiRequired" BOOLEAN NOT NULL DEFAULT true,
-ADD COLUMN     "backendRequired" BOOLEAN NOT NULL DEFAULT true,
-ADD COLUMN     "databaseRequired" BOOLEAN NOT NULL DEFAULT true,
-ADD COLUMN     "environmentNotes" TEXT,
-ADD COLUMN     "frontendRequired" BOOLEAN NOT NULL DEFAULT true,
-ADD COLUMN     "integrationRequired" BOOLEAN NOT NULL DEFAULT false,
-ADD COLUMN     "mobileRequired" BOOLEAN NOT NULL DEFAULT false,
-ADD COLUMN     "repositoryName" TEXT,
-ADD COLUMN     "repositoryProvider" TEXT,
-ADD COLUMN     "technicalScope" TEXT,
+ALTER TABLE "ProjectDevelopmentPlan" DROP COLUMN IF EXISTS "description",
+ADD COLUMN IF NOT EXISTS     "apiRequired" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN IF NOT EXISTS     "backendRequired" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN IF NOT EXISTS     "databaseRequired" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN IF NOT EXISTS     "environmentNotes" TEXT,
+ADD COLUMN IF NOT EXISTS     "frontendRequired" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN IF NOT EXISTS     "integrationRequired" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN IF NOT EXISTS     "mobileRequired" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN IF NOT EXISTS     "repositoryName" TEXT,
+ADD COLUMN IF NOT EXISTS     "repositoryProvider" TEXT,
+ADD COLUMN IF NOT EXISTS     "technicalScope" TEXT,
 ALTER COLUMN "updatedAt" DROP DEFAULT;
 
 -- AlterTable
@@ -359,7 +393,7 @@ ALTER TABLE "ProjectQAPlan" ALTER COLUMN "updatedAt" DROP DEFAULT;
 ALTER TABLE "ProjectQATestCycle" ALTER COLUMN "updatedAt" DROP DEFAULT;
 
 -- AlterTable
-ALTER TABLE "Purchase" DROP COLUMN "organizationId";
+ALTER TABLE "Purchase" DROP COLUMN IF EXISTS "organizationId";
 
 -- AlterTable
 ALTER TABLE "QATestCase" ALTER COLUMN "updatedAt" DROP DEFAULT;
@@ -368,7 +402,7 @@ ALTER TABLE "QATestCase" ALTER COLUMN "updatedAt" DROP DEFAULT;
 ALTER TABLE "Quotation" ALTER COLUMN "organizationId" SET NOT NULL;
 
 -- AlterTable
-ALTER TABLE "Supplier" DROP COLUMN "organizationId";
+ALTER TABLE "Supplier" DROP COLUMN IF EXISTS "organizationId";
 
 -- AlterTable
 ALTER TABLE "SupportEntitlement" ALTER COLUMN "updatedAt" DROP DEFAULT;
@@ -389,26 +423,26 @@ ALTER TABLE "SupportTicketSLA" ALTER COLUMN "updatedAt" DROP DEFAULT;
 ALTER TABLE "SupportTicketSequence" ALTER COLUMN "updatedAt" DROP DEFAULT;
 
 -- AlterTable
-ALTER TABLE "Task" DROP COLUMN "lastRunAt",
-DROP COLUMN "nextRunAt",
+ALTER TABLE "Task" DROP COLUMN IF EXISTS "lastRunAt",
+DROP COLUMN IF EXISTS "nextRunAt",
 ALTER COLUMN "organizationId" SET NOT NULL;
 
 -- AlterTable
-ALTER TABLE "User" ADD COLUMN     "defaultWarehouseId" TEXT,
-ADD COLUMN     "organizationId" TEXT,
-ADD COLUMN     "salary" DECIMAL(12,2);
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS     "defaultWarehouseId" TEXT,
+ADD COLUMN IF NOT EXISTS     "organizationId" TEXT,
+ADD COLUMN IF NOT EXISTS     "salary" DECIMAL(12,2);
 
 -- AlterTable
 ALTER TABLE "Voucher" ALTER COLUMN "organizationId" SET NOT NULL;
 
 -- AlterTable
-ALTER TABLE "VoucherLine" ADD COLUMN     "projectId" TEXT;
+ALTER TABLE "VoucherLine" ADD COLUMN IF NOT EXISTS     "projectId" TEXT;
 
 -- AlterTable
-ALTER TABLE "settings" ADD COLUMN     "organization_id" TEXT;
+ALTER TABLE "settings" ADD COLUMN IF NOT EXISTS     "organization_id" TEXT;
 
 -- CreateTable
-CREATE TABLE "Department" (
+CREATE TABLE IF NOT EXISTS "Department" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "name" TEXT NOT NULL,
@@ -425,7 +459,7 @@ CREATE TABLE "Department" (
 );
 
 -- CreateTable
-CREATE TABLE "Team" (
+CREATE TABLE IF NOT EXISTS "Team" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "departmentId" TEXT NOT NULL,
@@ -443,7 +477,7 @@ CREATE TABLE "Team" (
 );
 
 -- CreateTable
-CREATE TABLE "TaskDependency" (
+CREATE TABLE IF NOT EXISTS "TaskDependency" (
     "id" TEXT NOT NULL,
     "blockingTaskId" TEXT NOT NULL,
     "dependentTaskId" TEXT NOT NULL,
@@ -453,7 +487,7 @@ CREATE TABLE "TaskDependency" (
 );
 
 -- CreateTable
-CREATE TABLE "TaskWatcher" (
+CREATE TABLE IF NOT EXISTS "TaskWatcher" (
     "id" TEXT NOT NULL,
     "taskId" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
@@ -463,7 +497,7 @@ CREATE TABLE "TaskWatcher" (
 );
 
 -- CreateTable
-CREATE TABLE "MilestoneDependency" (
+CREATE TABLE IF NOT EXISTS "MilestoneDependency" (
     "id" TEXT NOT NULL,
     "blockingId" TEXT NOT NULL,
     "dependentId" TEXT NOT NULL,
@@ -473,7 +507,7 @@ CREATE TABLE "MilestoneDependency" (
 );
 
 -- CreateTable
-CREATE TABLE "Timesheet" (
+CREATE TABLE IF NOT EXISTS "Timesheet" (
     "organizationId" TEXT NOT NULL,
     "id" TEXT NOT NULL,
     "hours" DECIMAL(5,2) NOT NULL,
@@ -493,7 +527,7 @@ CREATE TABLE "Timesheet" (
 );
 
 -- CreateTable
-CREATE TABLE "Warehouse" (
+CREATE TABLE IF NOT EXISTS "Warehouse" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "code" TEXT NOT NULL,
@@ -506,7 +540,7 @@ CREATE TABLE "Warehouse" (
 );
 
 -- CreateTable
-CREATE TABLE "Shift" (
+CREATE TABLE IF NOT EXISTS "Shift" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "startTime" TEXT NOT NULL,
@@ -525,7 +559,7 @@ CREATE TABLE "Shift" (
 );
 
 -- CreateTable
-CREATE TABLE "LeaveType" (
+CREATE TABLE IF NOT EXISTS "LeaveType" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "category" "LeaveCategory" NOT NULL,
@@ -541,7 +575,7 @@ CREATE TABLE "LeaveType" (
 );
 
 -- CreateTable
-CREATE TABLE "LeaveApplication" (
+CREATE TABLE IF NOT EXISTS "LeaveApplication" (
     "id" TEXT NOT NULL,
     "employeeId" TEXT NOT NULL,
     "leaveTypeId" TEXT NOT NULL,
@@ -561,7 +595,7 @@ CREATE TABLE "LeaveApplication" (
 );
 
 -- CreateTable
-CREATE TABLE "AttendanceLog" (
+CREATE TABLE IF NOT EXISTS "AttendanceLog" (
     "id" TEXT NOT NULL,
     "employeeId" TEXT NOT NULL,
     "timestamp" TIMESTAMP(3) NOT NULL,
@@ -573,7 +607,7 @@ CREATE TABLE "AttendanceLog" (
 );
 
 -- CreateTable
-CREATE TABLE "Attendance" (
+CREATE TABLE IF NOT EXISTS "Attendance" (
     "id" TEXT NOT NULL,
     "employeeId" TEXT NOT NULL,
     "date" DATE NOT NULL,
@@ -596,7 +630,7 @@ CREATE TABLE "Attendance" (
 );
 
 -- CreateTable
-CREATE TABLE "Overtime" (
+CREATE TABLE IF NOT EXISTS "Overtime" (
     "id" TEXT NOT NULL,
     "employeeId" TEXT NOT NULL,
     "date" DATE NOT NULL,
@@ -613,7 +647,7 @@ CREATE TABLE "Overtime" (
 );
 
 -- CreateTable
-CREATE TABLE "EmployeeLoan" (
+CREATE TABLE IF NOT EXISTS "EmployeeLoan" (
     "id" TEXT NOT NULL,
     "employeeId" TEXT NOT NULL,
     "amount" DECIMAL(12,2) NOT NULL,
@@ -633,7 +667,7 @@ CREATE TABLE "EmployeeLoan" (
 );
 
 -- CreateTable
-CREATE TABLE "EmployeeSalary" (
+CREATE TABLE IF NOT EXISTS "EmployeeSalary" (
     "id" TEXT NOT NULL,
     "employeeId" TEXT NOT NULL,
     "basic" DECIMAL(12,2) NOT NULL DEFAULT 0,
@@ -650,7 +684,7 @@ CREATE TABLE "EmployeeSalary" (
 );
 
 -- CreateTable
-CREATE TABLE "Payroll" (
+CREATE TABLE IF NOT EXISTS "Payroll" (
     "organizationId" TEXT NOT NULL,
     "id" TEXT NOT NULL,
     "payrollNumber" TEXT NOT NULL,
@@ -672,7 +706,7 @@ CREATE TABLE "Payroll" (
 );
 
 -- CreateTable
-CREATE TABLE "PayrollItem" (
+CREATE TABLE IF NOT EXISTS "PayrollItem" (
     "id" TEXT NOT NULL,
     "payrollId" TEXT NOT NULL,
     "employeeId" TEXT NOT NULL,
@@ -699,7 +733,7 @@ CREATE TABLE "PayrollItem" (
 );
 
 -- CreateTable
-CREATE TABLE "BiometricSyncLog" (
+CREATE TABLE IF NOT EXISTS "BiometricSyncLog" (
     "id" TEXT NOT NULL,
     "syncTime" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "vendor" TEXT NOT NULL,
@@ -715,7 +749,7 @@ CREATE TABLE "BiometricSyncLog" (
 );
 
 -- CreateTable
-CREATE TABLE "BiometricDevice" (
+CREATE TABLE IF NOT EXISTS "BiometricDevice" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "vendor" TEXT NOT NULL,
@@ -744,7 +778,7 @@ CREATE TABLE "BiometricDevice" (
 );
 
 -- CreateTable
-CREATE TABLE "ProjectBudget" (
+CREATE TABLE IF NOT EXISTS "ProjectBudget" (
     "id" TEXT NOT NULL,
     "projectId" TEXT NOT NULL,
     "category" TEXT NOT NULL,
@@ -757,7 +791,7 @@ CREATE TABLE "ProjectBudget" (
 );
 
 -- CreateTable
-CREATE TABLE "Tag" (
+CREATE TABLE IF NOT EXISTS "Tag" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "color" TEXT,
@@ -767,7 +801,7 @@ CREATE TABLE "Tag" (
 );
 
 -- CreateTable
-CREATE TABLE "Checklist" (
+CREATE TABLE IF NOT EXISTS "Checklist" (
     "id" TEXT NOT NULL,
     "title" TEXT NOT NULL DEFAULT 'Checklist',
     "entityType" TEXT NOT NULL,
@@ -781,7 +815,7 @@ CREATE TABLE "Checklist" (
 );
 
 -- CreateTable
-CREATE TABLE "ChecklistItem" (
+CREATE TABLE IF NOT EXISTS "ChecklistItem" (
     "id" TEXT NOT NULL,
     "checklistId" TEXT NOT NULL,
     "content" TEXT NOT NULL,
@@ -793,7 +827,7 @@ CREATE TABLE "ChecklistItem" (
 );
 
 -- CreateTable
-CREATE TABLE "WebhookEvent" (
+CREATE TABLE IF NOT EXISTS "WebhookEvent" (
     "id" TEXT NOT NULL,
     "source" TEXT NOT NULL,
     "eventId" TEXT NOT NULL,
@@ -805,7 +839,7 @@ CREATE TABLE "WebhookEvent" (
 );
 
 -- CreateTable
-CREATE TABLE "ActivityReport" (
+CREATE TABLE IF NOT EXISTS "ActivityReport" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
     "reportDate" TIMESTAMP(3) NOT NULL,
@@ -827,7 +861,7 @@ CREATE TABLE "ActivityReport" (
 );
 
 -- CreateTable
-CREATE TABLE "WorkSession" (
+CREATE TABLE IF NOT EXISTS "WorkSession" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
     "date" DATE NOT NULL,
@@ -843,7 +877,7 @@ CREATE TABLE "WorkSession" (
 );
 
 -- CreateTable
-CREATE TABLE "WorkSessionLog" (
+CREATE TABLE IF NOT EXISTS "WorkSessionLog" (
     "id" TEXT NOT NULL,
     "sessionId" TEXT NOT NULL,
     "actionType" TEXT NOT NULL,
@@ -855,7 +889,7 @@ CREATE TABLE "WorkSessionLog" (
 );
 
 -- CreateTable
-CREATE TABLE "MyDayTask" (
+CREATE TABLE IF NOT EXISTS "MyDayTask" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
     "date" DATE NOT NULL,
@@ -867,7 +901,7 @@ CREATE TABLE "MyDayTask" (
 );
 
 -- CreateTable
-CREATE TABLE "Requirement" (
+CREATE TABLE IF NOT EXISTS "Requirement" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "requirementNumber" TEXT NOT NULL,
@@ -899,7 +933,7 @@ CREATE TABLE "Requirement" (
 );
 
 -- CreateTable
-CREATE TABLE "RequirementSection" (
+CREATE TABLE IF NOT EXISTS "RequirementSection" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "requirementId" TEXT NOT NULL,
@@ -913,7 +947,7 @@ CREATE TABLE "RequirementSection" (
 );
 
 -- CreateTable
-CREATE TABLE "RequirementItem" (
+CREATE TABLE IF NOT EXISTS "RequirementItem" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "requirementId" TEXT NOT NULL,
@@ -934,7 +968,7 @@ CREATE TABLE "RequirementItem" (
 );
 
 -- CreateTable
-CREATE TABLE "RequirementClarification" (
+CREATE TABLE IF NOT EXISTS "RequirementClarification" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "requirementId" TEXT NOT NULL,
@@ -952,7 +986,7 @@ CREATE TABLE "RequirementClarification" (
 );
 
 -- CreateTable
-CREATE TABLE "Estimation" (
+CREATE TABLE IF NOT EXISTS "Estimation" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "estimationNumber" TEXT NOT NULL,
@@ -990,7 +1024,7 @@ CREATE TABLE "Estimation" (
 );
 
 -- CreateTable
-CREATE TABLE "EstimationSection" (
+CREATE TABLE IF NOT EXISTS "EstimationSection" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "estimationId" TEXT NOT NULL,
@@ -1004,7 +1038,7 @@ CREATE TABLE "EstimationSection" (
 );
 
 -- CreateTable
-CREATE TABLE "EstimationItem" (
+CREATE TABLE IF NOT EXISTS "EstimationItem" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "estimationId" TEXT NOT NULL,
@@ -1031,7 +1065,7 @@ CREATE TABLE "EstimationItem" (
 );
 
 -- CreateTable
-CREATE TABLE "ProjectResourceAllocation" (
+CREATE TABLE IF NOT EXISTS "ProjectResourceAllocation" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "projectId" TEXT NOT NULL,
@@ -1056,7 +1090,7 @@ CREATE TABLE "ProjectResourceAllocation" (
 );
 
 -- CreateTable
-CREATE TABLE "ProjectCreativeBrief" (
+CREATE TABLE IF NOT EXISTS "ProjectCreativeBrief" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "projectId" TEXT NOT NULL,
@@ -1083,7 +1117,7 @@ CREATE TABLE "ProjectCreativeBrief" (
 );
 
 -- CreateTable
-CREATE TABLE "ProjectCreativeDeliverable" (
+CREATE TABLE IF NOT EXISTS "ProjectCreativeDeliverable" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "projectId" TEXT NOT NULL,
@@ -1108,7 +1142,7 @@ CREATE TABLE "ProjectCreativeDeliverable" (
 );
 
 -- CreateTable
-CREATE TABLE "CreativeDeliverableVersion" (
+CREATE TABLE IF NOT EXISTS "CreativeDeliverableVersion" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "deliverableId" TEXT NOT NULL,
@@ -1129,7 +1163,7 @@ CREATE TABLE "CreativeDeliverableVersion" (
 );
 
 -- CreateTable
-CREATE TABLE "ProjectMarketingPlan" (
+CREATE TABLE IF NOT EXISTS "ProjectMarketingPlan" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "projectId" TEXT NOT NULL,
@@ -1151,7 +1185,7 @@ CREATE TABLE "ProjectMarketingPlan" (
 );
 
 -- CreateTable
-CREATE TABLE "ProjectMarketingCampaign" (
+CREATE TABLE IF NOT EXISTS "ProjectMarketingCampaign" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "projectId" TEXT NOT NULL,
@@ -1177,7 +1211,7 @@ CREATE TABLE "ProjectMarketingCampaign" (
 );
 
 -- CreateTable
-CREATE TABLE "MarketingContentItem" (
+CREATE TABLE IF NOT EXISTS "MarketingContentItem" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "campaignId" TEXT NOT NULL,
@@ -1201,7 +1235,7 @@ CREATE TABLE "MarketingContentItem" (
 );
 
 -- CreateTable
-CREATE TABLE "MarketingPerformanceSnapshot" (
+CREATE TABLE IF NOT EXISTS "MarketingPerformanceSnapshot" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "campaignId" TEXT NOT NULL,
@@ -1220,7 +1254,7 @@ CREATE TABLE "MarketingPerformanceSnapshot" (
 );
 
 -- CreateTable
-CREATE TABLE "IntegrationConnection" (
+CREATE TABLE IF NOT EXISTS "IntegrationConnection" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "name" TEXT NOT NULL,
@@ -1243,7 +1277,7 @@ CREATE TABLE "IntegrationConnection" (
 );
 
 -- CreateTable
-CREATE TABLE "WebhookEndpoint" (
+CREATE TABLE IF NOT EXISTS "WebhookEndpoint" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "name" TEXT NOT NULL,
@@ -1259,7 +1293,7 @@ CREATE TABLE "WebhookEndpoint" (
 );
 
 -- CreateTable
-CREATE TABLE "WebhookDelivery" (
+CREATE TABLE IF NOT EXISTS "WebhookDelivery" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "endpointId" TEXT NOT NULL,
@@ -1279,7 +1313,7 @@ CREATE TABLE "WebhookDelivery" (
 );
 
 -- CreateTable
-CREATE TABLE "WebhookDeliveryAttempt" (
+CREATE TABLE IF NOT EXISTS "WebhookDeliveryAttempt" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "deliveryId" TEXT NOT NULL,
@@ -1297,7 +1331,7 @@ CREATE TABLE "WebhookDeliveryAttempt" (
 );
 
 -- CreateTable
-CREATE TABLE "IntegrationEvent" (
+CREATE TABLE IF NOT EXISTS "IntegrationEvent" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "connectionId" TEXT NOT NULL,
@@ -1317,7 +1351,7 @@ CREATE TABLE "IntegrationEvent" (
 );
 
 -- CreateTable
-CREATE TABLE "AutomationRule" (
+CREATE TABLE IF NOT EXISTS "AutomationRule" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "name" TEXT NOT NULL,
@@ -1338,7 +1372,7 @@ CREATE TABLE "AutomationRule" (
 );
 
 -- CreateTable
-CREATE TABLE "AutomationExecution" (
+CREATE TABLE IF NOT EXISTS "AutomationExecution" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "automationRuleId" TEXT NOT NULL,
@@ -1357,7 +1391,7 @@ CREATE TABLE "AutomationExecution" (
 );
 
 -- CreateTable
-CREATE TABLE "DomainOutboxEvent" (
+CREATE TABLE IF NOT EXISTS "DomainOutboxEvent" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "aggregateType" TEXT NOT NULL,
@@ -1373,7 +1407,7 @@ CREATE TABLE "DomainOutboxEvent" (
 );
 
 -- CreateTable
-CREATE TABLE "QueueJob" (
+CREATE TABLE IF NOT EXISTS "QueueJob" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "type" TEXT NOT NULL,
@@ -1395,7 +1429,7 @@ CREATE TABLE "QueueJob" (
 );
 
 -- CreateTable
-CREATE TABLE "_ProjectTeamMembers" (
+CREATE TABLE IF NOT EXISTS "_ProjectTeamMembers" (
     "A" TEXT NOT NULL,
     "B" TEXT NOT NULL,
 
@@ -1403,7 +1437,7 @@ CREATE TABLE "_ProjectTeamMembers" (
 );
 
 -- CreateTable
-CREATE TABLE "_MilestoneToTag" (
+CREATE TABLE IF NOT EXISTS "_MilestoneToTag" (
     "A" TEXT NOT NULL,
     "B" TEXT NOT NULL,
 
@@ -1411,7 +1445,7 @@ CREATE TABLE "_MilestoneToTag" (
 );
 
 -- CreateTable
-CREATE TABLE "_IssueToTag" (
+CREATE TABLE IF NOT EXISTS "_IssueToTag" (
     "A" TEXT NOT NULL,
     "B" TEXT NOT NULL,
 
@@ -1419,1371 +1453,1402 @@ CREATE TABLE "_IssueToTag" (
 );
 
 -- CreateTable
-CREATE TABLE "_TagToTask" (
+CREATE TABLE IF NOT EXISTS "_TagToTask" (
     "A" TEXT NOT NULL,
     "B" TEXT NOT NULL,
 
     CONSTRAINT "_TagToTask_AB_pkey" PRIMARY KEY ("A","B")
 );
 
+
+-- Ensure organizationId on newly created or existing tables
+ALTER TABLE "Department" ADD COLUMN IF NOT EXISTS "organizationId" TEXT NOT NULL DEFAULT 'default-org';
+ALTER TABLE "Team" ADD COLUMN IF NOT EXISTS "organizationId" TEXT NOT NULL DEFAULT 'default-org';
+ALTER TABLE "Timesheet" ADD COLUMN IF NOT EXISTS "organizationId" TEXT NOT NULL DEFAULT 'default-org';
+ALTER TABLE "Payroll" ADD COLUMN IF NOT EXISTS "organizationId" TEXT NOT NULL DEFAULT 'default-org';
+ALTER TABLE "Requirement" ADD COLUMN IF NOT EXISTS "organizationId" TEXT NOT NULL DEFAULT 'default-org';
+ALTER TABLE "RequirementSection" ADD COLUMN IF NOT EXISTS "organizationId" TEXT NOT NULL DEFAULT 'default-org';
+ALTER TABLE "RequirementItem" ADD COLUMN IF NOT EXISTS "organizationId" TEXT NOT NULL DEFAULT 'default-org';
+ALTER TABLE "RequirementClarification" ADD COLUMN IF NOT EXISTS "organizationId" TEXT NOT NULL DEFAULT 'default-org';
+ALTER TABLE "Estimation" ADD COLUMN IF NOT EXISTS "organizationId" TEXT NOT NULL DEFAULT 'default-org';
+ALTER TABLE "EstimationSection" ADD COLUMN IF NOT EXISTS "organizationId" TEXT NOT NULL DEFAULT 'default-org';
+ALTER TABLE "EstimationItem" ADD COLUMN IF NOT EXISTS "organizationId" TEXT NOT NULL DEFAULT 'default-org';
+ALTER TABLE "ProjectResourceAllocation" ADD COLUMN IF NOT EXISTS "organizationId" TEXT NOT NULL DEFAULT 'default-org';
+ALTER TABLE "ProjectCreativeBrief" ADD COLUMN IF NOT EXISTS "organizationId" TEXT NOT NULL DEFAULT 'default-org';
+ALTER TABLE "ProjectCreativeDeliverable" ADD COLUMN IF NOT EXISTS "organizationId" TEXT NOT NULL DEFAULT 'default-org';
+ALTER TABLE "CreativeDeliverableVersion" ADD COLUMN IF NOT EXISTS "organizationId" TEXT NOT NULL DEFAULT 'default-org';
+ALTER TABLE "ProjectMarketingPlan" ADD COLUMN IF NOT EXISTS "organizationId" TEXT NOT NULL DEFAULT 'default-org';
+ALTER TABLE "ProjectMarketingCampaign" ADD COLUMN IF NOT EXISTS "organizationId" TEXT NOT NULL DEFAULT 'default-org';
+ALTER TABLE "MarketingContentItem" ADD COLUMN IF NOT EXISTS "organizationId" TEXT NOT NULL DEFAULT 'default-org';
+ALTER TABLE "MarketingPerformanceSnapshot" ADD COLUMN IF NOT EXISTS "organizationId" TEXT NOT NULL DEFAULT 'default-org';
+ALTER TABLE "IntegrationConnection" ADD COLUMN IF NOT EXISTS "organizationId" TEXT NOT NULL DEFAULT 'default-org';
+ALTER TABLE "WebhookEndpoint" ADD COLUMN IF NOT EXISTS "organizationId" TEXT NOT NULL DEFAULT 'default-org';
+ALTER TABLE "WebhookDelivery" ADD COLUMN IF NOT EXISTS "organizationId" TEXT NOT NULL DEFAULT 'default-org';
+ALTER TABLE "WebhookDeliveryAttempt" ADD COLUMN IF NOT EXISTS "organizationId" TEXT NOT NULL DEFAULT 'default-org';
+ALTER TABLE "IntegrationEvent" ADD COLUMN IF NOT EXISTS "organizationId" TEXT NOT NULL DEFAULT 'default-org';
+ALTER TABLE "AutomationRule" ADD COLUMN IF NOT EXISTS "organizationId" TEXT NOT NULL DEFAULT 'default-org';
+ALTER TABLE "AutomationExecution" ADD COLUMN IF NOT EXISTS "organizationId" TEXT NOT NULL DEFAULT 'default-org';
+ALTER TABLE "DomainOutboxEvent" ADD COLUMN IF NOT EXISTS "organizationId" TEXT NOT NULL DEFAULT 'default-org';
+ALTER TABLE "QueueJob" ADD COLUMN IF NOT EXISTS "organizationId" TEXT NOT NULL DEFAULT 'default-org';
+
 -- CreateIndex
-CREATE INDEX "Department_organizationId_idx" ON "Department"("organizationId");
+CREATE INDEX IF NOT EXISTS "Department_organizationId_idx" ON "Department"("organizationId");
 
 -- CreateIndex
-CREATE INDEX "Department_organizationId_status_idx" ON "Department"("organizationId", "status");
+CREATE INDEX IF NOT EXISTS "Department_organizationId_status_idx" ON "Department"("organizationId", "status");
 
 -- CreateIndex
-CREATE INDEX "Department_managerEmployeeId_idx" ON "Department"("managerEmployeeId");
+CREATE INDEX IF NOT EXISTS "Department_managerEmployeeId_idx" ON "Department"("managerEmployeeId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Department_organizationId_code_key" ON "Department"("organizationId", "code");
+CREATE UNIQUE INDEX IF NOT EXISTS "Department_organizationId_code_key" ON "Department"("organizationId", "code");
 
 -- CreateIndex
-CREATE INDEX "Team_organizationId_idx" ON "Team"("organizationId");
+CREATE INDEX IF NOT EXISTS "Team_organizationId_idx" ON "Team"("organizationId");
 
 -- CreateIndex
-CREATE INDEX "Team_departmentId_idx" ON "Team"("departmentId");
+CREATE INDEX IF NOT EXISTS "Team_departmentId_idx" ON "Team"("departmentId");
 
 -- CreateIndex
-CREATE INDEX "Team_organizationId_departmentId_idx" ON "Team"("organizationId", "departmentId");
+CREATE INDEX IF NOT EXISTS "Team_organizationId_departmentId_idx" ON "Team"("organizationId", "departmentId");
 
 -- CreateIndex
-CREATE INDEX "Team_leadEmployeeId_idx" ON "Team"("leadEmployeeId");
+CREATE INDEX IF NOT EXISTS "Team_leadEmployeeId_idx" ON "Team"("leadEmployeeId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Team_organizationId_departmentId_code_key" ON "Team"("organizationId", "departmentId", "code");
+CREATE UNIQUE INDEX IF NOT EXISTS "Team_organizationId_departmentId_code_key" ON "Team"("organizationId", "departmentId", "code");
 
 -- CreateIndex
-CREATE INDEX "TaskDependency_dependentTaskId_idx" ON "TaskDependency"("dependentTaskId");
+CREATE INDEX IF NOT EXISTS "TaskDependency_dependentTaskId_idx" ON "TaskDependency"("dependentTaskId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "TaskDependency_blockingTaskId_dependentTaskId_key" ON "TaskDependency"("blockingTaskId", "dependentTaskId");
+CREATE UNIQUE INDEX IF NOT EXISTS "TaskDependency_blockingTaskId_dependentTaskId_key" ON "TaskDependency"("blockingTaskId", "dependentTaskId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "TaskWatcher_taskId_userId_key" ON "TaskWatcher"("taskId", "userId");
+CREATE UNIQUE INDEX IF NOT EXISTS "TaskWatcher_taskId_userId_key" ON "TaskWatcher"("taskId", "userId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "MilestoneDependency_blockingId_dependentId_key" ON "MilestoneDependency"("blockingId", "dependentId");
+CREATE UNIQUE INDEX IF NOT EXISTS "MilestoneDependency_blockingId_dependentId_key" ON "MilestoneDependency"("blockingId", "dependentId");
 
 -- CreateIndex
-CREATE INDEX "Timesheet_projectId_idx" ON "Timesheet"("projectId");
+CREATE INDEX IF NOT EXISTS "Timesheet_projectId_idx" ON "Timesheet"("projectId");
 
 -- CreateIndex
-CREATE INDEX "Timesheet_employeeId_idx" ON "Timesheet"("employeeId");
+CREATE INDEX IF NOT EXISTS "Timesheet_employeeId_idx" ON "Timesheet"("employeeId");
 
 -- CreateIndex
-CREATE INDEX "Timesheet_issueId_idx" ON "Timesheet"("issueId");
+CREATE INDEX IF NOT EXISTS "Timesheet_issueId_idx" ON "Timesheet"("issueId");
 
 -- CreateIndex
-CREATE INDEX "Timesheet_taskId_idx" ON "Timesheet"("taskId");
+CREATE INDEX IF NOT EXISTS "Timesheet_taskId_idx" ON "Timesheet"("taskId");
 
 -- CreateIndex
-CREATE INDEX "Timesheet_date_idx" ON "Timesheet"("date");
+CREATE INDEX IF NOT EXISTS "Timesheet_date_idx" ON "Timesheet"("date");
 
 -- CreateIndex
-CREATE INDEX "Timesheet_status_idx" ON "Timesheet"("status");
+CREATE INDEX IF NOT EXISTS "Timesheet_status_idx" ON "Timesheet"("status");
 
 -- CreateIndex
-CREATE INDEX "Timesheet_projectId_taskId_idx" ON "Timesheet"("projectId", "taskId");
+CREATE INDEX IF NOT EXISTS "Timesheet_projectId_taskId_idx" ON "Timesheet"("projectId", "taskId");
 
 -- CreateIndex
-CREATE INDEX "Timesheet_employeeId_date_idx" ON "Timesheet"("employeeId", "date");
+CREATE INDEX IF NOT EXISTS "Timesheet_employeeId_date_idx" ON "Timesheet"("employeeId", "date");
 
 -- CreateIndex
-CREATE INDEX "Timesheet_organizationId_idx" ON "Timesheet"("organizationId");
+CREATE INDEX IF NOT EXISTS "Timesheet_organizationId_idx" ON "Timesheet"("organizationId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Warehouse_code_key" ON "Warehouse"("code");
+CREATE UNIQUE INDEX IF NOT EXISTS "Warehouse_code_key" ON "Warehouse"("code");
 
 -- CreateIndex
-CREATE INDEX "Shift_status_idx" ON "Shift"("status");
+CREATE INDEX IF NOT EXISTS "Shift_status_idx" ON "Shift"("status");
 
 -- CreateIndex
-CREATE INDEX "Shift_isTrash_idx" ON "Shift"("isTrash");
+CREATE INDEX IF NOT EXISTS "Shift_isTrash_idx" ON "Shift"("isTrash");
 
 -- CreateIndex
-CREATE INDEX "Shift_createdBy_idx" ON "Shift"("createdBy");
+CREATE INDEX IF NOT EXISTS "Shift_createdBy_idx" ON "Shift"("createdBy");
 
 -- CreateIndex
-CREATE INDEX "LeaveApplication_employeeId_idx" ON "LeaveApplication"("employeeId");
+CREATE INDEX IF NOT EXISTS "LeaveApplication_employeeId_idx" ON "LeaveApplication"("employeeId");
 
 -- CreateIndex
-CREATE INDEX "LeaveApplication_status_idx" ON "LeaveApplication"("status");
+CREATE INDEX IF NOT EXISTS "LeaveApplication_status_idx" ON "LeaveApplication"("status");
 
 -- CreateIndex
-CREATE INDEX "LeaveApplication_startDate_endDate_idx" ON "LeaveApplication"("startDate", "endDate");
+CREATE INDEX IF NOT EXISTS "LeaveApplication_startDate_endDate_idx" ON "LeaveApplication"("startDate", "endDate");
 
 -- CreateIndex
-CREATE INDEX "LeaveApplication_managerId_idx" ON "LeaveApplication"("managerId");
+CREATE INDEX IF NOT EXISTS "LeaveApplication_managerId_idx" ON "LeaveApplication"("managerId");
 
 -- CreateIndex
-CREATE INDEX "LeaveApplication_hrId_idx" ON "LeaveApplication"("hrId");
+CREATE INDEX IF NOT EXISTS "LeaveApplication_hrId_idx" ON "LeaveApplication"("hrId");
 
 -- CreateIndex
-CREATE INDEX "AttendanceLog_employeeId_idx" ON "AttendanceLog"("employeeId");
+CREATE INDEX IF NOT EXISTS "AttendanceLog_employeeId_idx" ON "AttendanceLog"("employeeId");
 
 -- CreateIndex
-CREATE INDEX "AttendanceLog_timestamp_idx" ON "AttendanceLog"("timestamp");
+CREATE INDEX IF NOT EXISTS "AttendanceLog_timestamp_idx" ON "AttendanceLog"("timestamp");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "AttendanceLog_employeeId_timestamp_key" ON "AttendanceLog"("employeeId", "timestamp");
+CREATE UNIQUE INDEX IF NOT EXISTS "AttendanceLog_employeeId_timestamp_key" ON "AttendanceLog"("employeeId", "timestamp");
 
 -- CreateIndex
-CREATE INDEX "Attendance_date_idx" ON "Attendance"("date");
+CREATE INDEX IF NOT EXISTS "Attendance_date_idx" ON "Attendance"("date");
 
 -- CreateIndex
-CREATE INDEX "Attendance_status_idx" ON "Attendance"("status");
+CREATE INDEX IF NOT EXISTS "Attendance_status_idx" ON "Attendance"("status");
 
 -- CreateIndex
-CREATE INDEX "Attendance_employeeId_date_idx" ON "Attendance"("employeeId", "date");
+CREATE INDEX IF NOT EXISTS "Attendance_employeeId_date_idx" ON "Attendance"("employeeId", "date");
 
 -- CreateIndex
-CREATE INDEX "Attendance_isLocked_idx" ON "Attendance"("isLocked");
+CREATE INDEX IF NOT EXISTS "Attendance_isLocked_idx" ON "Attendance"("isLocked");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Attendance_employeeId_date_key" ON "Attendance"("employeeId", "date");
+CREATE UNIQUE INDEX IF NOT EXISTS "Attendance_employeeId_date_key" ON "Attendance"("employeeId", "date");
 
 -- CreateIndex
-CREATE INDEX "Overtime_employeeId_idx" ON "Overtime"("employeeId");
+CREATE INDEX IF NOT EXISTS "Overtime_employeeId_idx" ON "Overtime"("employeeId");
 
 -- CreateIndex
-CREATE INDEX "Overtime_date_idx" ON "Overtime"("date");
+CREATE INDEX IF NOT EXISTS "Overtime_date_idx" ON "Overtime"("date");
 
 -- CreateIndex
-CREATE INDEX "Overtime_status_idx" ON "Overtime"("status");
+CREATE INDEX IF NOT EXISTS "Overtime_status_idx" ON "Overtime"("status");
 
 -- CreateIndex
-CREATE INDEX "EmployeeLoan_employeeId_idx" ON "EmployeeLoan"("employeeId");
+CREATE INDEX IF NOT EXISTS "EmployeeLoan_employeeId_idx" ON "EmployeeLoan"("employeeId");
 
 -- CreateIndex
-CREATE INDEX "EmployeeLoan_status_idx" ON "EmployeeLoan"("status");
+CREATE INDEX IF NOT EXISTS "EmployeeLoan_status_idx" ON "EmployeeLoan"("status");
 
 -- CreateIndex
-CREATE INDEX "EmployeeLoan_voucherId_idx" ON "EmployeeLoan"("voucherId");
+CREATE INDEX IF NOT EXISTS "EmployeeLoan_voucherId_idx" ON "EmployeeLoan"("voucherId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "EmployeeSalary_employeeId_key" ON "EmployeeSalary"("employeeId");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmployeeSalary_employeeId_key" ON "EmployeeSalary"("employeeId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Payroll_payrollNumber_key" ON "Payroll"("payrollNumber");
+CREATE UNIQUE INDEX IF NOT EXISTS "Payroll_payrollNumber_key" ON "Payroll"("payrollNumber");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Payroll_voucherId_key" ON "Payroll"("voucherId");
+CREATE UNIQUE INDEX IF NOT EXISTS "Payroll_voucherId_key" ON "Payroll"("voucherId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Payroll_paymentVchId_key" ON "Payroll"("paymentVchId");
+CREATE UNIQUE INDEX IF NOT EXISTS "Payroll_paymentVchId_key" ON "Payroll"("paymentVchId");
 
 -- CreateIndex
-CREATE INDEX "Payroll_month_year_idx" ON "Payroll"("month", "year");
+CREATE INDEX IF NOT EXISTS "Payroll_month_year_idx" ON "Payroll"("month", "year");
 
 -- CreateIndex
-CREATE INDEX "Payroll_status_idx" ON "Payroll"("status");
+CREATE INDEX IF NOT EXISTS "Payroll_status_idx" ON "Payroll"("status");
 
 -- CreateIndex
-CREATE INDEX "Payroll_voucherId_idx" ON "Payroll"("voucherId");
+CREATE INDEX IF NOT EXISTS "Payroll_voucherId_idx" ON "Payroll"("voucherId");
 
 -- CreateIndex
-CREATE INDEX "Payroll_month_year_status_idx" ON "Payroll"("month", "year", "status");
+CREATE INDEX IF NOT EXISTS "Payroll_month_year_status_idx" ON "Payroll"("month", "year", "status");
 
 -- CreateIndex
-CREATE INDEX "Payroll_organizationId_idx" ON "Payroll"("organizationId");
+CREATE INDEX IF NOT EXISTS "Payroll_organizationId_idx" ON "Payroll"("organizationId");
 
 -- CreateIndex
-CREATE INDEX "PayrollItem_employeeId_idx" ON "PayrollItem"("employeeId");
+CREATE INDEX IF NOT EXISTS "PayrollItem_employeeId_idx" ON "PayrollItem"("employeeId");
 
 -- CreateIndex
-CREATE INDEX "PayrollItem_status_idx" ON "PayrollItem"("status");
+CREATE INDEX IF NOT EXISTS "PayrollItem_status_idx" ON "PayrollItem"("status");
 
 -- CreateIndex
-CREATE INDEX "PayrollItem_employeeId_status_idx" ON "PayrollItem"("employeeId", "status");
+CREATE INDEX IF NOT EXISTS "PayrollItem_employeeId_status_idx" ON "PayrollItem"("employeeId", "status");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "PayrollItem_payrollId_employeeId_key" ON "PayrollItem"("payrollId", "employeeId");
+CREATE UNIQUE INDEX IF NOT EXISTS "PayrollItem_payrollId_employeeId_key" ON "PayrollItem"("payrollId", "employeeId");
 
 -- CreateIndex
-CREATE INDEX "BiometricSyncLog_syncTime_idx" ON "BiometricSyncLog"("syncTime");
+CREATE INDEX IF NOT EXISTS "BiometricSyncLog_syncTime_idx" ON "BiometricSyncLog"("syncTime");
 
 -- CreateIndex
-CREATE INDEX "BiometricSyncLog_vendor_idx" ON "BiometricSyncLog"("vendor");
+CREATE INDEX IF NOT EXISTS "BiometricSyncLog_vendor_idx" ON "BiometricSyncLog"("vendor");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "BiometricDevice_serialNumber_key" ON "BiometricDevice"("serialNumber");
+CREATE UNIQUE INDEX IF NOT EXISTS "BiometricDevice_serialNumber_key" ON "BiometricDevice"("serialNumber");
 
 -- CreateIndex
-CREATE INDEX "BiometricDevice_vendor_idx" ON "BiometricDevice"("vendor");
+CREATE INDEX IF NOT EXISTS "BiometricDevice_vendor_idx" ON "BiometricDevice"("vendor");
 
 -- CreateIndex
-CREATE INDEX "BiometricDevice_status_idx" ON "BiometricDevice"("status");
+CREATE INDEX IF NOT EXISTS "BiometricDevice_status_idx" ON "BiometricDevice"("status");
 
 -- CreateIndex
-CREATE INDEX "ProjectBudget_projectId_idx" ON "ProjectBudget"("projectId");
+CREATE INDEX IF NOT EXISTS "ProjectBudget_projectId_idx" ON "ProjectBudget"("projectId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Tag_name_key" ON "Tag"("name");
+CREATE UNIQUE INDEX IF NOT EXISTS "Tag_name_key" ON "Tag"("name");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "WebhookEvent_eventId_key" ON "WebhookEvent"("eventId");
+CREATE UNIQUE INDEX IF NOT EXISTS "WebhookEvent_eventId_key" ON "WebhookEvent"("eventId");
 
 -- CreateIndex
-CREATE INDEX "ActivityReport_userId_idx" ON "ActivityReport"("userId");
+CREATE INDEX IF NOT EXISTS "ActivityReport_userId_idx" ON "ActivityReport"("userId");
 
 -- CreateIndex
-CREATE INDEX "ActivityReport_reportDate_idx" ON "ActivityReport"("reportDate");
+CREATE INDEX IF NOT EXISTS "ActivityReport_reportDate_idx" ON "ActivityReport"("reportDate");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "ActivityReport_userId_reportDate_key" ON "ActivityReport"("userId", "reportDate");
+CREATE UNIQUE INDEX IF NOT EXISTS "ActivityReport_userId_reportDate_key" ON "ActivityReport"("userId", "reportDate");
 
 -- CreateIndex
-CREATE INDEX "WorkSession_userId_idx" ON "WorkSession"("userId");
+CREATE INDEX IF NOT EXISTS "WorkSession_userId_idx" ON "WorkSession"("userId");
 
 -- CreateIndex
-CREATE INDEX "WorkSession_date_idx" ON "WorkSession"("date");
+CREATE INDEX IF NOT EXISTS "WorkSession_date_idx" ON "WorkSession"("date");
 
 -- CreateIndex
-CREATE INDEX "WorkSessionLog_sessionId_idx" ON "WorkSessionLog"("sessionId");
+CREATE INDEX IF NOT EXISTS "WorkSessionLog_sessionId_idx" ON "WorkSessionLog"("sessionId");
 
 -- CreateIndex
-CREATE INDEX "MyDayTask_userId_date_idx" ON "MyDayTask"("userId", "date");
+CREATE INDEX IF NOT EXISTS "MyDayTask_userId_date_idx" ON "MyDayTask"("userId", "date");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "MyDayTask_userId_date_taskId_key" ON "MyDayTask"("userId", "date", "taskId");
+CREATE UNIQUE INDEX IF NOT EXISTS "MyDayTask_userId_date_taskId_key" ON "MyDayTask"("userId", "date", "taskId");
 
 -- CreateIndex
-CREATE INDEX "Requirement_organizationId_idx" ON "Requirement"("organizationId");
+CREATE INDEX IF NOT EXISTS "Requirement_organizationId_idx" ON "Requirement"("organizationId");
 
 -- CreateIndex
-CREATE INDEX "Requirement_opportunityId_idx" ON "Requirement"("opportunityId");
+CREATE INDEX IF NOT EXISTS "Requirement_opportunityId_idx" ON "Requirement"("opportunityId");
 
 -- CreateIndex
-CREATE INDEX "Requirement_clientId_idx" ON "Requirement"("clientId");
+CREATE INDEX IF NOT EXISTS "Requirement_clientId_idx" ON "Requirement"("clientId");
 
 -- CreateIndex
-CREATE INDEX "Requirement_ownerId_idx" ON "Requirement"("ownerId");
+CREATE INDEX IF NOT EXISTS "Requirement_ownerId_idx" ON "Requirement"("ownerId");
 
 -- CreateIndex
-CREATE INDEX "Requirement_status_idx" ON "Requirement"("status");
+CREATE INDEX IF NOT EXISTS "Requirement_status_idx" ON "Requirement"("status");
 
 -- CreateIndex
-CREATE INDEX "Requirement_priority_idx" ON "Requirement"("priority");
+CREATE INDEX IF NOT EXISTS "Requirement_priority_idx" ON "Requirement"("priority");
 
 -- CreateIndex
-CREATE INDEX "Requirement_isTrash_idx" ON "Requirement"("isTrash");
+CREATE INDEX IF NOT EXISTS "Requirement_isTrash_idx" ON "Requirement"("isTrash");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Requirement_organizationId_requirementNumber_key" ON "Requirement"("organizationId", "requirementNumber");
+CREATE UNIQUE INDEX IF NOT EXISTS "Requirement_organizationId_requirementNumber_key" ON "Requirement"("organizationId", "requirementNumber");
 
 -- CreateIndex
-CREATE INDEX "RequirementSection_organizationId_idx" ON "RequirementSection"("organizationId");
+CREATE INDEX IF NOT EXISTS "RequirementSection_organizationId_idx" ON "RequirementSection"("organizationId");
 
 -- CreateIndex
-CREATE INDEX "RequirementSection_requirementId_idx" ON "RequirementSection"("requirementId");
+CREATE INDEX IF NOT EXISTS "RequirementSection_requirementId_idx" ON "RequirementSection"("requirementId");
 
 -- CreateIndex
-CREATE INDEX "RequirementItem_organizationId_idx" ON "RequirementItem"("organizationId");
+CREATE INDEX IF NOT EXISTS "RequirementItem_organizationId_idx" ON "RequirementItem"("organizationId");
 
 -- CreateIndex
-CREATE INDEX "RequirementItem_requirementId_idx" ON "RequirementItem"("requirementId");
+CREATE INDEX IF NOT EXISTS "RequirementItem_requirementId_idx" ON "RequirementItem"("requirementId");
 
 -- CreateIndex
-CREATE INDEX "RequirementItem_sectionId_idx" ON "RequirementItem"("sectionId");
+CREATE INDEX IF NOT EXISTS "RequirementItem_sectionId_idx" ON "RequirementItem"("sectionId");
 
 -- CreateIndex
-CREATE INDEX "RequirementItem_isTrash_idx" ON "RequirementItem"("isTrash");
+CREATE INDEX IF NOT EXISTS "RequirementItem_isTrash_idx" ON "RequirementItem"("isTrash");
 
 -- CreateIndex
-CREATE INDEX "RequirementClarification_organizationId_idx" ON "RequirementClarification"("organizationId");
+CREATE INDEX IF NOT EXISTS "RequirementClarification_organizationId_idx" ON "RequirementClarification"("organizationId");
 
 -- CreateIndex
-CREATE INDEX "RequirementClarification_requirementId_idx" ON "RequirementClarification"("requirementId");
+CREATE INDEX IF NOT EXISTS "RequirementClarification_requirementId_idx" ON "RequirementClarification"("requirementId");
 
 -- CreateIndex
-CREATE INDEX "RequirementClarification_status_idx" ON "RequirementClarification"("status");
+CREATE INDEX IF NOT EXISTS "RequirementClarification_status_idx" ON "RequirementClarification"("status");
 
 -- CreateIndex
-CREATE INDEX "Estimation_organizationId_idx" ON "Estimation"("organizationId");
+CREATE INDEX IF NOT EXISTS "Estimation_organizationId_idx" ON "Estimation"("organizationId");
 
 -- CreateIndex
-CREATE INDEX "Estimation_requirementId_idx" ON "Estimation"("requirementId");
+CREATE INDEX IF NOT EXISTS "Estimation_requirementId_idx" ON "Estimation"("requirementId");
 
 -- CreateIndex
-CREATE INDEX "Estimation_opportunityId_idx" ON "Estimation"("opportunityId");
+CREATE INDEX IF NOT EXISTS "Estimation_opportunityId_idx" ON "Estimation"("opportunityId");
 
 -- CreateIndex
-CREATE INDEX "Estimation_clientId_idx" ON "Estimation"("clientId");
+CREATE INDEX IF NOT EXISTS "Estimation_clientId_idx" ON "Estimation"("clientId");
 
 -- CreateIndex
-CREATE INDEX "Estimation_preparedById_idx" ON "Estimation"("preparedById");
+CREATE INDEX IF NOT EXISTS "Estimation_preparedById_idx" ON "Estimation"("preparedById");
 
 -- CreateIndex
-CREATE INDEX "Estimation_status_idx" ON "Estimation"("status");
+CREATE INDEX IF NOT EXISTS "Estimation_status_idx" ON "Estimation"("status");
 
 -- CreateIndex
-CREATE INDEX "Estimation_isTrash_idx" ON "Estimation"("isTrash");
+CREATE INDEX IF NOT EXISTS "Estimation_isTrash_idx" ON "Estimation"("isTrash");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Estimation_organizationId_estimationNumber_key" ON "Estimation"("organizationId", "estimationNumber");
+CREATE UNIQUE INDEX IF NOT EXISTS "Estimation_organizationId_estimationNumber_key" ON "Estimation"("organizationId", "estimationNumber");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Estimation_organizationId_requirementId_version_key" ON "Estimation"("organizationId", "requirementId", "version");
+CREATE UNIQUE INDEX IF NOT EXISTS "Estimation_organizationId_requirementId_version_key" ON "Estimation"("organizationId", "requirementId", "version");
 
 -- CreateIndex
-CREATE INDEX "EstimationSection_organizationId_idx" ON "EstimationSection"("organizationId");
+CREATE INDEX IF NOT EXISTS "EstimationSection_organizationId_idx" ON "EstimationSection"("organizationId");
 
 -- CreateIndex
-CREATE INDEX "EstimationSection_estimationId_idx" ON "EstimationSection"("estimationId");
+CREATE INDEX IF NOT EXISTS "EstimationSection_estimationId_idx" ON "EstimationSection"("estimationId");
 
 -- CreateIndex
-CREATE INDEX "EstimationItem_organizationId_idx" ON "EstimationItem"("organizationId");
+CREATE INDEX IF NOT EXISTS "EstimationItem_organizationId_idx" ON "EstimationItem"("organizationId");
 
 -- CreateIndex
-CREATE INDEX "EstimationItem_estimationId_idx" ON "EstimationItem"("estimationId");
+CREATE INDEX IF NOT EXISTS "EstimationItem_estimationId_idx" ON "EstimationItem"("estimationId");
 
 -- CreateIndex
-CREATE INDEX "EstimationItem_sectionId_idx" ON "EstimationItem"("sectionId");
+CREATE INDEX IF NOT EXISTS "EstimationItem_sectionId_idx" ON "EstimationItem"("sectionId");
 
 -- CreateIndex
-CREATE INDEX "EstimationItem_requirementItemId_idx" ON "EstimationItem"("requirementItemId");
+CREATE INDEX IF NOT EXISTS "EstimationItem_requirementItemId_idx" ON "EstimationItem"("requirementItemId");
 
 -- CreateIndex
-CREATE INDEX "EstimationItem_departmentId_idx" ON "EstimationItem"("departmentId");
+CREATE INDEX IF NOT EXISTS "EstimationItem_departmentId_idx" ON "EstimationItem"("departmentId");
 
 -- CreateIndex
-CREATE INDEX "EstimationItem_teamId_idx" ON "EstimationItem"("teamId");
+CREATE INDEX IF NOT EXISTS "EstimationItem_teamId_idx" ON "EstimationItem"("teamId");
 
 -- CreateIndex
-CREATE INDEX "ProjectResourceAllocation_organizationId_idx" ON "ProjectResourceAllocation"("organizationId");
+CREATE INDEX IF NOT EXISTS "ProjectResourceAllocation_organizationId_idx" ON "ProjectResourceAllocation"("organizationId");
 
 -- CreateIndex
-CREATE INDEX "ProjectResourceAllocation_projectId_idx" ON "ProjectResourceAllocation"("projectId");
+CREATE INDEX IF NOT EXISTS "ProjectResourceAllocation_projectId_idx" ON "ProjectResourceAllocation"("projectId");
 
 -- CreateIndex
-CREATE INDEX "ProjectResourceAllocation_employeeId_idx" ON "ProjectResourceAllocation"("employeeId");
+CREATE INDEX IF NOT EXISTS "ProjectResourceAllocation_employeeId_idx" ON "ProjectResourceAllocation"("employeeId");
 
 -- CreateIndex
-CREATE INDEX "ProjectResourceAllocation_status_idx" ON "ProjectResourceAllocation"("status");
+CREATE INDEX IF NOT EXISTS "ProjectResourceAllocation_status_idx" ON "ProjectResourceAllocation"("status");
 
 -- CreateIndex
-CREATE INDEX "ProjectResourceAllocation_allocationStartDate_allocationEnd_idx" ON "ProjectResourceAllocation"("allocationStartDate", "allocationEndDate");
+CREATE INDEX IF NOT EXISTS "ProjectResourceAllocation_allocationStartDate_allocationEnd_idx" ON "ProjectResourceAllocation"("allocationStartDate", "allocationEndDate");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "ProjectCreativeBrief_briefNumber_key" ON "ProjectCreativeBrief"("briefNumber");
+CREATE UNIQUE INDEX IF NOT EXISTS "ProjectCreativeBrief_briefNumber_key" ON "ProjectCreativeBrief"("briefNumber");
 
 -- CreateIndex
-CREATE INDEX "ProjectCreativeBrief_organizationId_idx" ON "ProjectCreativeBrief"("organizationId");
+CREATE INDEX IF NOT EXISTS "ProjectCreativeBrief_organizationId_idx" ON "ProjectCreativeBrief"("organizationId");
 
 -- CreateIndex
-CREATE INDEX "ProjectCreativeBrief_projectId_idx" ON "ProjectCreativeBrief"("projectId");
+CREATE INDEX IF NOT EXISTS "ProjectCreativeBrief_projectId_idx" ON "ProjectCreativeBrief"("projectId");
 
 -- CreateIndex
-CREATE INDEX "ProjectCreativeBrief_status_idx" ON "ProjectCreativeBrief"("status");
+CREATE INDEX IF NOT EXISTS "ProjectCreativeBrief_status_idx" ON "ProjectCreativeBrief"("status");
 
 -- CreateIndex
-CREATE INDEX "ProjectCreativeBrief_briefNumber_idx" ON "ProjectCreativeBrief"("briefNumber");
+CREATE INDEX IF NOT EXISTS "ProjectCreativeBrief_briefNumber_idx" ON "ProjectCreativeBrief"("briefNumber");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "ProjectCreativeDeliverable_approvedVersionId_key" ON "ProjectCreativeDeliverable"("approvedVersionId");
+CREATE UNIQUE INDEX IF NOT EXISTS "ProjectCreativeDeliverable_approvedVersionId_key" ON "ProjectCreativeDeliverable"("approvedVersionId");
 
 -- CreateIndex
-CREATE INDEX "ProjectCreativeDeliverable_organizationId_idx" ON "ProjectCreativeDeliverable"("organizationId");
+CREATE INDEX IF NOT EXISTS "ProjectCreativeDeliverable_organizationId_idx" ON "ProjectCreativeDeliverable"("organizationId");
 
 -- CreateIndex
-CREATE INDEX "ProjectCreativeDeliverable_projectId_idx" ON "ProjectCreativeDeliverable"("projectId");
+CREATE INDEX IF NOT EXISTS "ProjectCreativeDeliverable_projectId_idx" ON "ProjectCreativeDeliverable"("projectId");
 
 -- CreateIndex
-CREATE INDEX "ProjectCreativeDeliverable_creativeBriefId_idx" ON "ProjectCreativeDeliverable"("creativeBriefId");
+CREATE INDEX IF NOT EXISTS "ProjectCreativeDeliverable_creativeBriefId_idx" ON "ProjectCreativeDeliverable"("creativeBriefId");
 
 -- CreateIndex
-CREATE INDEX "ProjectCreativeDeliverable_taskId_idx" ON "ProjectCreativeDeliverable"("taskId");
+CREATE INDEX IF NOT EXISTS "ProjectCreativeDeliverable_taskId_idx" ON "ProjectCreativeDeliverable"("taskId");
 
 -- CreateIndex
-CREATE INDEX "ProjectCreativeDeliverable_assignedEmployeeId_idx" ON "ProjectCreativeDeliverable"("assignedEmployeeId");
+CREATE INDEX IF NOT EXISTS "ProjectCreativeDeliverable_assignedEmployeeId_idx" ON "ProjectCreativeDeliverable"("assignedEmployeeId");
 
 -- CreateIndex
-CREATE INDEX "ProjectCreativeDeliverable_status_idx" ON "ProjectCreativeDeliverable"("status");
+CREATE INDEX IF NOT EXISTS "ProjectCreativeDeliverable_status_idx" ON "ProjectCreativeDeliverable"("status");
 
 -- CreateIndex
-CREATE INDEX "CreativeDeliverableVersion_organizationId_idx" ON "CreativeDeliverableVersion"("organizationId");
+CREATE INDEX IF NOT EXISTS "CreativeDeliverableVersion_organizationId_idx" ON "CreativeDeliverableVersion"("organizationId");
 
 -- CreateIndex
-CREATE INDEX "CreativeDeliverableVersion_deliverableId_idx" ON "CreativeDeliverableVersion"("deliverableId");
+CREATE INDEX IF NOT EXISTS "CreativeDeliverableVersion_deliverableId_idx" ON "CreativeDeliverableVersion"("deliverableId");
 
 -- CreateIndex
-CREATE INDEX "CreativeDeliverableVersion_submittedById_idx" ON "CreativeDeliverableVersion"("submittedById");
+CREATE INDEX IF NOT EXISTS "CreativeDeliverableVersion_submittedById_idx" ON "CreativeDeliverableVersion"("submittedById");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "CreativeDeliverableVersion_deliverableId_versionNumber_key" ON "CreativeDeliverableVersion"("deliverableId", "versionNumber");
+CREATE UNIQUE INDEX IF NOT EXISTS "CreativeDeliverableVersion_deliverableId_versionNumber_key" ON "CreativeDeliverableVersion"("deliverableId", "versionNumber");
 
 -- CreateIndex
-CREATE INDEX "ProjectMarketingPlan_organizationId_idx" ON "ProjectMarketingPlan"("organizationId");
+CREATE INDEX IF NOT EXISTS "ProjectMarketingPlan_organizationId_idx" ON "ProjectMarketingPlan"("organizationId");
 
 -- CreateIndex
-CREATE INDEX "ProjectMarketingPlan_projectId_idx" ON "ProjectMarketingPlan"("projectId");
+CREATE INDEX IF NOT EXISTS "ProjectMarketingPlan_projectId_idx" ON "ProjectMarketingPlan"("projectId");
 
 -- CreateIndex
-CREATE INDEX "ProjectMarketingPlan_status_idx" ON "ProjectMarketingPlan"("status");
+CREATE INDEX IF NOT EXISTS "ProjectMarketingPlan_status_idx" ON "ProjectMarketingPlan"("status");
 
 -- CreateIndex
-CREATE INDEX "ProjectMarketingCampaign_organizationId_idx" ON "ProjectMarketingCampaign"("organizationId");
+CREATE INDEX IF NOT EXISTS "ProjectMarketingCampaign_organizationId_idx" ON "ProjectMarketingCampaign"("organizationId");
 
 -- CreateIndex
-CREATE INDEX "ProjectMarketingCampaign_projectId_idx" ON "ProjectMarketingCampaign"("projectId");
+CREATE INDEX IF NOT EXISTS "ProjectMarketingCampaign_projectId_idx" ON "ProjectMarketingCampaign"("projectId");
 
 -- CreateIndex
-CREATE INDEX "ProjectMarketingCampaign_marketingPlanId_idx" ON "ProjectMarketingCampaign"("marketingPlanId");
+CREATE INDEX IF NOT EXISTS "ProjectMarketingCampaign_marketingPlanId_idx" ON "ProjectMarketingCampaign"("marketingPlanId");
 
 -- CreateIndex
-CREATE INDEX "ProjectMarketingCampaign_assignedEmployeeId_idx" ON "ProjectMarketingCampaign"("assignedEmployeeId");
+CREATE INDEX IF NOT EXISTS "ProjectMarketingCampaign_assignedEmployeeId_idx" ON "ProjectMarketingCampaign"("assignedEmployeeId");
 
 -- CreateIndex
-CREATE INDEX "ProjectMarketingCampaign_status_idx" ON "ProjectMarketingCampaign"("status");
+CREATE INDEX IF NOT EXISTS "ProjectMarketingCampaign_status_idx" ON "ProjectMarketingCampaign"("status");
 
 -- CreateIndex
-CREATE INDEX "MarketingContentItem_organizationId_idx" ON "MarketingContentItem"("organizationId");
+CREATE INDEX IF NOT EXISTS "MarketingContentItem_organizationId_idx" ON "MarketingContentItem"("organizationId");
 
 -- CreateIndex
-CREATE INDEX "MarketingContentItem_campaignId_idx" ON "MarketingContentItem"("campaignId");
+CREATE INDEX IF NOT EXISTS "MarketingContentItem_campaignId_idx" ON "MarketingContentItem"("campaignId");
 
 -- CreateIndex
-CREATE INDEX "MarketingContentItem_status_idx" ON "MarketingContentItem"("status");
+CREATE INDEX IF NOT EXISTS "MarketingContentItem_status_idx" ON "MarketingContentItem"("status");
 
 -- CreateIndex
-CREATE INDEX "MarketingPerformanceSnapshot_organizationId_idx" ON "MarketingPerformanceSnapshot"("organizationId");
+CREATE INDEX IF NOT EXISTS "MarketingPerformanceSnapshot_organizationId_idx" ON "MarketingPerformanceSnapshot"("organizationId");
 
 -- CreateIndex
-CREATE INDEX "MarketingPerformanceSnapshot_campaignId_idx" ON "MarketingPerformanceSnapshot"("campaignId");
+CREATE INDEX IF NOT EXISTS "MarketingPerformanceSnapshot_campaignId_idx" ON "MarketingPerformanceSnapshot"("campaignId");
 
 -- CreateIndex
-CREATE INDEX "MarketingPerformanceSnapshot_snapshotDate_idx" ON "MarketingPerformanceSnapshot"("snapshotDate");
+CREATE INDEX IF NOT EXISTS "MarketingPerformanceSnapshot_snapshotDate_idx" ON "MarketingPerformanceSnapshot"("snapshotDate");
 
 -- CreateIndex
-CREATE INDEX "IntegrationConnection_organizationId_idx" ON "IntegrationConnection"("organizationId");
+CREATE INDEX IF NOT EXISTS "IntegrationConnection_organizationId_idx" ON "IntegrationConnection"("organizationId");
 
 -- CreateIndex
-CREATE INDEX "IntegrationConnection_status_idx" ON "IntegrationConnection"("status");
+CREATE INDEX IF NOT EXISTS "IntegrationConnection_status_idx" ON "IntegrationConnection"("status");
 
 -- CreateIndex
-CREATE INDEX "WebhookEndpoint_organizationId_idx" ON "WebhookEndpoint"("organizationId");
+CREATE INDEX IF NOT EXISTS "WebhookEndpoint_organizationId_idx" ON "WebhookEndpoint"("organizationId");
 
 -- CreateIndex
-CREATE INDEX "WebhookEndpoint_status_idx" ON "WebhookEndpoint"("status");
+CREATE INDEX IF NOT EXISTS "WebhookEndpoint_status_idx" ON "WebhookEndpoint"("status");
 
 -- CreateIndex
-CREATE INDEX "WebhookDelivery_organizationId_idx" ON "WebhookDelivery"("organizationId");
+CREATE INDEX IF NOT EXISTS "WebhookDelivery_organizationId_idx" ON "WebhookDelivery"("organizationId");
 
 -- CreateIndex
-CREATE INDEX "WebhookDelivery_endpointId_idx" ON "WebhookDelivery"("endpointId");
+CREATE INDEX IF NOT EXISTS "WebhookDelivery_endpointId_idx" ON "WebhookDelivery"("endpointId");
 
 -- CreateIndex
-CREATE INDEX "WebhookDelivery_eventId_idx" ON "WebhookDelivery"("eventId");
+CREATE INDEX IF NOT EXISTS "WebhookDelivery_eventId_idx" ON "WebhookDelivery"("eventId");
 
 -- CreateIndex
-CREATE INDEX "WebhookDelivery_status_idx" ON "WebhookDelivery"("status");
+CREATE INDEX IF NOT EXISTS "WebhookDelivery_status_idx" ON "WebhookDelivery"("status");
 
 -- CreateIndex
-CREATE INDEX "WebhookDeliveryAttempt_organizationId_idx" ON "WebhookDeliveryAttempt"("organizationId");
+CREATE INDEX IF NOT EXISTS "WebhookDeliveryAttempt_organizationId_idx" ON "WebhookDeliveryAttempt"("organizationId");
 
 -- CreateIndex
-CREATE INDEX "WebhookDeliveryAttempt_deliveryId_idx" ON "WebhookDeliveryAttempt"("deliveryId");
+CREATE INDEX IF NOT EXISTS "WebhookDeliveryAttempt_deliveryId_idx" ON "WebhookDeliveryAttempt"("deliveryId");
 
 -- CreateIndex
-CREATE INDEX "IntegrationEvent_organizationId_idx" ON "IntegrationEvent"("organizationId");
+CREATE INDEX IF NOT EXISTS "IntegrationEvent_organizationId_idx" ON "IntegrationEvent"("organizationId");
 
 -- CreateIndex
-CREATE INDEX "IntegrationEvent_connectionId_idx" ON "IntegrationEvent"("connectionId");
+CREATE INDEX IF NOT EXISTS "IntegrationEvent_connectionId_idx" ON "IntegrationEvent"("connectionId");
 
 -- CreateIndex
-CREATE INDEX "IntegrationEvent_status_idx" ON "IntegrationEvent"("status");
+CREATE INDEX IF NOT EXISTS "IntegrationEvent_status_idx" ON "IntegrationEvent"("status");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "IntegrationEvent_organizationId_connectionId_externalEventI_key" ON "IntegrationEvent"("organizationId", "connectionId", "externalEventId");
+CREATE UNIQUE INDEX IF NOT EXISTS "IntegrationEvent_organizationId_connectionId_externalEventI_key" ON "IntegrationEvent"("organizationId", "connectionId", "externalEventId");
 
 -- CreateIndex
-CREATE INDEX "AutomationRule_organizationId_idx" ON "AutomationRule"("organizationId");
+CREATE INDEX IF NOT EXISTS "AutomationRule_organizationId_idx" ON "AutomationRule"("organizationId");
 
 -- CreateIndex
-CREATE INDEX "AutomationRule_status_idx" ON "AutomationRule"("status");
+CREATE INDEX IF NOT EXISTS "AutomationRule_status_idx" ON "AutomationRule"("status");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "AutomationExecution_idempotencyKey_key" ON "AutomationExecution"("idempotencyKey");
+CREATE UNIQUE INDEX IF NOT EXISTS "AutomationExecution_idempotencyKey_key" ON "AutomationExecution"("idempotencyKey");
 
 -- CreateIndex
-CREATE INDEX "AutomationExecution_organizationId_idx" ON "AutomationExecution"("organizationId");
+CREATE INDEX IF NOT EXISTS "AutomationExecution_organizationId_idx" ON "AutomationExecution"("organizationId");
 
 -- CreateIndex
-CREATE INDEX "AutomationExecution_automationRuleId_idx" ON "AutomationExecution"("automationRuleId");
+CREATE INDEX IF NOT EXISTS "AutomationExecution_automationRuleId_idx" ON "AutomationExecution"("automationRuleId");
 
 -- CreateIndex
-CREATE INDEX "AutomationExecution_status_idx" ON "AutomationExecution"("status");
+CREATE INDEX IF NOT EXISTS "AutomationExecution_status_idx" ON "AutomationExecution"("status");
 
 -- CreateIndex
-CREATE INDEX "DomainOutboxEvent_organizationId_idx" ON "DomainOutboxEvent"("organizationId");
+CREATE INDEX IF NOT EXISTS "DomainOutboxEvent_organizationId_idx" ON "DomainOutboxEvent"("organizationId");
 
 -- CreateIndex
-CREATE INDEX "DomainOutboxEvent_publishedAt_idx" ON "DomainOutboxEvent"("publishedAt");
+CREATE INDEX IF NOT EXISTS "DomainOutboxEvent_publishedAt_idx" ON "DomainOutboxEvent"("publishedAt");
 
 -- CreateIndex
-CREATE INDEX "DomainOutboxEvent_nextAttemptAt_idx" ON "DomainOutboxEvent"("nextAttemptAt");
+CREATE INDEX IF NOT EXISTS "DomainOutboxEvent_nextAttemptAt_idx" ON "DomainOutboxEvent"("nextAttemptAt");
 
 -- CreateIndex
-CREATE INDEX "QueueJob_organizationId_idx" ON "QueueJob"("organizationId");
+CREATE INDEX IF NOT EXISTS "QueueJob_organizationId_idx" ON "QueueJob"("organizationId");
 
 -- CreateIndex
-CREATE INDEX "QueueJob_status_idx" ON "QueueJob"("status");
+CREATE INDEX IF NOT EXISTS "QueueJob_status_idx" ON "QueueJob"("status");
 
 -- CreateIndex
-CREATE INDEX "QueueJob_availableAt_idx" ON "QueueJob"("availableAt");
+CREATE INDEX IF NOT EXISTS "QueueJob_availableAt_idx" ON "QueueJob"("availableAt");
 
 -- CreateIndex
-CREATE INDEX "QueueJob_claimedBy_idx" ON "QueueJob"("claimedBy");
+CREATE INDEX IF NOT EXISTS "QueueJob_claimedBy_idx" ON "QueueJob"("claimedBy");
 
 -- CreateIndex
-CREATE INDEX "_ProjectTeamMembers_B_index" ON "_ProjectTeamMembers"("B");
+CREATE INDEX IF NOT EXISTS "_ProjectTeamMembers_B_index" ON "_ProjectTeamMembers"("B");
 
 -- CreateIndex
-CREATE INDEX "_MilestoneToTag_B_index" ON "_MilestoneToTag"("B");
+CREATE INDEX IF NOT EXISTS "_MilestoneToTag_B_index" ON "_MilestoneToTag"("B");
 
 -- CreateIndex
-CREATE INDEX "_IssueToTag_B_index" ON "_IssueToTag"("B");
+CREATE INDEX IF NOT EXISTS "_IssueToTag_B_index" ON "_IssueToTag"("B");
 
 -- CreateIndex
-CREATE INDEX "_TagToTask_B_index" ON "_TagToTask"("B");
+CREATE INDEX IF NOT EXISTS "_TagToTask_B_index" ON "_TagToTask"("B");
 
 -- CreateIndex
-CREATE INDEX "Activity_type_createdAt_idx" ON "Activity"("type", "createdAt" DESC);
+CREATE INDEX IF NOT EXISTS "Activity_type_createdAt_idx" ON "Activity"("type", "createdAt" DESC);
 
 -- CreateIndex
-CREATE INDEX "Agreement_preparedById_idx" ON "Agreement"("preparedById");
+CREATE INDEX IF NOT EXISTS "Agreement_preparedById_idx" ON "Agreement"("preparedById");
 
 -- CreateIndex
-CREATE INDEX "Agreement_status_idx" ON "Agreement"("status");
+CREATE INDEX IF NOT EXISTS "Agreement_status_idx" ON "Agreement"("status");
 
 -- CreateIndex
-CREATE INDEX "Agreement_isTrash_idx" ON "Agreement"("isTrash");
+CREATE INDEX IF NOT EXISTS "Agreement_isTrash_idx" ON "Agreement"("isTrash");
 
 -- CreateIndex
-CREATE INDEX "ChartOfAccount_organizationId_idx" ON "ChartOfAccount"("organizationId");
+CREATE INDEX IF NOT EXISTS "ChartOfAccount_organizationId_idx" ON "ChartOfAccount"("organizationId");
 
 -- CreateIndex
-CREATE INDEX "Client_organizationId_idx" ON "Client"("organizationId");
+CREATE INDEX IF NOT EXISTS "Client_organizationId_idx" ON "Client"("organizationId");
 
 -- CreateIndex
-CREATE INDEX "Contact_organizationId_idx" ON "Contact"("organizationId");
+CREATE INDEX IF NOT EXISTS "Contact_organizationId_idx" ON "Contact"("organizationId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Employee_deviceUserId_key" ON "Employee"("deviceUserId");
+CREATE UNIQUE INDEX IF NOT EXISTS "Employee_deviceUserId_key" ON "Employee"("deviceUserId");
 
 -- CreateIndex
-CREATE INDEX "Employee_organizationId_idx" ON "Employee"("organizationId");
+CREATE INDEX IF NOT EXISTS "Employee_organizationId_idx" ON "Employee"("organizationId");
 
 -- CreateIndex
-CREATE INDEX "Employee_warehouseId_idx" ON "Employee"("warehouseId");
+CREATE INDEX IF NOT EXISTS "Employee_warehouseId_idx" ON "Employee"("warehouseId");
 
 -- CreateIndex
-CREATE INDEX "File_organizationId_idx" ON "File"("organizationId");
+CREATE INDEX IF NOT EXISTS "File_organizationId_idx" ON "File"("organizationId");
 
 -- CreateIndex
-CREATE INDEX "Holiday_date_idx" ON "Holiday"("date");
+CREATE INDEX IF NOT EXISTS "Holiday_date_idx" ON "Holiday"("date");
 
 -- CreateIndex
-CREATE INDEX "Holiday_warehouseId_idx" ON "Holiday"("warehouseId");
+CREATE INDEX IF NOT EXISTS "Holiday_warehouseId_idx" ON "Holiday"("warehouseId");
 
 -- CreateIndex
-CREATE INDEX "Holiday_organizationId_idx" ON "Holiday"("organizationId");
+CREATE INDEX IF NOT EXISTS "Holiday_organizationId_idx" ON "Holiday"("organizationId");
 
 -- CreateIndex
-CREATE INDEX "Holiday_createdBy_idx" ON "Holiday"("createdBy");
+CREATE INDEX IF NOT EXISTS "Holiday_createdBy_idx" ON "Holiday"("createdBy");
 
 -- CreateIndex
-CREATE INDEX "Issue_organizationId_idx" ON "Issue"("organizationId");
+CREATE INDEX IF NOT EXISTS "Issue_organizationId_idx" ON "Issue"("organizationId");
 
 -- CreateIndex
-CREATE INDEX "JournalEntryLine_projectId_idx" ON "JournalEntryLine"("projectId");
+CREATE INDEX IF NOT EXISTS "JournalEntryLine_projectId_idx" ON "JournalEntryLine"("projectId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Lead_externalId_key" ON "Lead"("externalId");
+CREATE UNIQUE INDEX IF NOT EXISTS "Lead_externalId_key" ON "Lead"("externalId");
 
 -- CreateIndex
-CREATE INDEX "Lead_categoryId_idx" ON "Lead"("categoryId");
+CREATE INDEX IF NOT EXISTS "Lead_categoryId_idx" ON "Lead"("categoryId");
 
 -- CreateIndex
-CREATE INDEX "Lead_organizationId_idx" ON "Lead"("organizationId");
+CREATE INDEX IF NOT EXISTS "Lead_organizationId_idx" ON "Lead"("organizationId");
 
 -- CreateIndex
-CREATE INDEX "Notification_userId_isRead_createdAt_idx" ON "Notification"("userId", "isRead", "createdAt" DESC);
+CREATE INDEX IF NOT EXISTS "Notification_userId_isRead_createdAt_idx" ON "Notification"("userId", "isRead", "createdAt" DESC);
 
 -- CreateIndex
-CREATE INDEX "Opportunity_leadId_idx" ON "Opportunity"("leadId");
+CREATE INDEX IF NOT EXISTS "Opportunity_leadId_idx" ON "Opportunity"("leadId");
 
 -- CreateIndex
-CREATE INDEX "Opportunity_organizationId_idx" ON "Opportunity"("organizationId");
+CREATE INDEX IF NOT EXISTS "Opportunity_organizationId_idx" ON "Opportunity"("organizationId");
 
 -- CreateIndex
-CREATE INDEX "Order_organizationId_idx" ON "Order"("organizationId");
+CREATE INDEX IF NOT EXISTS "Order_organizationId_idx" ON "Order"("organizationId");
 
 -- CreateIndex
-CREATE INDEX "Project_organizationId_idx" ON "Project"("organizationId");
+CREATE INDEX IF NOT EXISTS "Project_organizationId_idx" ON "Project"("organizationId");
 
 -- CreateIndex
-CREATE INDEX "SupportEntitlement_organizationId_idx" ON "SupportEntitlement"("organizationId");
+CREATE INDEX IF NOT EXISTS "SupportEntitlement_organizationId_idx" ON "SupportEntitlement"("organizationId");
 
 -- CreateIndex
-CREATE INDEX "SupportEntitlement_clientId_idx" ON "SupportEntitlement"("clientId");
+CREATE INDEX IF NOT EXISTS "SupportEntitlement_clientId_idx" ON "SupportEntitlement"("clientId");
 
 -- CreateIndex
-CREATE INDEX "SupportEntitlement_projectId_idx" ON "SupportEntitlement"("projectId");
+CREATE INDEX IF NOT EXISTS "SupportEntitlement_projectId_idx" ON "SupportEntitlement"("projectId");
 
 -- CreateIndex
-CREATE INDEX "SupportEntitlement_status_idx" ON "SupportEntitlement"("status");
+CREATE INDEX IF NOT EXISTS "SupportEntitlement_status_idx" ON "SupportEntitlement"("status");
 
 -- CreateIndex
-CREATE INDEX "SupportSLAPause_organizationId_idx" ON "SupportSLAPause"("organizationId");
+CREATE INDEX IF NOT EXISTS "SupportSLAPause_organizationId_idx" ON "SupportSLAPause"("organizationId");
 
 -- CreateIndex
-CREATE INDEX "SupportSLAPause_ticketSlaId_idx" ON "SupportSLAPause"("ticketSlaId");
+CREATE INDEX IF NOT EXISTS "SupportSLAPause_ticketSlaId_idx" ON "SupportSLAPause"("ticketSlaId");
 
 -- CreateIndex
-CREATE INDEX "SupportSLAPolicy_organizationId_idx" ON "SupportSLAPolicy"("organizationId");
+CREATE INDEX IF NOT EXISTS "SupportSLAPolicy_organizationId_idx" ON "SupportSLAPolicy"("organizationId");
 
 -- CreateIndex
-CREATE INDEX "SupportSLAPolicy_priority_idx" ON "SupportSLAPolicy"("priority");
+CREATE INDEX IF NOT EXISTS "SupportSLAPolicy_priority_idx" ON "SupportSLAPolicy"("priority");
 
 -- CreateIndex
-CREATE INDEX "SupportTicket_organizationId_idx" ON "SupportTicket"("organizationId");
+CREATE INDEX IF NOT EXISTS "SupportTicket_organizationId_idx" ON "SupportTicket"("organizationId");
 
 -- CreateIndex
-CREATE INDEX "SupportTicket_clientId_idx" ON "SupportTicket"("clientId");
+CREATE INDEX IF NOT EXISTS "SupportTicket_clientId_idx" ON "SupportTicket"("clientId");
 
 -- CreateIndex
-CREATE INDEX "SupportTicket_projectId_idx" ON "SupportTicket"("projectId");
+CREATE INDEX IF NOT EXISTS "SupportTicket_projectId_idx" ON "SupportTicket"("projectId");
 
 -- CreateIndex
-CREATE INDEX "SupportTicket_entitlementId_idx" ON "SupportTicket"("entitlementId");
+CREATE INDEX IF NOT EXISTS "SupportTicket_entitlementId_idx" ON "SupportTicket"("entitlementId");
 
 -- CreateIndex
-CREATE INDEX "SupportTicket_status_idx" ON "SupportTicket"("status");
+CREATE INDEX IF NOT EXISTS "SupportTicket_status_idx" ON "SupportTicket"("status");
 
 -- CreateIndex
-CREATE INDEX "SupportTicket_priority_idx" ON "SupportTicket"("priority");
+CREATE INDEX IF NOT EXISTS "SupportTicket_priority_idx" ON "SupportTicket"("priority");
 
 -- CreateIndex
-CREATE INDEX "SupportTicket_assignedUserId_idx" ON "SupportTicket"("assignedUserId");
+CREATE INDEX IF NOT EXISTS "SupportTicket_assignedUserId_idx" ON "SupportTicket"("assignedUserId");
 
 -- CreateIndex
-CREATE INDEX "SupportTicketAuditLog_organizationId_idx" ON "SupportTicketAuditLog"("organizationId");
+CREATE INDEX IF NOT EXISTS "SupportTicketAuditLog_organizationId_idx" ON "SupportTicketAuditLog"("organizationId");
 
 -- CreateIndex
-CREATE INDEX "SupportTicketAuditLog_ticketId_idx" ON "SupportTicketAuditLog"("ticketId");
+CREATE INDEX IF NOT EXISTS "SupportTicketAuditLog_ticketId_idx" ON "SupportTicketAuditLog"("ticketId");
 
 -- CreateIndex
-CREATE INDEX "SupportTicketAuditLog_actorUserId_idx" ON "SupportTicketAuditLog"("actorUserId");
+CREATE INDEX IF NOT EXISTS "SupportTicketAuditLog_actorUserId_idx" ON "SupportTicketAuditLog"("actorUserId");
 
 -- CreateIndex
-CREATE INDEX "SupportTicketComment_organizationId_idx" ON "SupportTicketComment"("organizationId");
+CREATE INDEX IF NOT EXISTS "SupportTicketComment_organizationId_idx" ON "SupportTicketComment"("organizationId");
 
 -- CreateIndex
-CREATE INDEX "SupportTicketComment_ticketId_idx" ON "SupportTicketComment"("ticketId");
+CREATE INDEX IF NOT EXISTS "SupportTicketComment_ticketId_idx" ON "SupportTicketComment"("ticketId");
 
 -- CreateIndex
-CREATE INDEX "SupportTicketComment_type_idx" ON "SupportTicketComment"("type");
+CREATE INDEX IF NOT EXISTS "SupportTicketComment_type_idx" ON "SupportTicketComment"("type");
 
 -- CreateIndex
-CREATE INDEX "SupportTicketIssueLink_organizationId_idx" ON "SupportTicketIssueLink"("organizationId");
+CREATE INDEX IF NOT EXISTS "SupportTicketIssueLink_organizationId_idx" ON "SupportTicketIssueLink"("organizationId");
 
 -- CreateIndex
-CREATE INDEX "SupportTicketIssueLink_ticketId_idx" ON "SupportTicketIssueLink"("ticketId");
+CREATE INDEX IF NOT EXISTS "SupportTicketIssueLink_ticketId_idx" ON "SupportTicketIssueLink"("ticketId");
 
 -- CreateIndex
-CREATE INDEX "SupportTicketIssueLink_issueId_idx" ON "SupportTicketIssueLink"("issueId");
+CREATE INDEX IF NOT EXISTS "SupportTicketIssueLink_issueId_idx" ON "SupportTicketIssueLink"("issueId");
 
 -- CreateIndex
-CREATE INDEX "SupportTicketSLA_organizationId_idx" ON "SupportTicketSLA"("organizationId");
+CREATE INDEX IF NOT EXISTS "SupportTicketSLA_organizationId_idx" ON "SupportTicketSLA"("organizationId");
 
 -- CreateIndex
-CREATE INDEX "SupportTicketSLA_ticketId_idx" ON "SupportTicketSLA"("ticketId");
+CREATE INDEX IF NOT EXISTS "SupportTicketSLA_ticketId_idx" ON "SupportTicketSLA"("ticketId");
 
 -- CreateIndex
-CREATE INDEX "SupportTicketSLA_status_idx" ON "SupportTicketSLA"("status");
+CREATE INDEX IF NOT EXISTS "SupportTicketSLA_status_idx" ON "SupportTicketSLA"("status");
 
 -- CreateIndex
-CREATE INDEX "SupportTicketSLA_firstResponseStatus_idx" ON "SupportTicketSLA"("firstResponseStatus");
+CREATE INDEX IF NOT EXISTS "SupportTicketSLA_firstResponseStatus_idx" ON "SupportTicketSLA"("firstResponseStatus");
 
 -- CreateIndex
-CREATE INDEX "SupportTicketSLA_resolutionStatus_idx" ON "SupportTicketSLA"("resolutionStatus");
+CREATE INDEX IF NOT EXISTS "SupportTicketSLA_resolutionStatus_idx" ON "SupportTicketSLA"("resolutionStatus");
 
 -- CreateIndex
-CREATE INDEX "SupportTicketTaskLink_organizationId_idx" ON "SupportTicketTaskLink"("organizationId");
+CREATE INDEX IF NOT EXISTS "SupportTicketTaskLink_organizationId_idx" ON "SupportTicketTaskLink"("organizationId");
 
 -- CreateIndex
-CREATE INDEX "SupportTicketTaskLink_taskId_idx" ON "SupportTicketTaskLink"("taskId");
+CREATE INDEX IF NOT EXISTS "SupportTicketTaskLink_taskId_idx" ON "SupportTicketTaskLink"("taskId");
 
 -- CreateIndex
-CREATE INDEX "Task_projectId_status_idx" ON "Task"("projectId", "status");
+CREATE INDEX IF NOT EXISTS "Task_projectId_status_idx" ON "Task"("projectId", "status");
 
 -- CreateIndex
-CREATE INDEX "Task_projectId_priority_idx" ON "Task"("projectId", "priority");
+CREATE INDEX IF NOT EXISTS "Task_projectId_priority_idx" ON "Task"("projectId", "priority");
 
 -- CreateIndex
-CREATE INDEX "Task_parentId_idx" ON "Task"("parentId");
+CREATE INDEX IF NOT EXISTS "Task_parentId_idx" ON "Task"("parentId");
 
 -- CreateIndex
-CREATE INDEX "Task_organizationId_idx" ON "Task"("organizationId");
+CREATE INDEX IF NOT EXISTS "Task_organizationId_idx" ON "Task"("organizationId");
 
 -- CreateIndex
-CREATE INDEX "User_organizationId_idx" ON "User"("organizationId");
+CREATE INDEX IF NOT EXISTS "User_organizationId_idx" ON "User"("organizationId");
 
 -- CreateIndex
-CREATE INDEX "settings_organization_id_idx" ON "settings"("organization_id");
+CREATE INDEX IF NOT EXISTS "settings_organization_id_idx" ON "settings"("organization_id");
 
 -- AddForeignKey
-ALTER TABLE "ChartOfAccount" ADD CONSTRAINT "ChartOfAccount_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ChartOfAccount_organizationId_fkey') THEN ALTER TABLE "ChartOfAccount" ADD CONSTRAINT "ChartOfAccount_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Client" ADD CONSTRAINT "Client_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Client_organizationId_fkey') THEN ALTER TABLE "Client" ADD CONSTRAINT "Client_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Contact" ADD CONSTRAINT "Contact_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Contact_organizationId_fkey') THEN ALTER TABLE "Contact" ADD CONSTRAINT "Contact_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Employee" ADD CONSTRAINT "Employee_shiftId_fkey" FOREIGN KEY ("shiftId") REFERENCES "Shift"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Employee_shiftId_fkey') THEN ALTER TABLE "Employee" ADD CONSTRAINT "Employee_shiftId_fkey" FOREIGN KEY ("shiftId") REFERENCES "Shift"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Employee" ADD CONSTRAINT "Employee_warehouseId_fkey" FOREIGN KEY ("warehouseId") REFERENCES "Warehouse"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Employee_warehouseId_fkey') THEN ALTER TABLE "Employee" ADD CONSTRAINT "Employee_warehouseId_fkey" FOREIGN KEY ("warehouseId") REFERENCES "Warehouse"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Employee" ADD CONSTRAINT "Employee_departmentId_fkey" FOREIGN KEY ("departmentId") REFERENCES "Department"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Employee_departmentId_fkey') THEN ALTER TABLE "Employee" ADD CONSTRAINT "Employee_departmentId_fkey" FOREIGN KEY ("departmentId") REFERENCES "Department"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Employee" ADD CONSTRAINT "Employee_teamId_fkey" FOREIGN KEY ("teamId") REFERENCES "Team"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Employee_teamId_fkey') THEN ALTER TABLE "Employee" ADD CONSTRAINT "Employee_teamId_fkey" FOREIGN KEY ("teamId") REFERENCES "Team"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Employee" ADD CONSTRAINT "Employee_reportingManagerId_fkey" FOREIGN KEY ("reportingManagerId") REFERENCES "Employee"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Employee_reportingManagerId_fkey') THEN ALTER TABLE "Employee" ADD CONSTRAINT "Employee_reportingManagerId_fkey" FOREIGN KEY ("reportingManagerId") REFERENCES "Employee"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Employee" ADD CONSTRAINT "Employee_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Employee_organizationId_fkey') THEN ALTER TABLE "Employee" ADD CONSTRAINT "Employee_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "File" ADD CONSTRAINT "File_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'File_organizationId_fkey') THEN ALTER TABLE "File" ADD CONSTRAINT "File_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "InvoiceItem" ADD CONSTRAINT "InvoiceItem_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'InvoiceItem_projectId_fkey') THEN ALTER TABLE "InvoiceItem" ADD CONSTRAINT "InvoiceItem_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "JournalEntryLine" ADD CONSTRAINT "JournalEntryLine_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'JournalEntryLine_projectId_fkey') THEN ALTER TABLE "JournalEntryLine" ADD CONSTRAINT "JournalEntryLine_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Lead" ADD CONSTRAINT "Lead_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Lead_organizationId_fkey') THEN ALTER TABLE "Lead" ADD CONSTRAINT "Lead_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Lead" ADD CONSTRAINT "Lead_ownerId_fkey" FOREIGN KEY ("ownerId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Lead_ownerId_fkey') THEN ALTER TABLE "Lead" ADD CONSTRAINT "Lead_ownerId_fkey" FOREIGN KEY ("ownerId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Lead" ADD CONSTRAINT "Lead_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "Category"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Lead_categoryId_fkey') THEN ALTER TABLE "Lead" ADD CONSTRAINT "Lead_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "Category"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Opportunity" ADD CONSTRAINT "Opportunity_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Opportunity_organizationId_fkey') THEN ALTER TABLE "Opportunity" ADD CONSTRAINT "Opportunity_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Opportunity" ADD CONSTRAINT "Opportunity_leadId_fkey" FOREIGN KEY ("leadId") REFERENCES "Lead"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Opportunity_leadId_fkey') THEN ALTER TABLE "Opportunity" ADD CONSTRAINT "Opportunity_leadId_fkey" FOREIGN KEY ("leadId") REFERENCES "Lead"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Order" ADD CONSTRAINT "Order_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Order_organizationId_fkey') THEN ALTER TABLE "Order" ADD CONSTRAINT "Order_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Order" ADD CONSTRAINT "Order_quotationId_fkey" FOREIGN KEY ("quotationId") REFERENCES "Quotation"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Order_quotationId_fkey') THEN ALTER TABLE "Order" ADD CONSTRAINT "Order_quotationId_fkey" FOREIGN KEY ("quotationId") REFERENCES "Quotation"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "OrderItem" ADD CONSTRAINT "OrderItem_quotationItemId_fkey" FOREIGN KEY ("quotationItemId") REFERENCES "QuotationItem"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'OrderItem_quotationItemId_fkey') THEN ALTER TABLE "OrderItem" ADD CONSTRAINT "OrderItem_quotationItemId_fkey" FOREIGN KEY ("quotationItemId") REFERENCES "QuotationItem"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Department" ADD CONSTRAINT "Department_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Department_organizationId_fkey') THEN ALTER TABLE "Department" ADD CONSTRAINT "Department_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Department" ADD CONSTRAINT "Department_managerEmployeeId_fkey" FOREIGN KEY ("managerEmployeeId") REFERENCES "Employee"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Department_managerEmployeeId_fkey') THEN ALTER TABLE "Department" ADD CONSTRAINT "Department_managerEmployeeId_fkey" FOREIGN KEY ("managerEmployeeId") REFERENCES "Employee"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Team" ADD CONSTRAINT "Team_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Team_organizationId_fkey') THEN ALTER TABLE "Team" ADD CONSTRAINT "Team_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Team" ADD CONSTRAINT "Team_departmentId_fkey" FOREIGN KEY ("departmentId") REFERENCES "Department"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Team_departmentId_fkey') THEN ALTER TABLE "Team" ADD CONSTRAINT "Team_departmentId_fkey" FOREIGN KEY ("departmentId") REFERENCES "Department"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Team" ADD CONSTRAINT "Team_leadEmployeeId_fkey" FOREIGN KEY ("leadEmployeeId") REFERENCES "Employee"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Team_leadEmployeeId_fkey') THEN ALTER TABLE "Team" ADD CONSTRAINT "Team_leadEmployeeId_fkey" FOREIGN KEY ("leadEmployeeId") REFERENCES "Employee"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "PurchaseItem" ADD CONSTRAINT "PurchaseItem_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'PurchaseItem_projectId_fkey') THEN ALTER TABLE "PurchaseItem" ADD CONSTRAINT "PurchaseItem_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Quotation" ADD CONSTRAINT "Quotation_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Quotation_organizationId_fkey') THEN ALTER TABLE "Quotation" ADD CONSTRAINT "Quotation_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "User" ADD CONSTRAINT "User_defaultWarehouseId_fkey" FOREIGN KEY ("defaultWarehouseId") REFERENCES "Warehouse"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'User_defaultWarehouseId_fkey') THEN ALTER TABLE "User" ADD CONSTRAINT "User_defaultWarehouseId_fkey" FOREIGN KEY ("defaultWarehouseId") REFERENCES "Warehouse"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "User" ADD CONSTRAINT "User_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'User_organizationId_fkey') THEN ALTER TABLE "User" ADD CONSTRAINT "User_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Voucher" ADD CONSTRAINT "Voucher_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Voucher_organizationId_fkey') THEN ALTER TABLE "Voucher" ADD CONSTRAINT "Voucher_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "VoucherLine" ADD CONSTRAINT "VoucherLine_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'VoucherLine_projectId_fkey') THEN ALTER TABLE "VoucherLine" ADD CONSTRAINT "VoucherLine_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Task" ADD CONSTRAINT "Task_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Task_organizationId_fkey') THEN ALTER TABLE "Task" ADD CONSTRAINT "Task_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Task" ADD CONSTRAINT "Task_departmentId_fkey" FOREIGN KEY ("departmentId") REFERENCES "Department"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Task_departmentId_fkey') THEN ALTER TABLE "Task" ADD CONSTRAINT "Task_departmentId_fkey" FOREIGN KEY ("departmentId") REFERENCES "Department"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Task" ADD CONSTRAINT "Task_teamId_fkey" FOREIGN KEY ("teamId") REFERENCES "Team"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Task_teamId_fkey') THEN ALTER TABLE "Task" ADD CONSTRAINT "Task_teamId_fkey" FOREIGN KEY ("teamId") REFERENCES "Team"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Task" ADD CONSTRAINT "Task_parentId_fkey" FOREIGN KEY ("parentId") REFERENCES "Task"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Task_parentId_fkey') THEN ALTER TABLE "Task" ADD CONSTRAINT "Task_parentId_fkey" FOREIGN KEY ("parentId") REFERENCES "Task"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "TaskDependency" ADD CONSTRAINT "TaskDependency_blockingTaskId_fkey" FOREIGN KEY ("blockingTaskId") REFERENCES "Task"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'TaskDependency_blockingTaskId_fkey') THEN ALTER TABLE "TaskDependency" ADD CONSTRAINT "TaskDependency_blockingTaskId_fkey" FOREIGN KEY ("blockingTaskId") REFERENCES "Task"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "TaskDependency" ADD CONSTRAINT "TaskDependency_dependentTaskId_fkey" FOREIGN KEY ("dependentTaskId") REFERENCES "Task"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'TaskDependency_dependentTaskId_fkey') THEN ALTER TABLE "TaskDependency" ADD CONSTRAINT "TaskDependency_dependentTaskId_fkey" FOREIGN KEY ("dependentTaskId") REFERENCES "Task"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "TaskWatcher" ADD CONSTRAINT "TaskWatcher_taskId_fkey" FOREIGN KEY ("taskId") REFERENCES "Task"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'TaskWatcher_taskId_fkey') THEN ALTER TABLE "TaskWatcher" ADD CONSTRAINT "TaskWatcher_taskId_fkey" FOREIGN KEY ("taskId") REFERENCES "Task"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "TaskWatcher" ADD CONSTRAINT "TaskWatcher_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'TaskWatcher_userId_fkey') THEN ALTER TABLE "TaskWatcher" ADD CONSTRAINT "TaskWatcher_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "settings" ADD CONSTRAINT "settings_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "Organization"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'settings_organization_id_fkey') THEN ALTER TABLE "settings" ADD CONSTRAINT "settings_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "Organization"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Project" ADD CONSTRAINT "Project_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Project_organizationId_fkey') THEN ALTER TABLE "Project" ADD CONSTRAINT "Project_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Project" ADD CONSTRAINT "Project_departmentId_fkey" FOREIGN KEY ("departmentId") REFERENCES "Department"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Project_departmentId_fkey') THEN ALTER TABLE "Project" ADD CONSTRAINT "Project_departmentId_fkey" FOREIGN KEY ("departmentId") REFERENCES "Department"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Project" ADD CONSTRAINT "Project_teamId_fkey" FOREIGN KEY ("teamId") REFERENCES "Team"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Project_teamId_fkey') THEN ALTER TABLE "Project" ADD CONSTRAINT "Project_teamId_fkey" FOREIGN KEY ("teamId") REFERENCES "Team"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Milestone" ADD CONSTRAINT "Milestone_departmentId_fkey" FOREIGN KEY ("departmentId") REFERENCES "Department"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Milestone_departmentId_fkey') THEN ALTER TABLE "Milestone" ADD CONSTRAINT "Milestone_departmentId_fkey" FOREIGN KEY ("departmentId") REFERENCES "Department"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Milestone" ADD CONSTRAINT "Milestone_teamId_fkey" FOREIGN KEY ("teamId") REFERENCES "Team"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Milestone_teamId_fkey') THEN ALTER TABLE "Milestone" ADD CONSTRAINT "Milestone_teamId_fkey" FOREIGN KEY ("teamId") REFERENCES "Team"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "MilestoneDependency" ADD CONSTRAINT "MilestoneDependency_blockingId_fkey" FOREIGN KEY ("blockingId") REFERENCES "Milestone"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'MilestoneDependency_blockingId_fkey') THEN ALTER TABLE "MilestoneDependency" ADD CONSTRAINT "MilestoneDependency_blockingId_fkey" FOREIGN KEY ("blockingId") REFERENCES "Milestone"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "MilestoneDependency" ADD CONSTRAINT "MilestoneDependency_dependentId_fkey" FOREIGN KEY ("dependentId") REFERENCES "Milestone"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'MilestoneDependency_dependentId_fkey') THEN ALTER TABLE "MilestoneDependency" ADD CONSTRAINT "MilestoneDependency_dependentId_fkey" FOREIGN KEY ("dependentId") REFERENCES "Milestone"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Issue" ADD CONSTRAINT "Issue_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Issue_organizationId_fkey') THEN ALTER TABLE "Issue" ADD CONSTRAINT "Issue_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Timesheet" ADD CONSTRAINT "Timesheet_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Timesheet_organizationId_fkey') THEN ALTER TABLE "Timesheet" ADD CONSTRAINT "Timesheet_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Timesheet" ADD CONSTRAINT "Timesheet_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Timesheet_projectId_fkey') THEN ALTER TABLE "Timesheet" ADD CONSTRAINT "Timesheet_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Timesheet" ADD CONSTRAINT "Timesheet_issueId_fkey" FOREIGN KEY ("issueId") REFERENCES "Issue"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Timesheet_issueId_fkey') THEN ALTER TABLE "Timesheet" ADD CONSTRAINT "Timesheet_issueId_fkey" FOREIGN KEY ("issueId") REFERENCES "Issue"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Timesheet" ADD CONSTRAINT "Timesheet_employeeId_fkey" FOREIGN KEY ("employeeId") REFERENCES "Employee"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Timesheet_employeeId_fkey') THEN ALTER TABLE "Timesheet" ADD CONSTRAINT "Timesheet_employeeId_fkey" FOREIGN KEY ("employeeId") REFERENCES "Employee"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Timesheet" ADD CONSTRAINT "Timesheet_taskId_fkey" FOREIGN KEY ("taskId") REFERENCES "Task"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Timesheet_taskId_fkey') THEN ALTER TABLE "Timesheet" ADD CONSTRAINT "Timesheet_taskId_fkey" FOREIGN KEY ("taskId") REFERENCES "Task"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Timesheet" ADD CONSTRAINT "Timesheet_approvedById_fkey" FOREIGN KEY ("approvedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Timesheet_approvedById_fkey') THEN ALTER TABLE "Timesheet" ADD CONSTRAINT "Timesheet_approvedById_fkey" FOREIGN KEY ("approvedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Shift" ADD CONSTRAINT "Shift_createdBy_fkey" FOREIGN KEY ("createdBy") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Shift_createdBy_fkey') THEN ALTER TABLE "Shift" ADD CONSTRAINT "Shift_createdBy_fkey" FOREIGN KEY ("createdBy") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Holiday" ADD CONSTRAINT "Holiday_createdBy_fkey" FOREIGN KEY ("createdBy") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Holiday_createdBy_fkey') THEN ALTER TABLE "Holiday" ADD CONSTRAINT "Holiday_createdBy_fkey" FOREIGN KEY ("createdBy") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Holiday" ADD CONSTRAINT "Holiday_warehouseId_fkey" FOREIGN KEY ("warehouseId") REFERENCES "Warehouse"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Holiday_warehouseId_fkey') THEN ALTER TABLE "Holiday" ADD CONSTRAINT "Holiday_warehouseId_fkey" FOREIGN KEY ("warehouseId") REFERENCES "Warehouse"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Holiday" ADD CONSTRAINT "Holiday_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Holiday_organizationId_fkey') THEN ALTER TABLE "Holiday" ADD CONSTRAINT "Holiday_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "LeaveType" ADD CONSTRAINT "LeaveType_createdBy_fkey" FOREIGN KEY ("createdBy") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'LeaveType_createdBy_fkey') THEN ALTER TABLE "LeaveType" ADD CONSTRAINT "LeaveType_createdBy_fkey" FOREIGN KEY ("createdBy") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "LeaveApplication" ADD CONSTRAINT "LeaveApplication_createdBy_fkey" FOREIGN KEY ("createdBy") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'LeaveApplication_createdBy_fkey') THEN ALTER TABLE "LeaveApplication" ADD CONSTRAINT "LeaveApplication_createdBy_fkey" FOREIGN KEY ("createdBy") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "LeaveApplication" ADD CONSTRAINT "LeaveApplication_employeeId_fkey" FOREIGN KEY ("employeeId") REFERENCES "Employee"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'LeaveApplication_employeeId_fkey') THEN ALTER TABLE "LeaveApplication" ADD CONSTRAINT "LeaveApplication_employeeId_fkey" FOREIGN KEY ("employeeId") REFERENCES "Employee"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "LeaveApplication" ADD CONSTRAINT "LeaveApplication_hrId_fkey" FOREIGN KEY ("hrId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'LeaveApplication_hrId_fkey') THEN ALTER TABLE "LeaveApplication" ADD CONSTRAINT "LeaveApplication_hrId_fkey" FOREIGN KEY ("hrId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "LeaveApplication" ADD CONSTRAINT "LeaveApplication_leaveTypeId_fkey" FOREIGN KEY ("leaveTypeId") REFERENCES "LeaveType"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'LeaveApplication_leaveTypeId_fkey') THEN ALTER TABLE "LeaveApplication" ADD CONSTRAINT "LeaveApplication_leaveTypeId_fkey" FOREIGN KEY ("leaveTypeId") REFERENCES "LeaveType"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "LeaveApplication" ADD CONSTRAINT "LeaveApplication_managerId_fkey" FOREIGN KEY ("managerId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'LeaveApplication_managerId_fkey') THEN ALTER TABLE "LeaveApplication" ADD CONSTRAINT "LeaveApplication_managerId_fkey" FOREIGN KEY ("managerId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "AttendanceLog" ADD CONSTRAINT "AttendanceLog_deviceId_fkey" FOREIGN KEY ("deviceId") REFERENCES "BiometricDevice"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'AttendanceLog_deviceId_fkey') THEN ALTER TABLE "AttendanceLog" ADD CONSTRAINT "AttendanceLog_deviceId_fkey" FOREIGN KEY ("deviceId") REFERENCES "BiometricDevice"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "AttendanceLog" ADD CONSTRAINT "AttendanceLog_employeeId_fkey" FOREIGN KEY ("employeeId") REFERENCES "Employee"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'AttendanceLog_employeeId_fkey') THEN ALTER TABLE "AttendanceLog" ADD CONSTRAINT "AttendanceLog_employeeId_fkey" FOREIGN KEY ("employeeId") REFERENCES "Employee"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Attendance" ADD CONSTRAINT "Attendance_createdBy_fkey" FOREIGN KEY ("createdBy") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Attendance_createdBy_fkey') THEN ALTER TABLE "Attendance" ADD CONSTRAINT "Attendance_createdBy_fkey" FOREIGN KEY ("createdBy") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Attendance" ADD CONSTRAINT "Attendance_employeeId_fkey" FOREIGN KEY ("employeeId") REFERENCES "Employee"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Attendance_employeeId_fkey') THEN ALTER TABLE "Attendance" ADD CONSTRAINT "Attendance_employeeId_fkey" FOREIGN KEY ("employeeId") REFERENCES "Employee"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Attendance" ADD CONSTRAINT "Attendance_leaveApplicationId_fkey" FOREIGN KEY ("leaveApplicationId") REFERENCES "LeaveApplication"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Attendance_leaveApplicationId_fkey') THEN ALTER TABLE "Attendance" ADD CONSTRAINT "Attendance_leaveApplicationId_fkey" FOREIGN KEY ("leaveApplicationId") REFERENCES "LeaveApplication"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Attendance" ADD CONSTRAINT "Attendance_shiftId_fkey" FOREIGN KEY ("shiftId") REFERENCES "Shift"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Attendance_shiftId_fkey') THEN ALTER TABLE "Attendance" ADD CONSTRAINT "Attendance_shiftId_fkey" FOREIGN KEY ("shiftId") REFERENCES "Shift"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Attendance" ADD CONSTRAINT "Attendance_updatedBy_fkey" FOREIGN KEY ("updatedBy") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Attendance_updatedBy_fkey') THEN ALTER TABLE "Attendance" ADD CONSTRAINT "Attendance_updatedBy_fkey" FOREIGN KEY ("updatedBy") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Overtime" ADD CONSTRAINT "Overtime_createdBy_fkey" FOREIGN KEY ("createdBy") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Overtime_createdBy_fkey') THEN ALTER TABLE "Overtime" ADD CONSTRAINT "Overtime_createdBy_fkey" FOREIGN KEY ("createdBy") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Overtime" ADD CONSTRAINT "Overtime_employeeId_fkey" FOREIGN KEY ("employeeId") REFERENCES "Employee"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Overtime_employeeId_fkey') THEN ALTER TABLE "Overtime" ADD CONSTRAINT "Overtime_employeeId_fkey" FOREIGN KEY ("employeeId") REFERENCES "Employee"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "EmployeeLoan" ADD CONSTRAINT "EmployeeLoan_approvedBy_fkey" FOREIGN KEY ("approvedBy") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'EmployeeLoan_approvedBy_fkey') THEN ALTER TABLE "EmployeeLoan" ADD CONSTRAINT "EmployeeLoan_approvedBy_fkey" FOREIGN KEY ("approvedBy") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "EmployeeLoan" ADD CONSTRAINT "EmployeeLoan_employeeId_fkey" FOREIGN KEY ("employeeId") REFERENCES "Employee"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'EmployeeLoan_employeeId_fkey') THEN ALTER TABLE "EmployeeLoan" ADD CONSTRAINT "EmployeeLoan_employeeId_fkey" FOREIGN KEY ("employeeId") REFERENCES "Employee"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "EmployeeLoan" ADD CONSTRAINT "EmployeeLoan_voucherId_fkey" FOREIGN KEY ("voucherId") REFERENCES "Voucher"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'EmployeeLoan_voucherId_fkey') THEN ALTER TABLE "EmployeeLoan" ADD CONSTRAINT "EmployeeLoan_voucherId_fkey" FOREIGN KEY ("voucherId") REFERENCES "Voucher"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "EmployeeSalary" ADD CONSTRAINT "EmployeeSalary_employeeId_fkey" FOREIGN KEY ("employeeId") REFERENCES "Employee"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'EmployeeSalary_employeeId_fkey') THEN ALTER TABLE "EmployeeSalary" ADD CONSTRAINT "EmployeeSalary_employeeId_fkey" FOREIGN KEY ("employeeId") REFERENCES "Employee"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Payroll" ADD CONSTRAINT "Payroll_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Payroll_organizationId_fkey') THEN ALTER TABLE "Payroll" ADD CONSTRAINT "Payroll_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Payroll" ADD CONSTRAINT "Payroll_approvedBy_fkey" FOREIGN KEY ("approvedBy") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Payroll_approvedBy_fkey') THEN ALTER TABLE "Payroll" ADD CONSTRAINT "Payroll_approvedBy_fkey" FOREIGN KEY ("approvedBy") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Payroll" ADD CONSTRAINT "Payroll_createdBy_fkey" FOREIGN KEY ("createdBy") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Payroll_createdBy_fkey') THEN ALTER TABLE "Payroll" ADD CONSTRAINT "Payroll_createdBy_fkey" FOREIGN KEY ("createdBy") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Payroll" ADD CONSTRAINT "Payroll_paymentVchId_fkey" FOREIGN KEY ("paymentVchId") REFERENCES "Voucher"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Payroll_paymentVchId_fkey') THEN ALTER TABLE "Payroll" ADD CONSTRAINT "Payroll_paymentVchId_fkey" FOREIGN KEY ("paymentVchId") REFERENCES "Voucher"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Payroll" ADD CONSTRAINT "Payroll_voucherId_fkey" FOREIGN KEY ("voucherId") REFERENCES "Voucher"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Payroll_voucherId_fkey') THEN ALTER TABLE "Payroll" ADD CONSTRAINT "Payroll_voucherId_fkey" FOREIGN KEY ("voucherId") REFERENCES "Voucher"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "PayrollItem" ADD CONSTRAINT "PayrollItem_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'PayrollItem_projectId_fkey') THEN ALTER TABLE "PayrollItem" ADD CONSTRAINT "PayrollItem_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "PayrollItem" ADD CONSTRAINT "PayrollItem_employeeId_fkey" FOREIGN KEY ("employeeId") REFERENCES "Employee"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'PayrollItem_employeeId_fkey') THEN ALTER TABLE "PayrollItem" ADD CONSTRAINT "PayrollItem_employeeId_fkey" FOREIGN KEY ("employeeId") REFERENCES "Employee"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "PayrollItem" ADD CONSTRAINT "PayrollItem_payrollId_fkey" FOREIGN KEY ("payrollId") REFERENCES "Payroll"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'PayrollItem_payrollId_fkey') THEN ALTER TABLE "PayrollItem" ADD CONSTRAINT "PayrollItem_payrollId_fkey" FOREIGN KEY ("payrollId") REFERENCES "Payroll"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "BiometricSyncLog" ADD CONSTRAINT "BiometricSyncLog_deviceId_fkey" FOREIGN KEY ("deviceId") REFERENCES "BiometricDevice"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'BiometricSyncLog_deviceId_fkey') THEN ALTER TABLE "BiometricSyncLog" ADD CONSTRAINT "BiometricSyncLog_deviceId_fkey" FOREIGN KEY ("deviceId") REFERENCES "BiometricDevice"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "BiometricSyncLog" ADD CONSTRAINT "BiometricSyncLog_syncedBy_fkey" FOREIGN KEY ("syncedBy") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'BiometricSyncLog_syncedBy_fkey') THEN ALTER TABLE "BiometricSyncLog" ADD CONSTRAINT "BiometricSyncLog_syncedBy_fkey" FOREIGN KEY ("syncedBy") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "BiometricDevice" ADD CONSTRAINT "BiometricDevice_branchId_fkey" FOREIGN KEY ("branchId") REFERENCES "Warehouse"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'BiometricDevice_branchId_fkey') THEN ALTER TABLE "BiometricDevice" ADD CONSTRAINT "BiometricDevice_branchId_fkey" FOREIGN KEY ("branchId") REFERENCES "Warehouse"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "ProjectBudget" ADD CONSTRAINT "ProjectBudget_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ProjectBudget_projectId_fkey') THEN ALTER TABLE "ProjectBudget" ADD CONSTRAINT "ProjectBudget_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Checklist" ADD CONSTRAINT "Checklist_taskId_fkey" FOREIGN KEY ("taskId") REFERENCES "Task"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Checklist_taskId_fkey') THEN ALTER TABLE "Checklist" ADD CONSTRAINT "Checklist_taskId_fkey" FOREIGN KEY ("taskId") REFERENCES "Task"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Checklist" ADD CONSTRAINT "Checklist_issueId_fkey" FOREIGN KEY ("issueId") REFERENCES "Issue"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Checklist_issueId_fkey') THEN ALTER TABLE "Checklist" ADD CONSTRAINT "Checklist_issueId_fkey" FOREIGN KEY ("issueId") REFERENCES "Issue"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Checklist" ADD CONSTRAINT "Checklist_milestoneId_fkey" FOREIGN KEY ("milestoneId") REFERENCES "Milestone"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Checklist_milestoneId_fkey') THEN ALTER TABLE "Checklist" ADD CONSTRAINT "Checklist_milestoneId_fkey" FOREIGN KEY ("milestoneId") REFERENCES "Milestone"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "ChecklistItem" ADD CONSTRAINT "ChecklistItem_checklistId_fkey" FOREIGN KEY ("checklistId") REFERENCES "Checklist"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ChecklistItem_checklistId_fkey') THEN ALTER TABLE "ChecklistItem" ADD CONSTRAINT "ChecklistItem_checklistId_fkey" FOREIGN KEY ("checklistId") REFERENCES "Checklist"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "ActivityReport" ADD CONSTRAINT "ActivityReport_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ActivityReport_userId_fkey') THEN ALTER TABLE "ActivityReport" ADD CONSTRAINT "ActivityReport_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "ActivityReport" ADD CONSTRAINT "ActivityReport_reviewedById_fkey" FOREIGN KEY ("reviewedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ActivityReport_reviewedById_fkey') THEN ALTER TABLE "ActivityReport" ADD CONSTRAINT "ActivityReport_reviewedById_fkey" FOREIGN KEY ("reviewedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "WorkSession" ADD CONSTRAINT "WorkSession_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'WorkSession_userId_fkey') THEN ALTER TABLE "WorkSession" ADD CONSTRAINT "WorkSession_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "WorkSessionLog" ADD CONSTRAINT "WorkSessionLog_sessionId_fkey" FOREIGN KEY ("sessionId") REFERENCES "WorkSession"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'WorkSessionLog_sessionId_fkey') THEN ALTER TABLE "WorkSessionLog" ADD CONSTRAINT "WorkSessionLog_sessionId_fkey" FOREIGN KEY ("sessionId") REFERENCES "WorkSession"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "MyDayTask" ADD CONSTRAINT "MyDayTask_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'MyDayTask_userId_fkey') THEN ALTER TABLE "MyDayTask" ADD CONSTRAINT "MyDayTask_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "MyDayTask" ADD CONSTRAINT "MyDayTask_taskId_fkey" FOREIGN KEY ("taskId") REFERENCES "Task"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'MyDayTask_taskId_fkey') THEN ALTER TABLE "MyDayTask" ADD CONSTRAINT "MyDayTask_taskId_fkey" FOREIGN KEY ("taskId") REFERENCES "Task"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Requirement" ADD CONSTRAINT "Requirement_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Requirement_organizationId_fkey') THEN ALTER TABLE "Requirement" ADD CONSTRAINT "Requirement_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Requirement" ADD CONSTRAINT "Requirement_opportunityId_fkey" FOREIGN KEY ("opportunityId") REFERENCES "Opportunity"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Requirement_opportunityId_fkey') THEN ALTER TABLE "Requirement" ADD CONSTRAINT "Requirement_opportunityId_fkey" FOREIGN KEY ("opportunityId") REFERENCES "Opportunity"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Requirement" ADD CONSTRAINT "Requirement_clientId_fkey" FOREIGN KEY ("clientId") REFERENCES "Client"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Requirement_clientId_fkey') THEN ALTER TABLE "Requirement" ADD CONSTRAINT "Requirement_clientId_fkey" FOREIGN KEY ("clientId") REFERENCES "Client"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Requirement" ADD CONSTRAINT "Requirement_contactId_fkey" FOREIGN KEY ("contactId") REFERENCES "Contact"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Requirement_contactId_fkey') THEN ALTER TABLE "Requirement" ADD CONSTRAINT "Requirement_contactId_fkey" FOREIGN KEY ("contactId") REFERENCES "Contact"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Requirement" ADD CONSTRAINT "Requirement_ownerId_fkey" FOREIGN KEY ("ownerId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Requirement_ownerId_fkey') THEN ALTER TABLE "Requirement" ADD CONSTRAINT "Requirement_ownerId_fkey" FOREIGN KEY ("ownerId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Requirement" ADD CONSTRAINT "Requirement_preparedById_fkey" FOREIGN KEY ("preparedById") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Requirement_preparedById_fkey') THEN ALTER TABLE "Requirement" ADD CONSTRAINT "Requirement_preparedById_fkey" FOREIGN KEY ("preparedById") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "RequirementSection" ADD CONSTRAINT "RequirementSection_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'RequirementSection_organizationId_fkey') THEN ALTER TABLE "RequirementSection" ADD CONSTRAINT "RequirementSection_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "RequirementSection" ADD CONSTRAINT "RequirementSection_requirementId_fkey" FOREIGN KEY ("requirementId") REFERENCES "Requirement"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'RequirementSection_requirementId_fkey') THEN ALTER TABLE "RequirementSection" ADD CONSTRAINT "RequirementSection_requirementId_fkey" FOREIGN KEY ("requirementId") REFERENCES "Requirement"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "RequirementItem" ADD CONSTRAINT "RequirementItem_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'RequirementItem_organizationId_fkey') THEN ALTER TABLE "RequirementItem" ADD CONSTRAINT "RequirementItem_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "RequirementItem" ADD CONSTRAINT "RequirementItem_requirementId_fkey" FOREIGN KEY ("requirementId") REFERENCES "Requirement"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'RequirementItem_requirementId_fkey') THEN ALTER TABLE "RequirementItem" ADD CONSTRAINT "RequirementItem_requirementId_fkey" FOREIGN KEY ("requirementId") REFERENCES "Requirement"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "RequirementItem" ADD CONSTRAINT "RequirementItem_sectionId_fkey" FOREIGN KEY ("sectionId") REFERENCES "RequirementSection"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'RequirementItem_sectionId_fkey') THEN ALTER TABLE "RequirementItem" ADD CONSTRAINT "RequirementItem_sectionId_fkey" FOREIGN KEY ("sectionId") REFERENCES "RequirementSection"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "RequirementClarification" ADD CONSTRAINT "RequirementClarification_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'RequirementClarification_organizationId_fkey') THEN ALTER TABLE "RequirementClarification" ADD CONSTRAINT "RequirementClarification_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "RequirementClarification" ADD CONSTRAINT "RequirementClarification_requirementId_fkey" FOREIGN KEY ("requirementId") REFERENCES "Requirement"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'RequirementClarification_requirementId_fkey') THEN ALTER TABLE "RequirementClarification" ADD CONSTRAINT "RequirementClarification_requirementId_fkey" FOREIGN KEY ("requirementId") REFERENCES "Requirement"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "RequirementClarification" ADD CONSTRAINT "RequirementClarification_askedById_fkey" FOREIGN KEY ("askedById") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'RequirementClarification_askedById_fkey') THEN ALTER TABLE "RequirementClarification" ADD CONSTRAINT "RequirementClarification_askedById_fkey" FOREIGN KEY ("askedById") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "RequirementClarification" ADD CONSTRAINT "RequirementClarification_answeredById_fkey" FOREIGN KEY ("answeredById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'RequirementClarification_answeredById_fkey') THEN ALTER TABLE "RequirementClarification" ADD CONSTRAINT "RequirementClarification_answeredById_fkey" FOREIGN KEY ("answeredById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Estimation" ADD CONSTRAINT "Estimation_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Estimation_organizationId_fkey') THEN ALTER TABLE "Estimation" ADD CONSTRAINT "Estimation_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Estimation" ADD CONSTRAINT "Estimation_requirementId_fkey" FOREIGN KEY ("requirementId") REFERENCES "Requirement"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Estimation_requirementId_fkey') THEN ALTER TABLE "Estimation" ADD CONSTRAINT "Estimation_requirementId_fkey" FOREIGN KEY ("requirementId") REFERENCES "Requirement"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Estimation" ADD CONSTRAINT "Estimation_opportunityId_fkey" FOREIGN KEY ("opportunityId") REFERENCES "Opportunity"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Estimation_opportunityId_fkey') THEN ALTER TABLE "Estimation" ADD CONSTRAINT "Estimation_opportunityId_fkey" FOREIGN KEY ("opportunityId") REFERENCES "Opportunity"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Estimation" ADD CONSTRAINT "Estimation_clientId_fkey" FOREIGN KEY ("clientId") REFERENCES "Client"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Estimation_clientId_fkey') THEN ALTER TABLE "Estimation" ADD CONSTRAINT "Estimation_clientId_fkey" FOREIGN KEY ("clientId") REFERENCES "Client"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Estimation" ADD CONSTRAINT "Estimation_preparedById_fkey" FOREIGN KEY ("preparedById") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Estimation_preparedById_fkey') THEN ALTER TABLE "Estimation" ADD CONSTRAINT "Estimation_preparedById_fkey" FOREIGN KEY ("preparedById") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Estimation" ADD CONSTRAINT "Estimation_reviewedById_fkey" FOREIGN KEY ("reviewedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Estimation_reviewedById_fkey') THEN ALTER TABLE "Estimation" ADD CONSTRAINT "Estimation_reviewedById_fkey" FOREIGN KEY ("reviewedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Estimation" ADD CONSTRAINT "Estimation_approvedById_fkey" FOREIGN KEY ("approvedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Estimation_approvedById_fkey') THEN ALTER TABLE "Estimation" ADD CONSTRAINT "Estimation_approvedById_fkey" FOREIGN KEY ("approvedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "EstimationSection" ADD CONSTRAINT "EstimationSection_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'EstimationSection_organizationId_fkey') THEN ALTER TABLE "EstimationSection" ADD CONSTRAINT "EstimationSection_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "EstimationSection" ADD CONSTRAINT "EstimationSection_estimationId_fkey" FOREIGN KEY ("estimationId") REFERENCES "Estimation"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'EstimationSection_estimationId_fkey') THEN ALTER TABLE "EstimationSection" ADD CONSTRAINT "EstimationSection_estimationId_fkey" FOREIGN KEY ("estimationId") REFERENCES "Estimation"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "EstimationItem" ADD CONSTRAINT "EstimationItem_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'EstimationItem_organizationId_fkey') THEN ALTER TABLE "EstimationItem" ADD CONSTRAINT "EstimationItem_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "EstimationItem" ADD CONSTRAINT "EstimationItem_estimationId_fkey" FOREIGN KEY ("estimationId") REFERENCES "Estimation"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'EstimationItem_estimationId_fkey') THEN ALTER TABLE "EstimationItem" ADD CONSTRAINT "EstimationItem_estimationId_fkey" FOREIGN KEY ("estimationId") REFERENCES "Estimation"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "EstimationItem" ADD CONSTRAINT "EstimationItem_sectionId_fkey" FOREIGN KEY ("sectionId") REFERENCES "EstimationSection"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'EstimationItem_sectionId_fkey') THEN ALTER TABLE "EstimationItem" ADD CONSTRAINT "EstimationItem_sectionId_fkey" FOREIGN KEY ("sectionId") REFERENCES "EstimationSection"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "EstimationItem" ADD CONSTRAINT "EstimationItem_requirementItemId_fkey" FOREIGN KEY ("requirementItemId") REFERENCES "RequirementItem"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'EstimationItem_requirementItemId_fkey') THEN ALTER TABLE "EstimationItem" ADD CONSTRAINT "EstimationItem_requirementItemId_fkey" FOREIGN KEY ("requirementItemId") REFERENCES "RequirementItem"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "EstimationItem" ADD CONSTRAINT "EstimationItem_departmentId_fkey" FOREIGN KEY ("departmentId") REFERENCES "Department"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'EstimationItem_departmentId_fkey') THEN ALTER TABLE "EstimationItem" ADD CONSTRAINT "EstimationItem_departmentId_fkey" FOREIGN KEY ("departmentId") REFERENCES "Department"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "EstimationItem" ADD CONSTRAINT "EstimationItem_teamId_fkey" FOREIGN KEY ("teamId") REFERENCES "Team"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'EstimationItem_teamId_fkey') THEN ALTER TABLE "EstimationItem" ADD CONSTRAINT "EstimationItem_teamId_fkey" FOREIGN KEY ("teamId") REFERENCES "Team"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Agreement" ADD CONSTRAINT "Agreement_opportunityId_fkey" FOREIGN KEY ("opportunityId") REFERENCES "Opportunity"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Agreement_opportunityId_fkey') THEN ALTER TABLE "Agreement" ADD CONSTRAINT "Agreement_opportunityId_fkey" FOREIGN KEY ("opportunityId") REFERENCES "Opportunity"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Agreement" ADD CONSTRAINT "Agreement_requirementId_fkey" FOREIGN KEY ("requirementId") REFERENCES "Requirement"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Agreement_requirementId_fkey') THEN ALTER TABLE "Agreement" ADD CONSTRAINT "Agreement_requirementId_fkey" FOREIGN KEY ("requirementId") REFERENCES "Requirement"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Agreement" ADD CONSTRAINT "Agreement_estimationId_fkey" FOREIGN KEY ("estimationId") REFERENCES "Estimation"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Agreement_estimationId_fkey') THEN ALTER TABLE "Agreement" ADD CONSTRAINT "Agreement_estimationId_fkey" FOREIGN KEY ("estimationId") REFERENCES "Estimation"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Agreement" ADD CONSTRAINT "Agreement_clientId_fkey" FOREIGN KEY ("clientId") REFERENCES "Client"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Agreement_clientId_fkey') THEN ALTER TABLE "Agreement" ADD CONSTRAINT "Agreement_clientId_fkey" FOREIGN KEY ("clientId") REFERENCES "Client"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Agreement" ADD CONSTRAINT "Agreement_contactId_fkey" FOREIGN KEY ("contactId") REFERENCES "Contact"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Agreement_contactId_fkey') THEN ALTER TABLE "Agreement" ADD CONSTRAINT "Agreement_contactId_fkey" FOREIGN KEY ("contactId") REFERENCES "Contact"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Agreement" ADD CONSTRAINT "Agreement_reviewedById_fkey" FOREIGN KEY ("reviewedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Agreement_reviewedById_fkey') THEN ALTER TABLE "Agreement" ADD CONSTRAINT "Agreement_reviewedById_fkey" FOREIGN KEY ("reviewedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Agreement" ADD CONSTRAINT "Agreement_approvedById_fkey" FOREIGN KEY ("approvedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Agreement_approvedById_fkey') THEN ALTER TABLE "Agreement" ADD CONSTRAINT "Agreement_approvedById_fkey" FOREIGN KEY ("approvedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Agreement" ADD CONSTRAINT "Agreement_signedFileId_fkey" FOREIGN KEY ("signedFileId") REFERENCES "File"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Agreement_signedFileId_fkey') THEN ALTER TABLE "Agreement" ADD CONSTRAINT "Agreement_signedFileId_fkey" FOREIGN KEY ("signedFileId") REFERENCES "File"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Agreement" ADD CONSTRAINT "Agreement_parentAgreementId_fkey" FOREIGN KEY ("parentAgreementId") REFERENCES "Agreement"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Agreement_parentAgreementId_fkey') THEN ALTER TABLE "Agreement" ADD CONSTRAINT "Agreement_parentAgreementId_fkey" FOREIGN KEY ("parentAgreementId") REFERENCES "Agreement"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "ServiceSale" ADD CONSTRAINT "ServiceSale_quotationId_fkey" FOREIGN KEY ("quotationId") REFERENCES "Quotation"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ServiceSale_quotationId_fkey') THEN ALTER TABLE "ServiceSale" ADD CONSTRAINT "ServiceSale_quotationId_fkey" FOREIGN KEY ("quotationId") REFERENCES "Quotation"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "ServiceSale" ADD CONSTRAINT "ServiceSale_opportunityId_fkey" FOREIGN KEY ("opportunityId") REFERENCES "Opportunity"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ServiceSale_opportunityId_fkey') THEN ALTER TABLE "ServiceSale" ADD CONSTRAINT "ServiceSale_opportunityId_fkey" FOREIGN KEY ("opportunityId") REFERENCES "Opportunity"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "ServiceSale" ADD CONSTRAINT "ServiceSale_requirementId_fkey" FOREIGN KEY ("requirementId") REFERENCES "Requirement"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ServiceSale_requirementId_fkey') THEN ALTER TABLE "ServiceSale" ADD CONSTRAINT "ServiceSale_requirementId_fkey" FOREIGN KEY ("requirementId") REFERENCES "Requirement"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "ServiceSale" ADD CONSTRAINT "ServiceSale_estimationId_fkey" FOREIGN KEY ("estimationId") REFERENCES "Estimation"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ServiceSale_estimationId_fkey') THEN ALTER TABLE "ServiceSale" ADD CONSTRAINT "ServiceSale_estimationId_fkey" FOREIGN KEY ("estimationId") REFERENCES "Estimation"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "ServiceSale" ADD CONSTRAINT "ServiceSale_clientId_fkey" FOREIGN KEY ("clientId") REFERENCES "Client"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ServiceSale_clientId_fkey') THEN ALTER TABLE "ServiceSale" ADD CONSTRAINT "ServiceSale_clientId_fkey" FOREIGN KEY ("clientId") REFERENCES "Client"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "ServiceSale" ADD CONSTRAINT "ServiceSale_contactId_fkey" FOREIGN KEY ("contactId") REFERENCES "Contact"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ServiceSale_contactId_fkey') THEN ALTER TABLE "ServiceSale" ADD CONSTRAINT "ServiceSale_contactId_fkey" FOREIGN KEY ("contactId") REFERENCES "Contact"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "ServiceSale" ADD CONSTRAINT "ServiceSale_approvedById_fkey" FOREIGN KEY ("approvedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ServiceSale_approvedById_fkey') THEN ALTER TABLE "ServiceSale" ADD CONSTRAINT "ServiceSale_approvedById_fkey" FOREIGN KEY ("approvedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "ProjectHandover" ADD CONSTRAINT "ProjectHandover_quotationId_fkey" FOREIGN KEY ("quotationId") REFERENCES "Quotation"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ProjectHandover_quotationId_fkey') THEN ALTER TABLE "ProjectHandover" ADD CONSTRAINT "ProjectHandover_quotationId_fkey" FOREIGN KEY ("quotationId") REFERENCES "Quotation"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "ProjectHandover" ADD CONSTRAINT "ProjectHandover_opportunityId_fkey" FOREIGN KEY ("opportunityId") REFERENCES "Opportunity"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ProjectHandover_opportunityId_fkey') THEN ALTER TABLE "ProjectHandover" ADD CONSTRAINT "ProjectHandover_opportunityId_fkey" FOREIGN KEY ("opportunityId") REFERENCES "Opportunity"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "ProjectHandover" ADD CONSTRAINT "ProjectHandover_requirementId_fkey" FOREIGN KEY ("requirementId") REFERENCES "Requirement"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ProjectHandover_requirementId_fkey') THEN ALTER TABLE "ProjectHandover" ADD CONSTRAINT "ProjectHandover_requirementId_fkey" FOREIGN KEY ("requirementId") REFERENCES "Requirement"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "ProjectHandover" ADD CONSTRAINT "ProjectHandover_estimationId_fkey" FOREIGN KEY ("estimationId") REFERENCES "Estimation"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ProjectHandover_estimationId_fkey') THEN ALTER TABLE "ProjectHandover" ADD CONSTRAINT "ProjectHandover_estimationId_fkey" FOREIGN KEY ("estimationId") REFERENCES "Estimation"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "ProjectHandover" ADD CONSTRAINT "ProjectHandover_clientId_fkey" FOREIGN KEY ("clientId") REFERENCES "Client"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ProjectHandover_clientId_fkey') THEN ALTER TABLE "ProjectHandover" ADD CONSTRAINT "ProjectHandover_clientId_fkey" FOREIGN KEY ("clientId") REFERENCES "Client"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "ProjectHandover" ADD CONSTRAINT "ProjectHandover_contactId_fkey" FOREIGN KEY ("contactId") REFERENCES "Contact"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ProjectHandover_contactId_fkey') THEN ALTER TABLE "ProjectHandover" ADD CONSTRAINT "ProjectHandover_contactId_fkey" FOREIGN KEY ("contactId") REFERENCES "Contact"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "ProjectHandover" ADD CONSTRAINT "ProjectHandover_proposedProjectManagerId_fkey" FOREIGN KEY ("proposedProjectManagerId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ProjectHandover_proposedProjectManagerId_fkey') THEN ALTER TABLE "ProjectHandover" ADD CONSTRAINT "ProjectHandover_proposedProjectManagerId_fkey" FOREIGN KEY ("proposedProjectManagerId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "ProjectHandover" ADD CONSTRAINT "ProjectHandover_acceptedById_fkey" FOREIGN KEY ("acceptedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ProjectHandover_acceptedById_fkey') THEN ALTER TABLE "ProjectHandover" ADD CONSTRAINT "ProjectHandover_acceptedById_fkey" FOREIGN KEY ("acceptedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "ProjectHandover" ADD CONSTRAINT "ProjectHandover_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ProjectHandover_projectId_fkey') THEN ALTER TABLE "ProjectHandover" ADD CONSTRAINT "ProjectHandover_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "ProjectResourceAllocation" ADD CONSTRAINT "ProjectResourceAllocation_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ProjectResourceAllocation_organizationId_fkey') THEN ALTER TABLE "ProjectResourceAllocation" ADD CONSTRAINT "ProjectResourceAllocation_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "ProjectResourceAllocation" ADD CONSTRAINT "ProjectResourceAllocation_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ProjectResourceAllocation_projectId_fkey') THEN ALTER TABLE "ProjectResourceAllocation" ADD CONSTRAINT "ProjectResourceAllocation_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "ProjectResourceAllocation" ADD CONSTRAINT "ProjectResourceAllocation_employeeId_fkey" FOREIGN KEY ("employeeId") REFERENCES "Employee"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ProjectResourceAllocation_employeeId_fkey') THEN ALTER TABLE "ProjectResourceAllocation" ADD CONSTRAINT "ProjectResourceAllocation_employeeId_fkey" FOREIGN KEY ("employeeId") REFERENCES "Employee"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "ProjectResourceAllocation" ADD CONSTRAINT "ProjectResourceAllocation_departmentId_fkey" FOREIGN KEY ("departmentId") REFERENCES "Department"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ProjectResourceAllocation_departmentId_fkey') THEN ALTER TABLE "ProjectResourceAllocation" ADD CONSTRAINT "ProjectResourceAllocation_departmentId_fkey" FOREIGN KEY ("departmentId") REFERENCES "Department"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "ProjectResourceAllocation" ADD CONSTRAINT "ProjectResourceAllocation_teamId_fkey" FOREIGN KEY ("teamId") REFERENCES "Team"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ProjectResourceAllocation_teamId_fkey') THEN ALTER TABLE "ProjectResourceAllocation" ADD CONSTRAINT "ProjectResourceAllocation_teamId_fkey" FOREIGN KEY ("teamId") REFERENCES "Team"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "ProjectResourceAllocation" ADD CONSTRAINT "ProjectResourceAllocation_requestedById_fkey" FOREIGN KEY ("requestedById") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ProjectResourceAllocation_requestedById_fkey') THEN ALTER TABLE "ProjectResourceAllocation" ADD CONSTRAINT "ProjectResourceAllocation_requestedById_fkey" FOREIGN KEY ("requestedById") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "ProjectResourceAllocation" ADD CONSTRAINT "ProjectResourceAllocation_approvedById_fkey" FOREIGN KEY ("approvedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ProjectResourceAllocation_approvedById_fkey') THEN ALTER TABLE "ProjectResourceAllocation" ADD CONSTRAINT "ProjectResourceAllocation_approvedById_fkey" FOREIGN KEY ("approvedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "ProjectCreativeBrief" ADD CONSTRAINT "ProjectCreativeBrief_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ProjectCreativeBrief_organizationId_fkey') THEN ALTER TABLE "ProjectCreativeBrief" ADD CONSTRAINT "ProjectCreativeBrief_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "ProjectCreativeBrief" ADD CONSTRAINT "ProjectCreativeBrief_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ProjectCreativeBrief_projectId_fkey') THEN ALTER TABLE "ProjectCreativeBrief" ADD CONSTRAINT "ProjectCreativeBrief_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "ProjectCreativeBrief" ADD CONSTRAINT "ProjectCreativeBrief_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ProjectCreativeBrief_createdById_fkey') THEN ALTER TABLE "ProjectCreativeBrief" ADD CONSTRAINT "ProjectCreativeBrief_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "ProjectCreativeBrief" ADD CONSTRAINT "ProjectCreativeBrief_approvedById_fkey" FOREIGN KEY ("approvedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ProjectCreativeBrief_approvedById_fkey') THEN ALTER TABLE "ProjectCreativeBrief" ADD CONSTRAINT "ProjectCreativeBrief_approvedById_fkey" FOREIGN KEY ("approvedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "ProjectCreativeDeliverable" ADD CONSTRAINT "ProjectCreativeDeliverable_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ProjectCreativeDeliverable_organizationId_fkey') THEN ALTER TABLE "ProjectCreativeDeliverable" ADD CONSTRAINT "ProjectCreativeDeliverable_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "ProjectCreativeDeliverable" ADD CONSTRAINT "ProjectCreativeDeliverable_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ProjectCreativeDeliverable_projectId_fkey') THEN ALTER TABLE "ProjectCreativeDeliverable" ADD CONSTRAINT "ProjectCreativeDeliverable_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "ProjectCreativeDeliverable" ADD CONSTRAINT "ProjectCreativeDeliverable_creativeBriefId_fkey" FOREIGN KEY ("creativeBriefId") REFERENCES "ProjectCreativeBrief"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ProjectCreativeDeliverable_creativeBriefId_fkey') THEN ALTER TABLE "ProjectCreativeDeliverable" ADD CONSTRAINT "ProjectCreativeDeliverable_creativeBriefId_fkey" FOREIGN KEY ("creativeBriefId") REFERENCES "ProjectCreativeBrief"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "ProjectCreativeDeliverable" ADD CONSTRAINT "ProjectCreativeDeliverable_taskId_fkey" FOREIGN KEY ("taskId") REFERENCES "Task"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ProjectCreativeDeliverable_taskId_fkey') THEN ALTER TABLE "ProjectCreativeDeliverable" ADD CONSTRAINT "ProjectCreativeDeliverable_taskId_fkey" FOREIGN KEY ("taskId") REFERENCES "Task"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "ProjectCreativeDeliverable" ADD CONSTRAINT "ProjectCreativeDeliverable_assignedEmployeeId_fkey" FOREIGN KEY ("assignedEmployeeId") REFERENCES "Employee"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ProjectCreativeDeliverable_assignedEmployeeId_fkey') THEN ALTER TABLE "ProjectCreativeDeliverable" ADD CONSTRAINT "ProjectCreativeDeliverable_assignedEmployeeId_fkey" FOREIGN KEY ("assignedEmployeeId") REFERENCES "Employee"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "ProjectCreativeDeliverable" ADD CONSTRAINT "ProjectCreativeDeliverable_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ProjectCreativeDeliverable_createdById_fkey') THEN ALTER TABLE "ProjectCreativeDeliverable" ADD CONSTRAINT "ProjectCreativeDeliverable_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "ProjectCreativeDeliverable" ADD CONSTRAINT "ProjectCreativeDeliverable_approvedVersionId_fkey" FOREIGN KEY ("approvedVersionId") REFERENCES "CreativeDeliverableVersion"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ProjectCreativeDeliverable_approvedVersionId_fkey') THEN ALTER TABLE "ProjectCreativeDeliverable" ADD CONSTRAINT "ProjectCreativeDeliverable_approvedVersionId_fkey" FOREIGN KEY ("approvedVersionId") REFERENCES "CreativeDeliverableVersion"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "CreativeDeliverableVersion" ADD CONSTRAINT "CreativeDeliverableVersion_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'CreativeDeliverableVersion_organizationId_fkey') THEN ALTER TABLE "CreativeDeliverableVersion" ADD CONSTRAINT "CreativeDeliverableVersion_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "CreativeDeliverableVersion" ADD CONSTRAINT "CreativeDeliverableVersion_deliverableId_fkey" FOREIGN KEY ("deliverableId") REFERENCES "ProjectCreativeDeliverable"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'CreativeDeliverableVersion_deliverableId_fkey') THEN ALTER TABLE "CreativeDeliverableVersion" ADD CONSTRAINT "CreativeDeliverableVersion_deliverableId_fkey" FOREIGN KEY ("deliverableId") REFERENCES "ProjectCreativeDeliverable"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "CreativeDeliverableVersion" ADD CONSTRAINT "CreativeDeliverableVersion_fileId_fkey" FOREIGN KEY ("fileId") REFERENCES "File"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'CreativeDeliverableVersion_fileId_fkey') THEN ALTER TABLE "CreativeDeliverableVersion" ADD CONSTRAINT "CreativeDeliverableVersion_fileId_fkey" FOREIGN KEY ("fileId") REFERENCES "File"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "CreativeDeliverableVersion" ADD CONSTRAINT "CreativeDeliverableVersion_submittedById_fkey" FOREIGN KEY ("submittedById") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'CreativeDeliverableVersion_submittedById_fkey') THEN ALTER TABLE "CreativeDeliverableVersion" ADD CONSTRAINT "CreativeDeliverableVersion_submittedById_fkey" FOREIGN KEY ("submittedById") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "CreativeDeliverableVersion" ADD CONSTRAINT "CreativeDeliverableVersion_reviewedById_fkey" FOREIGN KEY ("reviewedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'CreativeDeliverableVersion_reviewedById_fkey') THEN ALTER TABLE "CreativeDeliverableVersion" ADD CONSTRAINT "CreativeDeliverableVersion_reviewedById_fkey" FOREIGN KEY ("reviewedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "ProjectMarketingPlan" ADD CONSTRAINT "ProjectMarketingPlan_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ProjectMarketingPlan_organizationId_fkey') THEN ALTER TABLE "ProjectMarketingPlan" ADD CONSTRAINT "ProjectMarketingPlan_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "ProjectMarketingPlan" ADD CONSTRAINT "ProjectMarketingPlan_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ProjectMarketingPlan_projectId_fkey') THEN ALTER TABLE "ProjectMarketingPlan" ADD CONSTRAINT "ProjectMarketingPlan_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "ProjectMarketingPlan" ADD CONSTRAINT "ProjectMarketingPlan_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ProjectMarketingPlan_createdById_fkey') THEN ALTER TABLE "ProjectMarketingPlan" ADD CONSTRAINT "ProjectMarketingPlan_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "ProjectMarketingCampaign" ADD CONSTRAINT "ProjectMarketingCampaign_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ProjectMarketingCampaign_organizationId_fkey') THEN ALTER TABLE "ProjectMarketingCampaign" ADD CONSTRAINT "ProjectMarketingCampaign_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "ProjectMarketingCampaign" ADD CONSTRAINT "ProjectMarketingCampaign_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ProjectMarketingCampaign_projectId_fkey') THEN ALTER TABLE "ProjectMarketingCampaign" ADD CONSTRAINT "ProjectMarketingCampaign_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "ProjectMarketingCampaign" ADD CONSTRAINT "ProjectMarketingCampaign_marketingPlanId_fkey" FOREIGN KEY ("marketingPlanId") REFERENCES "ProjectMarketingPlan"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ProjectMarketingCampaign_marketingPlanId_fkey') THEN ALTER TABLE "ProjectMarketingCampaign" ADD CONSTRAINT "ProjectMarketingCampaign_marketingPlanId_fkey" FOREIGN KEY ("marketingPlanId") REFERENCES "ProjectMarketingPlan"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "ProjectMarketingCampaign" ADD CONSTRAINT "ProjectMarketingCampaign_assignedEmployeeId_fkey" FOREIGN KEY ("assignedEmployeeId") REFERENCES "Employee"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ProjectMarketingCampaign_assignedEmployeeId_fkey') THEN ALTER TABLE "ProjectMarketingCampaign" ADD CONSTRAINT "ProjectMarketingCampaign_assignedEmployeeId_fkey" FOREIGN KEY ("assignedEmployeeId") REFERENCES "Employee"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "ProjectMarketingCampaign" ADD CONSTRAINT "ProjectMarketingCampaign_taskId_fkey" FOREIGN KEY ("taskId") REFERENCES "Task"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ProjectMarketingCampaign_taskId_fkey') THEN ALTER TABLE "ProjectMarketingCampaign" ADD CONSTRAINT "ProjectMarketingCampaign_taskId_fkey" FOREIGN KEY ("taskId") REFERENCES "Task"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "ProjectMarketingCampaign" ADD CONSTRAINT "ProjectMarketingCampaign_creativeDeliverableId_fkey" FOREIGN KEY ("creativeDeliverableId") REFERENCES "ProjectCreativeDeliverable"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ProjectMarketingCampaign_creativeDeliverableId_fkey') THEN ALTER TABLE "ProjectMarketingCampaign" ADD CONSTRAINT "ProjectMarketingCampaign_creativeDeliverableId_fkey" FOREIGN KEY ("creativeDeliverableId") REFERENCES "ProjectCreativeDeliverable"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "ProjectMarketingCampaign" ADD CONSTRAINT "ProjectMarketingCampaign_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ProjectMarketingCampaign_createdById_fkey') THEN ALTER TABLE "ProjectMarketingCampaign" ADD CONSTRAINT "ProjectMarketingCampaign_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "MarketingContentItem" ADD CONSTRAINT "MarketingContentItem_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'MarketingContentItem_organizationId_fkey') THEN ALTER TABLE "MarketingContentItem" ADD CONSTRAINT "MarketingContentItem_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "MarketingContentItem" ADD CONSTRAINT "MarketingContentItem_campaignId_fkey" FOREIGN KEY ("campaignId") REFERENCES "ProjectMarketingCampaign"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'MarketingContentItem_campaignId_fkey') THEN ALTER TABLE "MarketingContentItem" ADD CONSTRAINT "MarketingContentItem_campaignId_fkey" FOREIGN KEY ("campaignId") REFERENCES "ProjectMarketingCampaign"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "MarketingContentItem" ADD CONSTRAINT "MarketingContentItem_taskId_fkey" FOREIGN KEY ("taskId") REFERENCES "Task"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'MarketingContentItem_taskId_fkey') THEN ALTER TABLE "MarketingContentItem" ADD CONSTRAINT "MarketingContentItem_taskId_fkey" FOREIGN KEY ("taskId") REFERENCES "Task"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "MarketingContentItem" ADD CONSTRAINT "MarketingContentItem_assignedEmployeeId_fkey" FOREIGN KEY ("assignedEmployeeId") REFERENCES "Employee"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'MarketingContentItem_assignedEmployeeId_fkey') THEN ALTER TABLE "MarketingContentItem" ADD CONSTRAINT "MarketingContentItem_assignedEmployeeId_fkey" FOREIGN KEY ("assignedEmployeeId") REFERENCES "Employee"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "MarketingContentItem" ADD CONSTRAINT "MarketingContentItem_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'MarketingContentItem_createdById_fkey') THEN ALTER TABLE "MarketingContentItem" ADD CONSTRAINT "MarketingContentItem_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "MarketingContentItem" ADD CONSTRAINT "MarketingContentItem_approvedById_fkey" FOREIGN KEY ("approvedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'MarketingContentItem_approvedById_fkey') THEN ALTER TABLE "MarketingContentItem" ADD CONSTRAINT "MarketingContentItem_approvedById_fkey" FOREIGN KEY ("approvedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "MarketingPerformanceSnapshot" ADD CONSTRAINT "MarketingPerformanceSnapshot_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'MarketingPerformanceSnapshot_organizationId_fkey') THEN ALTER TABLE "MarketingPerformanceSnapshot" ADD CONSTRAINT "MarketingPerformanceSnapshot_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "MarketingPerformanceSnapshot" ADD CONSTRAINT "MarketingPerformanceSnapshot_campaignId_fkey" FOREIGN KEY ("campaignId") REFERENCES "ProjectMarketingCampaign"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'MarketingPerformanceSnapshot_campaignId_fkey') THEN ALTER TABLE "MarketingPerformanceSnapshot" ADD CONSTRAINT "MarketingPerformanceSnapshot_campaignId_fkey" FOREIGN KEY ("campaignId") REFERENCES "ProjectMarketingCampaign"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "MarketingPerformanceSnapshot" ADD CONSTRAINT "MarketingPerformanceSnapshot_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'MarketingPerformanceSnapshot_createdById_fkey') THEN ALTER TABLE "MarketingPerformanceSnapshot" ADD CONSTRAINT "MarketingPerformanceSnapshot_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "IntegrationConnection" ADD CONSTRAINT "IntegrationConnection_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'IntegrationConnection_organizationId_fkey') THEN ALTER TABLE "IntegrationConnection" ADD CONSTRAINT "IntegrationConnection_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "WebhookEndpoint" ADD CONSTRAINT "WebhookEndpoint_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'WebhookEndpoint_organizationId_fkey') THEN ALTER TABLE "WebhookEndpoint" ADD CONSTRAINT "WebhookEndpoint_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "WebhookDelivery" ADD CONSTRAINT "WebhookDelivery_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'WebhookDelivery_organizationId_fkey') THEN ALTER TABLE "WebhookDelivery" ADD CONSTRAINT "WebhookDelivery_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "WebhookDelivery" ADD CONSTRAINT "WebhookDelivery_endpointId_fkey" FOREIGN KEY ("endpointId") REFERENCES "WebhookEndpoint"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'WebhookDelivery_endpointId_fkey') THEN ALTER TABLE "WebhookDelivery" ADD CONSTRAINT "WebhookDelivery_endpointId_fkey" FOREIGN KEY ("endpointId") REFERENCES "WebhookEndpoint"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "WebhookDeliveryAttempt" ADD CONSTRAINT "WebhookDeliveryAttempt_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'WebhookDeliveryAttempt_organizationId_fkey') THEN ALTER TABLE "WebhookDeliveryAttempt" ADD CONSTRAINT "WebhookDeliveryAttempt_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "WebhookDeliveryAttempt" ADD CONSTRAINT "WebhookDeliveryAttempt_deliveryId_fkey" FOREIGN KEY ("deliveryId") REFERENCES "WebhookDelivery"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'WebhookDeliveryAttempt_deliveryId_fkey') THEN ALTER TABLE "WebhookDeliveryAttempt" ADD CONSTRAINT "WebhookDeliveryAttempt_deliveryId_fkey" FOREIGN KEY ("deliveryId") REFERENCES "WebhookDelivery"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "IntegrationEvent" ADD CONSTRAINT "IntegrationEvent_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'IntegrationEvent_organizationId_fkey') THEN ALTER TABLE "IntegrationEvent" ADD CONSTRAINT "IntegrationEvent_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "IntegrationEvent" ADD CONSTRAINT "IntegrationEvent_connectionId_fkey" FOREIGN KEY ("connectionId") REFERENCES "IntegrationConnection"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'IntegrationEvent_connectionId_fkey') THEN ALTER TABLE "IntegrationEvent" ADD CONSTRAINT "IntegrationEvent_connectionId_fkey" FOREIGN KEY ("connectionId") REFERENCES "IntegrationConnection"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "AutomationRule" ADD CONSTRAINT "AutomationRule_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'AutomationRule_organizationId_fkey') THEN ALTER TABLE "AutomationRule" ADD CONSTRAINT "AutomationRule_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "AutomationExecution" ADD CONSTRAINT "AutomationExecution_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'AutomationExecution_organizationId_fkey') THEN ALTER TABLE "AutomationExecution" ADD CONSTRAINT "AutomationExecution_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "AutomationExecution" ADD CONSTRAINT "AutomationExecution_automationRuleId_fkey" FOREIGN KEY ("automationRuleId") REFERENCES "AutomationRule"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'AutomationExecution_automationRuleId_fkey') THEN ALTER TABLE "AutomationExecution" ADD CONSTRAINT "AutomationExecution_automationRuleId_fkey" FOREIGN KEY ("automationRuleId") REFERENCES "AutomationRule"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "DomainOutboxEvent" ADD CONSTRAINT "DomainOutboxEvent_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'DomainOutboxEvent_organizationId_fkey') THEN ALTER TABLE "DomainOutboxEvent" ADD CONSTRAINT "DomainOutboxEvent_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "QueueJob" ADD CONSTRAINT "QueueJob_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'QueueJob_organizationId_fkey') THEN ALTER TABLE "QueueJob" ADD CONSTRAINT "QueueJob_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "_ProjectTeamMembers" ADD CONSTRAINT "_ProjectTeamMembers_A_fkey" FOREIGN KEY ("A") REFERENCES "Project"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = '_ProjectTeamMembers_A_fkey') THEN ALTER TABLE "_ProjectTeamMembers" ADD CONSTRAINT "_ProjectTeamMembers_A_fkey" FOREIGN KEY ("A") REFERENCES "Project"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "_ProjectTeamMembers" ADD CONSTRAINT "_ProjectTeamMembers_B_fkey" FOREIGN KEY ("B") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = '_ProjectTeamMembers_B_fkey') THEN ALTER TABLE "_ProjectTeamMembers" ADD CONSTRAINT "_ProjectTeamMembers_B_fkey" FOREIGN KEY ("B") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "_MilestoneToTag" ADD CONSTRAINT "_MilestoneToTag_A_fkey" FOREIGN KEY ("A") REFERENCES "Milestone"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = '_MilestoneToTag_A_fkey') THEN ALTER TABLE "_MilestoneToTag" ADD CONSTRAINT "_MilestoneToTag_A_fkey" FOREIGN KEY ("A") REFERENCES "Milestone"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "_MilestoneToTag" ADD CONSTRAINT "_MilestoneToTag_B_fkey" FOREIGN KEY ("B") REFERENCES "Tag"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = '_MilestoneToTag_B_fkey') THEN ALTER TABLE "_MilestoneToTag" ADD CONSTRAINT "_MilestoneToTag_B_fkey" FOREIGN KEY ("B") REFERENCES "Tag"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "_IssueToTag" ADD CONSTRAINT "_IssueToTag_A_fkey" FOREIGN KEY ("A") REFERENCES "Issue"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = '_IssueToTag_A_fkey') THEN ALTER TABLE "_IssueToTag" ADD CONSTRAINT "_IssueToTag_A_fkey" FOREIGN KEY ("A") REFERENCES "Issue"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "_IssueToTag" ADD CONSTRAINT "_IssueToTag_B_fkey" FOREIGN KEY ("B") REFERENCES "Tag"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = '_IssueToTag_B_fkey') THEN ALTER TABLE "_IssueToTag" ADD CONSTRAINT "_IssueToTag_B_fkey" FOREIGN KEY ("B") REFERENCES "Tag"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "_TagToTask" ADD CONSTRAINT "_TagToTask_A_fkey" FOREIGN KEY ("A") REFERENCES "Tag"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = '_TagToTask_A_fkey') THEN ALTER TABLE "_TagToTask" ADD CONSTRAINT "_TagToTask_A_fkey" FOREIGN KEY ("A") REFERENCES "Tag"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- AddForeignKey
-ALTER TABLE "_TagToTask" ADD CONSTRAINT "_TagToTask_B_fkey" FOREIGN KEY ("B") REFERENCES "Task"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = '_TagToTask_B_fkey') THEN ALTER TABLE "_TagToTask" ADD CONSTRAINT "_TagToTask_B_fkey" FOREIGN KEY ("B") REFERENCES "Task"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$;
 
 -- RenameIndex
-ALTER INDEX "ProjectDepartmentDependency_projectId_upstreamCapability_downst" RENAME TO "ProjectDepartmentDependency_projectId_upstreamCapability_do_key";
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM pg_class WHERE relname = 'ProjectDepartmentDependency_projectId_upstreamCapability_downst') AND NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = 'ProjectDepartmentDependency_projectId_upstreamCapability_do_key') THEN ALTER INDEX "ProjectDepartmentDependency_projectId_upstreamCapability_downst" RENAME TO "ProjectDepartmentDependency_projectId_upstreamCapability_do_key"; END IF; END $$;

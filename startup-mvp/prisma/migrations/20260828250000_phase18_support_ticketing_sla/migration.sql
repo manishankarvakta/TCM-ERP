@@ -22,15 +22,37 @@ ALTER TABLE "Task" ADD COLUMN IF NOT EXISTS "nextRunAt" TIMESTAMP(3);
 ALTER TABLE "Task" ADD COLUMN IF NOT EXISTS "lastRunAt" TIMESTAMP(3);
 
 -- CreateEnum
-CREATE TYPE "SupportEntitlementType" AS ENUM ('WARRANTY', 'MAINTENANCE', 'SUPPORT_CONTRACT', 'INTERNAL', 'OTHER');
-CREATE TYPE "SupportEntitlementStatus" AS ENUM ('DRAFT', 'ACTIVE', 'EXPIRED', 'SUSPENDED', 'CANCELLED');
-CREATE TYPE "SupportTicketType" AS ENUM ('BUG', 'INCIDENT', 'SERVICE_REQUEST', 'QUESTION', 'ACCESS_REQUEST', 'MAINTENANCE', 'OTHER');
-CREATE TYPE "SupportTicketPriority" AS ENUM ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL');
-CREATE TYPE "SupportTicketStatus" AS ENUM ('OPEN', 'ASSIGNED', 'IN_PROGRESS', 'WAITING_CLIENT', 'WAITING_THIRD_PARTY', 'RESOLVED', 'CLOSED', 'CANCELLED');
-CREATE TYPE "SupportTicketSource" AS ENUM ('INTERNAL', 'EMAIL', 'PHONE', 'WHATSAPP', 'CLIENT_PORTAL', 'SYSTEM');
-CREATE TYPE "SupportCoverageStatus" AS ENUM ('COVERED', 'NOT_COVERED', 'REQUIRES_REVIEW');
-CREATE TYPE "SupportSLAStatus" AS ENUM ('NOT_STARTED', 'RUNNING', 'PAUSED', 'FIRST_RESPONSE_MET', 'FIRST_RESPONSE_BREACHED', 'RESOLUTION_MET', 'RESOLUTION_BREACHED', 'COMPLETED', 'CANCELLED');
-CREATE TYPE "SupportCommentType" AS ENUM ('PUBLIC_REPLY', 'INTERNAL_NOTE');
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'SupportEntitlementType') THEN
+    CREATE TYPE "SupportEntitlementType" AS ENUM ('WARRANTY', 'MAINTENANCE', 'SUPPORT_CONTRACT', 'INTERNAL', 'OTHER');
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'SupportEntitlementStatus') THEN
+    CREATE TYPE "SupportEntitlementStatus" AS ENUM ('DRAFT', 'ACTIVE', 'EXPIRED', 'SUSPENDED', 'CANCELLED');
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'SupportTicketType') THEN
+    CREATE TYPE "SupportTicketType" AS ENUM ('BUG', 'INCIDENT', 'SERVICE_REQUEST', 'QUESTION', 'ACCESS_REQUEST', 'MAINTENANCE', 'OTHER');
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'SupportTicketPriority') THEN
+    CREATE TYPE "SupportTicketPriority" AS ENUM ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL');
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'SupportTicketStatus') THEN
+    CREATE TYPE "SupportTicketStatus" AS ENUM ('OPEN', 'ASSIGNED', 'IN_PROGRESS', 'WAITING_CLIENT', 'WAITING_THIRD_PARTY', 'RESOLVED', 'CLOSED', 'CANCELLED');
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'SupportTicketSource') THEN
+    CREATE TYPE "SupportTicketSource" AS ENUM ('INTERNAL', 'EMAIL', 'PHONE', 'WHATSAPP', 'CLIENT_PORTAL', 'SYSTEM');
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'SupportCoverageStatus') THEN
+    CREATE TYPE "SupportCoverageStatus" AS ENUM ('COVERED', 'NOT_COVERED', 'REQUIRES_REVIEW');
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'SupportSLAStatus') THEN
+    CREATE TYPE "SupportSLAStatus" AS ENUM ('NOT_STARTED', 'RUNNING', 'PAUSED', 'FIRST_RESPONSE_MET', 'FIRST_RESPONSE_BREACHED', 'RESOLUTION_MET', 'RESOLUTION_BREACHED', 'COMPLETED', 'CANCELLED');
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'SupportCommentType') THEN
+    CREATE TYPE "SupportCommentType" AS ENUM ('PUBLIC_REPLY', 'INTERNAL_NOTE');
+  END IF;
+END $$;
+
 
 -- CreateTable SupportEntitlement
 CREATE TABLE IF NOT EXISTS "SupportEntitlement" (
@@ -223,37 +245,85 @@ CREATE UNIQUE INDEX IF NOT EXISTS "SupportTicketIssueLink_ticketId_issueId_key" 
 CREATE UNIQUE INDEX IF NOT EXISTS "SupportTicketTaskLink_ticketId_taskId_key" ON "SupportTicketTaskLink"("ticketId", "taskId");
 
 -- AddForeignKey
-ALTER TABLE "SupportEntitlement" ADD CONSTRAINT "SupportEntitlement_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-ALTER TABLE "SupportEntitlement" ADD CONSTRAINT "SupportEntitlement_clientId_fkey" FOREIGN KEY ("clientId") REFERENCES "Client"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-ALTER TABLE "SupportEntitlement" ADD CONSTRAINT "SupportEntitlement_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'SupportEntitlement_organizationId_fkey') THEN
+    ALTER TABLE "SupportEntitlement" ADD CONSTRAINT "SupportEntitlement_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'SupportEntitlement_clientId_fkey') THEN
+    ALTER TABLE "SupportEntitlement" ADD CONSTRAINT "SupportEntitlement_clientId_fkey" FOREIGN KEY ("clientId") REFERENCES "Client"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'SupportEntitlement_projectId_fkey') THEN
+    ALTER TABLE "SupportEntitlement" ADD CONSTRAINT "SupportEntitlement_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'SupportSLAPolicy_organizationId_fkey') THEN
+    ALTER TABLE "SupportSLAPolicy" ADD CONSTRAINT "SupportSLAPolicy_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'SupportTicketSequence_organizationId_fkey') THEN
+    ALTER TABLE "SupportTicketSequence" ADD CONSTRAINT "SupportTicketSequence_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'SupportTicket_organizationId_fkey') THEN
+    ALTER TABLE "SupportTicket" ADD CONSTRAINT "SupportTicket_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'SupportTicket_clientId_fkey') THEN
+    ALTER TABLE "SupportTicket" ADD CONSTRAINT "SupportTicket_clientId_fkey" FOREIGN KEY ("clientId") REFERENCES "Client"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'SupportTicket_contactId_fkey') THEN
+    ALTER TABLE "SupportTicket" ADD CONSTRAINT "SupportTicket_contactId_fkey" FOREIGN KEY ("contactId") REFERENCES "Contact"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'SupportTicket_projectId_fkey') THEN
+    ALTER TABLE "SupportTicket" ADD CONSTRAINT "SupportTicket_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'SupportTicket_entitlementId_fkey') THEN
+    ALTER TABLE "SupportTicket" ADD CONSTRAINT "SupportTicket_entitlementId_fkey" FOREIGN KEY ("entitlementId") REFERENCES "SupportEntitlement"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'SupportTicket_slaPolicyId_fkey') THEN
+    ALTER TABLE "SupportTicket" ADD CONSTRAINT "SupportTicket_slaPolicyId_fkey" FOREIGN KEY ("slaPolicyId") REFERENCES "SupportSLAPolicy"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'SupportTicketSLA_organizationId_fkey') THEN
+    ALTER TABLE "SupportTicketSLA" ADD CONSTRAINT "SupportTicketSLA_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'SupportTicketSLA_ticketId_fkey') THEN
+    ALTER TABLE "SupportTicketSLA" ADD CONSTRAINT "SupportTicketSLA_ticketId_fkey" FOREIGN KEY ("ticketId") REFERENCES "SupportTicket"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'SupportTicketSLA_policyId_fkey') THEN
+    ALTER TABLE "SupportTicketSLA" ADD CONSTRAINT "SupportTicketSLA_policyId_fkey" FOREIGN KEY ("policyId") REFERENCES "SupportSLAPolicy"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'SupportSLAPause_organizationId_fkey') THEN
+    ALTER TABLE "SupportSLAPause" ADD CONSTRAINT "SupportSLAPause_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'SupportSLAPause_ticketSlaId_fkey') THEN
+    ALTER TABLE "SupportSLAPause" ADD CONSTRAINT "SupportSLAPause_ticketSlaId_fkey" FOREIGN KEY ("ticketSlaId") REFERENCES "SupportTicketSLA"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'SupportTicketComment_organizationId_fkey') THEN
+    ALTER TABLE "SupportTicketComment" ADD CONSTRAINT "SupportTicketComment_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'SupportTicketComment_ticketId_fkey') THEN
+    ALTER TABLE "SupportTicketComment" ADD CONSTRAINT "SupportTicketComment_ticketId_fkey" FOREIGN KEY ("ticketId") REFERENCES "SupportTicket"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'SupportTicketAuditLog_organizationId_fkey') THEN
+    ALTER TABLE "SupportTicketAuditLog" ADD CONSTRAINT "SupportTicketAuditLog_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'SupportTicketAuditLog_ticketId_fkey') THEN
+    ALTER TABLE "SupportTicketAuditLog" ADD CONSTRAINT "SupportTicketAuditLog_ticketId_fkey" FOREIGN KEY ("ticketId") REFERENCES "SupportTicket"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'SupportTicketIssueLink_organizationId_fkey') THEN
+    ALTER TABLE "SupportTicketIssueLink" ADD CONSTRAINT "SupportTicketIssueLink_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'SupportTicketIssueLink_ticketId_fkey') THEN
+    ALTER TABLE "SupportTicketIssueLink" ADD CONSTRAINT "SupportTicketIssueLink_ticketId_fkey" FOREIGN KEY ("ticketId") REFERENCES "SupportTicket"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'SupportTicketIssueLink_issueId_fkey') THEN
+    ALTER TABLE "SupportTicketIssueLink" ADD CONSTRAINT "SupportTicketIssueLink_issueId_fkey" FOREIGN KEY ("issueId") REFERENCES "Issue"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'SupportTicketTaskLink_organizationId_fkey') THEN
+    ALTER TABLE "SupportTicketTaskLink" ADD CONSTRAINT "SupportTicketTaskLink_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'SupportTicketTaskLink_ticketId_fkey') THEN
+    ALTER TABLE "SupportTicketTaskLink" ADD CONSTRAINT "SupportTicketTaskLink_ticketId_fkey" FOREIGN KEY ("ticketId") REFERENCES "SupportTicket"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'SupportTicketTaskLink_taskId_fkey') THEN
+    ALTER TABLE "SupportTicketTaskLink" ADD CONSTRAINT "SupportTicketTaskLink_taskId_fkey" FOREIGN KEY ("taskId") REFERENCES "Task"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END $$;
 
-ALTER TABLE "SupportSLAPolicy" ADD CONSTRAINT "SupportSLAPolicy_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-ALTER TABLE "SupportTicketSequence" ADD CONSTRAINT "SupportTicketSequence_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
-ALTER TABLE "SupportTicket" ADD CONSTRAINT "SupportTicket_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-ALTER TABLE "SupportTicket" ADD CONSTRAINT "SupportTicket_clientId_fkey" FOREIGN KEY ("clientId") REFERENCES "Client"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-ALTER TABLE "SupportTicket" ADD CONSTRAINT "SupportTicket_contactId_fkey" FOREIGN KEY ("contactId") REFERENCES "Contact"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-ALTER TABLE "SupportTicket" ADD CONSTRAINT "SupportTicket_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-ALTER TABLE "SupportTicket" ADD CONSTRAINT "SupportTicket_entitlementId_fkey" FOREIGN KEY ("entitlementId") REFERENCES "SupportEntitlement"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-ALTER TABLE "SupportTicket" ADD CONSTRAINT "SupportTicket_slaPolicyId_fkey" FOREIGN KEY ("slaPolicyId") REFERENCES "SupportSLAPolicy"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
-ALTER TABLE "SupportTicketSLA" ADD CONSTRAINT "SupportTicketSLA_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-ALTER TABLE "SupportTicketSLA" ADD CONSTRAINT "SupportTicketSLA_ticketId_fkey" FOREIGN KEY ("ticketId") REFERENCES "SupportTicket"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "SupportTicketSLA" ADD CONSTRAINT "SupportTicketSLA_policyId_fkey" FOREIGN KEY ("policyId") REFERENCES "SupportSLAPolicy"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
-ALTER TABLE "SupportSLAPause" ADD CONSTRAINT "SupportSLAPause_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-ALTER TABLE "SupportSLAPause" ADD CONSTRAINT "SupportSLAPause_ticketSlaId_fkey" FOREIGN KEY ("ticketSlaId") REFERENCES "SupportTicketSLA"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE "SupportTicketComment" ADD CONSTRAINT "SupportTicketComment_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-ALTER TABLE "SupportTicketComment" ADD CONSTRAINT "SupportTicketComment_ticketId_fkey" FOREIGN KEY ("ticketId") REFERENCES "SupportTicket"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE "SupportTicketAuditLog" ADD CONSTRAINT "SupportTicketAuditLog_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-ALTER TABLE "SupportTicketAuditLog" ADD CONSTRAINT "SupportTicketAuditLog_ticketId_fkey" FOREIGN KEY ("ticketId") REFERENCES "SupportTicket"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE "SupportTicketIssueLink" ADD CONSTRAINT "SupportTicketIssueLink_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-ALTER TABLE "SupportTicketIssueLink" ADD CONSTRAINT "SupportTicketIssueLink_ticketId_fkey" FOREIGN KEY ("ticketId") REFERENCES "SupportTicket"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "SupportTicketIssueLink" ADD CONSTRAINT "SupportTicketIssueLink_issueId_fkey" FOREIGN KEY ("issueId") REFERENCES "Issue"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE "SupportTicketTaskLink" ADD CONSTRAINT "SupportTicketTaskLink_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-ALTER TABLE "SupportTicketTaskLink" ADD CONSTRAINT "SupportTicketTaskLink_ticketId_fkey" FOREIGN KEY ("ticketId") REFERENCES "SupportTicket"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "SupportTicketTaskLink" ADD CONSTRAINT "SupportTicketTaskLink_taskId_fkey" FOREIGN KEY ("taskId") REFERENCES "Task"("id") ON DELETE CASCADE ON UPDATE CASCADE;

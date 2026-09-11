@@ -6,6 +6,7 @@ import { logItemCreated, logItemUpdated } from "@/lib/user-log";
 import { revalidateBothPaths } from "@/lib/route-utils-server";
 import { Prisma, PayrollStatus } from "@prisma/client";
 import { hasPermission } from "@/lib/permissions";
+import { getEmployeePolicies } from "@/lib/hr/policy-evaluator";
 import { createVoucher, postVoucher, cancelVoucher } from "../../../accounts/vouchers/_actions/voucher.action";
 
 /**
@@ -60,15 +61,16 @@ export async function generatePayroll(month: number, year: number) {
     // Group attendance by employee
     const attendanceByEmployee = attendanceRecords.reduce((acc, curr) => {
       if (!acc[curr.employeeId]) {
-        acc[curr.employeeId] = { absentDays: 0, otHours: 0 };
+        acc[curr.employeeId] = { absentDays: 0, otHours: 0, lateCount: 0, tiffinBill: 0, nightBill: 0, holidayBill: 0 };
       }
       
       if (curr.status === "ABSENT") {
         acc[curr.employeeId].absentDays += 1;
       } else if (curr.status === "HALF_DAY") {
         acc[curr.employeeId].absentDays += 0.5;
+      } else if (curr.status === "LATE") {
+        acc[curr.employeeId].lateCount += 1;
       } else if (curr.status === "LEAVE") {
-        // Only deduct if leave is unpaid
         const isPaid = curr.leaveApplication?.leaveType?.isPaid ?? true;
         if (!isPaid) {
           acc[curr.employeeId].absentDays += 1;
@@ -76,8 +78,11 @@ export async function generatePayroll(month: number, year: number) {
       }
       
       acc[curr.employeeId].otHours += Number(curr.otHours) || 0;
+      acc[curr.employeeId].tiffinBill += Number(curr.tiffinBill) || 0;
+      acc[curr.employeeId].nightBill += Number(curr.nightBill) || 0;
+      acc[curr.employeeId].holidayBill += Number(curr.holidayBill) || 0;
       return acc;
-    }, {} as Record<string, { absentDays: number; otHours: number }>);
+    }, {} as Record<string, { absentDays: number; otHours: number; lateCount: number; tiffinBill: number; nightBill: number; holidayBill: number }>);
 
     // Fetch active loans
     const loans = await prisma.employeeLoan.findMany({
@@ -98,45 +103,68 @@ export async function generatePayroll(month: number, year: number) {
     let grandTotalAmount = 0;
 
     for (const emp of employees) {
-      const basic = Number(emp.salary) || 0;
-      if (basic <= 0) continue; // Skip if no salary setup
+      const gross = Number(emp.salary) || 0;
+      if (gross <= 0) continue; // Skip if no salary setup
 
-      const houseRent = 0;
-      const medical = 0;
-      const transport = 0;
-      const foodAllowance = 0;
+      // Resolve dynamic policies per employeeType
+      const policies = await getEmployeePolicies(emp.employeeTypeId, emp.organizationId);
 
-      // Attendance values
-      const att = attendanceByEmployee[emp.id] || { absentDays: 0, otHours: 0 };
-      
-      // Calculate OT Amount (Basic / days / 8 * 1.5 * otHours) - Assuming standard rate
-      const hourlyRate = (basic / daysInMonth) / 8;
-      const otRate = hourlyRate * 1.5;
-      const otAmount = att.otHours * otRate;
+      // Basic Salary & Allowances split based on SalaryStructurePolicy
+      const basic = gross * (policies.salaryStructure.basicRatio / 100);
+      const houseRent = gross * (policies.salaryStructure.houseRentRatio / 100);
+      const medical = gross * (policies.salaryStructure.medicalRatio / 100);
+      const transport = gross * (policies.salaryStructure.transportRatio / 100);
+      const foodAllowance = gross * (policies.salaryStructure.foodRatio / 100);
+
+      // Attendance values & shift allowances
+      const att = attendanceByEmployee[emp.id] || { absentDays: 0, otHours: 0, lateCount: 0, tiffinBill: 0, nightBill: 0, holidayBill: 0 };
+
+      // Calculate Overtime Amount
+      const divisor = policies.settings.workingDaysDivisor || daysInMonth;
+      const hourlyRate = (basic / divisor) / 8;
+      const otMultiplier = policies.overtime.multiplier || 1.5;
+      const otAmount = policies.overtime.isEligible ? (att.otHours * hourlyRate * otMultiplier) : 0;
+
+      // Shift Allowances
+      const tiffinBill = att.tiffinBill;
+      const nightBill = att.nightBill;
+      const holidayBill = att.holidayBill;
+
+      // Late Penalties & Late-to-Absent Conversion
+      let lateDeduction = 0;
+      let extraAbsentFromLate = 0;
+      if (policies.late.lateToAbsentRatio > 0 && att.lateCount >= policies.late.lateToAbsentRatio) {
+        extraAbsentFromLate = Math.floor(att.lateCount / policies.late.lateToAbsentRatio);
+      }
 
       // Calculate Absent Deduction
-      const dailyRate = basic / daysInMonth;
-      const absentDeduction = att.absentDays * dailyRate;
+      const dailyRate = basic / divisor;
+      const totalAbsentDays = att.absentDays + extraAbsentFromLate;
+      const absentDeduction = totalAbsentDays * dailyRate;
+
+      // Attendance Bonus Calculation
+      let attendanceBonus = 0;
+      if (policies.attendanceBonus.bonusAmount > 0 && totalAbsentDays === 0) {
+        if (!policies.late.forfeitBonusOnLate || att.lateCount <= policies.attendanceBonus.maxLateDays) {
+          attendanceBonus = policies.attendanceBonus.bonusAmount;
+        }
+      }
 
       // Calculate Loan Deduction
       let loanDeduction = 0;
       const empLoans = loansByEmployee[emp.id] || [];
       for (const loan of empLoans) {
-        // Take monthly installment, but cap it at remaining balance
         const deduction = Math.min(Number(loan.monthlyInstallment), Number(loan.remainingBalance));
         loanDeduction += deduction;
       }
 
-      // Calculate Tax & PF (based on basic) - Default to 0 for now as percentages aren't in schema
-      const taxPercentage = 0;
-      const pfPercentage = 0;
-      
-      const taxDeduction = basic * (taxPercentage / 100);
-      const pfDeduction = basic * (pfPercentage / 100);
+      const taxDeduction = 0;
+      const pfDeduction = 0;
 
-      const grossPay = basic + houseRent + medical + transport + foodAllowance + otAmount;
-      const totalDeduction = absentDeduction + loanDeduction + taxDeduction + pfDeduction;
-      const netPay = grossPay - totalDeduction;
+      const totalAllowances = otAmount + tiffinBill + nightBill + holidayBill + attendanceBonus;
+      const totalGrossPay = gross + totalAllowances;
+      const totalDeduction = absentDeduction + lateDeduction + loanDeduction + taxDeduction + pfDeduction;
+      const netPay = totalGrossPay - totalDeduction;
 
       grandTotalAmount += netPay;
 
@@ -148,9 +176,14 @@ export async function generatePayroll(month: number, year: number) {
         transport,
         foodAllowance,
         otAmount,
-        bonus: 0, // Bonus handled separately if needed
-        grossPay,
+        tiffinBill,
+        nightBill,
+        holidayBill,
+        bonus: 0,
+        attendanceBonus,
+        grossPay: totalGrossPay,
         absentDeduction,
+        lateDeduction,
         loanDeduction,
         taxDeduction,
         pfDeduction,

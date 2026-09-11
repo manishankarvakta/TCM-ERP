@@ -156,6 +156,7 @@ export async function getTrialBalance(date: Date | string) {
 
 /**
  * Get Balance Sheet - Financial position (Assets = Liabilities + Equity) as of a specific date
+ * Returns hierarchical account tree with parentId/children for collapsible display
  */
 export async function getBalanceSheet(date: Date | string) {
   try {
@@ -210,154 +211,118 @@ export async function getBalanceSheet(date: Date | string) {
       lte: endOfDay,
     };
 
-    // Get ASSET accounts
-    const assetAccounts = await prisma.chartOfAccount.findMany({
-      where: {
-        status: "active",
-        type: AccountType.ASSET,
-      },
-      select: {
-        id: true,
-        code: true,
-        name: true,
-      },
-      orderBy: {
-        code: "asc",
-      },
-    });
+    // Helper to build hierarchical account tree for a given type
+    async function buildAccountTree(type: AccountType, normalBalance: "debit" | "credit") {
+      // Fetch all accounts of this type
+      const allAccounts = await prisma.chartOfAccount.findMany({
+        where: { status: "active", type },
+        select: { id: true, code: true, name: true, parentId: true },
+        orderBy: { code: "asc" },
+      });
 
-    // Get LIABILITY accounts
-    const liabilityAccounts = await prisma.chartOfAccount.findMany({
-      where: {
-        status: "active",
-        type: AccountType.LIABILITY,
-      },
-      select: {
-        id: true,
-        code: true,
-        name: true,
-      },
-      orderBy: {
-        code: "asc",
-      },
-    });
+      // Calculate balance for each account
+      const accountsWithBalance = await Promise.all(
+        allAccounts.map(async (account) => {
+          const bal = await calculateAccountBalance(account.id, dateFilter);
+          const displayBalance = normalBalance === "credit" ? -bal.balance : bal.balance;
+          return {
+            id: account.id,
+            code: account.code,
+            name: account.name,
+            parentId: account.parentId,
+            balance: displayBalance,
+            children: [] as {
+              id: string;
+              code: string;
+              name: string;
+              parentId: string | null;
+              balance: number;
+              children: unknown[];
+            }[],
+          };
+        })
+      );
 
-    // Get EQUITY accounts
-    const equityAccounts = await prisma.chartOfAccount.findMany({
-      where: {
-        status: "active",
-        type: AccountType.EQUITY,
-      },
-      select: {
-        id: true,
-        code: true,
-        name: true,
-      },
-      orderBy: {
-        code: "asc",
-      },
-    });
+      // Build tree structure
+      const map = new Map(accountsWithBalance.map((a) => [a.id, a]));
+      const roots: typeof accountsWithBalance = [];
 
-    // Get REVENUE and EXPENSE accounts for Net Income calculation
+      for (const acc of accountsWithBalance) {
+        if (acc.parentId && map.has(acc.parentId)) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (map.get(acc.parentId) as any).children.push(acc);
+        } else {
+          roots.push(acc);
+        }
+      }
+
+      // Compute rolled-up totals for parent nodes (sum of self + all descendants)
+      function computeTotal(node: typeof accountsWithBalance[0]): number {
+        if (node.children.length === 0) return node.balance;
+        const childrenTotal = node.children.reduce((sum, child) => sum + computeTotal(child as typeof accountsWithBalance[0]), 0);
+        // Parent balance = its own journal balance + children's totals
+        return node.balance + childrenTotal;
+      }
+
+      // Enrich nodes with rollup total
+      const enriched = roots.map((root) => ({
+        ...root,
+        total: computeTotal(root),
+      }));
+
+      const grandTotal = enriched.reduce((sum, r) => sum + r.total, 0);
+      return { roots: enriched, grandTotal };
+    }
+
+    const [assetTree, liabilityTree, equityTree] = await Promise.all([
+      buildAccountTree(AccountType.ASSET, "debit"),
+      buildAccountTree(AccountType.LIABILITY, "credit"),
+      buildAccountTree(AccountType.EQUITY, "credit"),
+    ]);
+
+    // Net Income (Revenue - Expenses)
     const revenueAccounts = await prisma.chartOfAccount.findMany({
-      where: {
-        status: "active",
-        type: AccountType.REVENUE,
-      },
-      select: {
-        id: true,
-      },
+      where: { status: "active", type: AccountType.REVENUE },
+      select: { id: true },
     });
-
     const expenseAccounts = await prisma.chartOfAccount.findMany({
-      where: {
-        status: "active",
-        type: AccountType.EXPENSE,
-      },
-      select: {
-        id: true,
-      },
+      where: { status: "active", type: AccountType.EXPENSE },
+      select: { id: true },
     });
 
-    // Calculate balances for ASSET accounts (debit - credit)
-    const assetBalances = await Promise.all(
-      assetAccounts.map(async (account) => {
-        const balance = await calculateAccountBalance(account.id, dateFilter);
-        return {
-          id: account.id,
-          code: account.code,
-          name: account.name,
-          balance: balance.balance, // debit - credit (ASSET normal balance is debit)
-        };
-      })
-    );
-
-    // Calculate balances for LIABILITY accounts (credit - debit, since normal balance is credit)
-    const liabilityBalances = await Promise.all(
-      liabilityAccounts.map(async (account) => {
-        const balance = await calculateAccountBalance(account.id, dateFilter);
-        return {
-          id: account.id,
-          code: account.code,
-          name: account.name,
-          balance: -balance.balance, // credit - debit (LIABILITY normal balance is credit)
-        };
-      })
-    );
-
-    // Calculate balances for EQUITY accounts (credit - debit, since normal balance is credit)
-    const equityBalances = await Promise.all(
-      equityAccounts.map(async (account) => {
-        const balance = await calculateAccountBalance(account.id, dateFilter);
-        return {
-          id: account.id,
-          code: account.code,
-          name: account.name,
-          balance: -balance.balance, // credit - debit (EQUITY normal balance is credit)
-        };
-      })
-    );
-
-    // Calculate Net Income (Revenue - Expenses) up to date
     let totalRevenue = 0;
     let totalExpenses = 0;
 
     for (const account of revenueAccounts) {
-      const balance = await calculateAccountBalance(account.id, dateFilter);
-      // Revenue normal balance is credit, so credit - debit
-      totalRevenue += balance.credit - balance.debit;
+      const bal = await calculateAccountBalance(account.id, dateFilter);
+      totalRevenue += bal.credit - bal.debit;
     }
-
     for (const account of expenseAccounts) {
-      const balance = await calculateAccountBalance(account.id, dateFilter);
-      // Expense normal balance is debit, so debit - credit
-      totalExpenses += balance.debit - balance.credit;
+      const bal = await calculateAccountBalance(account.id, dateFilter);
+      totalExpenses += bal.debit - bal.credit;
     }
 
     const netIncome = totalRevenue - totalExpenses;
 
-    // Calculate totals
-    const assetsTotal = assetBalances.reduce((sum, acc) => sum + acc.balance, 0);
-    const liabilitiesTotal = liabilityBalances.reduce((sum, acc) => sum + acc.balance, 0);
-    const equityTotal = equityBalances.reduce((sum, acc) => sum + acc.balance, 0) + netIncome;
-
-    // Validate: Assets = Liabilities + Equity
+    const assetsTotal = assetTree.grandTotal;
+    const liabilitiesTotal = liabilityTree.grandTotal;
+    const equityTotal = equityTree.grandTotal + netIncome;
     const difference = Math.abs(assetsTotal - (liabilitiesTotal + equityTotal));
-    const isBalanced = difference < 0.01; // Allow small floating point differences
+    const isBalanced = difference < 0.01;
 
     return {
       success: true,
       date: reportDate,
       assets: {
-        accounts: assetBalances.filter((acc) => acc.balance !== 0),
+        accounts: assetTree.roots,
         total: assetsTotal,
       },
       liabilities: {
-        accounts: liabilityBalances.filter((acc) => acc.balance !== 0),
+        accounts: liabilityTree.roots,
         total: liabilitiesTotal,
       },
       equity: {
-        accounts: equityBalances.filter((acc) => acc.balance !== 0),
+        accounts: equityTree.roots,
         netIncome,
         total: equityTotal,
       },

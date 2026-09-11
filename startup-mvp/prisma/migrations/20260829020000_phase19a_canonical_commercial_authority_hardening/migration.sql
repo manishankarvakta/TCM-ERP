@@ -1,3 +1,4 @@
 -- AlterTable
-ALTER TABLE "ChangeRequest" ADD COLUMN "baselineSourceType" TEXT DEFAULT 'PROJECT_BUDGET',
-ADD COLUMN "baselineSourceId" TEXT;
+ALTER TABLE "ChangeRequest" ADD COLUMN IF NOT EXISTS "baselineSourceType" TEXT DEFAULT 'PROJECT_BUDGET',
+ADD COLUMN IF NOT EXISTS "baselineSourceId" TEXT;
+

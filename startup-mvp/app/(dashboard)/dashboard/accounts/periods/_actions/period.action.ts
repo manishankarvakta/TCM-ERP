@@ -9,12 +9,13 @@ import { createUserLog, LogAction } from "@/lib/user-log";
 /**
  * List all accounting periods
  */
-export async function listPeriods() {
+export async function listPeriods(organizationId?: string) {
   try {
     const session = await auth();
     if (!session?.user) return { success: false, error: "Unauthorized" };
 
-    const periods = await (prisma as any).accountingPeriod.findMany({
+    const periods = await prisma.accountingPeriod.findMany({
+      where: organizationId ? { organizationId } : undefined,
       orderBy: { startDate: "desc" },
     });
 
@@ -29,9 +30,10 @@ export async function listPeriods() {
  * Create a new accounting period
  */
 export async function createPeriod(input: {
-  name: string;
+  periodName: string;
   startDate: Date;
   endDate: Date;
+  organizationId?: string;
 }) {
   try {
     const session = await auth();
@@ -40,18 +42,21 @@ export async function createPeriod(input: {
     const canCreate = await hasPermission(session.user.id, "accounts.periods", "create");
     if (!canCreate) return { success: false, error: "Unauthorized" };
 
-    const period = await (prisma as any).accountingPeriod.create({
+    const orgId = input.organizationId || (session.user as any).organizationId || "default";
+
+    const period = await prisma.accountingPeriod.create({
       data: {
-        name: input.name,
+        periodName: input.periodName,
         startDate: input.startDate,
         endDate: input.endDate,
+        organizationId: orgId,
       },
     });
 
     await createUserLog({
       userId: session.user.id,
       action: LogAction.ITEM_CREATED,
-      details: `Created accounting period: ${period.name}`,
+      details: `Created accounting period: ${period.periodName}`,
     });
 
     revalidateBothPaths("accounts/periods");
@@ -73,17 +78,17 @@ export async function lockPeriod(id: string) {
     const canLock = await hasPermission(session.user.id, "accounts.periods", "create");
     if (!canLock) return { success: false, error: "Unauthorized" };
 
-    const period = await (prisma as any).accountingPeriod.update({
+    const period = await prisma.accountingPeriod.update({
       where: { id },
       data: {
-        isLocked: true,
-        lockedAt: new Date(),
-        lockedBy: session.user.id,
+        isClosed: true,
+        closedAt: new Date(),
+        closedBy: session.user.id,
       },
     });
 
     // Optionally lock all vouchers in this period
-    await (prisma as any).voucher.updateMany({
+    await prisma.voucher.updateMany({
       where: {
         date: {
           gte: period.startDate,
@@ -96,7 +101,7 @@ export async function lockPeriod(id: string) {
     await createUserLog({
       userId: session.user.id,
       action: LogAction.CUSTOM,
-      details: `Locked accounting period: ${period.name}`,
+      details: `Locked accounting period: ${period.periodName}`,
     });
 
     revalidateBothPaths("accounts/periods");
@@ -118,17 +123,17 @@ export async function unlockPeriod(id: string) {
     const canUnlock = await hasPermission(session.user.id, "accounts.periods", "create");
     if (!canUnlock) return { success: false, error: "Unauthorized" };
 
-    const period = await (prisma as any).accountingPeriod.update({
+    const period = await prisma.accountingPeriod.update({
       where: { id },
       data: {
-        isLocked: false,
-        lockedAt: null,
-        lockedBy: null,
+        isClosed: false,
+        closedAt: null,
+        closedBy: null,
       },
     });
 
     // Optionally unlock all vouchers in this period
-    await (prisma as any).voucher.updateMany({
+    await prisma.voucher.updateMany({
       where: {
         date: {
           gte: period.startDate,
@@ -141,7 +146,7 @@ export async function unlockPeriod(id: string) {
     await createUserLog({
       userId: session.user.id,
       action: LogAction.CUSTOM,
-      details: `Unlocked accounting period: ${period.name}`,
+      details: `Unlocked accounting period: ${period.periodName}`,
     });
 
     revalidateBothPaths("accounts/periods");
@@ -155,16 +160,24 @@ export async function unlockPeriod(id: string) {
 /**
  * Helper to check if a date falls within a locked accounting period
  */
-export async function isPeriodLocked(date: Date | string): Promise<boolean> {
-  const checkDate = typeof date === "string" ? new Date(date) : date;
-  
-  const lockedPeriod = await (prisma as any).accountingPeriod.findFirst({
-    where: {
-      startDate: { lte: checkDate },
-      endDate: { gte: checkDate },
-      isLocked: true,
-    },
-  });
+export async function isPeriodLocked(date: Date | string, organizationId?: string): Promise<boolean> {
+  try {
+    const checkDate = typeof date === "string" ? new Date(date) : date;
+    if (isNaN(checkDate.getTime())) return false;
 
-  return !!lockedPeriod;
+    const lockedPeriod = await prisma.accountingPeriod.findFirst({
+      where: {
+        startDate: { lte: checkDate },
+        endDate: { gte: checkDate },
+        isClosed: true,
+        ...(organizationId ? { organizationId } : {}),
+      },
+    });
+
+    return !!lockedPeriod;
+  } catch (error) {
+    console.error("isPeriodLocked error:", error);
+    return false;
+  }
 }
+

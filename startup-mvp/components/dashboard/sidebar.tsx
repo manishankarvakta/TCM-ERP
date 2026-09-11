@@ -173,6 +173,20 @@ function isRouteActive(pathname: string | null, href?: string, siblingHrefs?: st
   return false;
 }
 
+// Helper to recursively collect all hrefs from subMenu and its nested children
+function getAllSubMenuHrefs(subMenu: SubMenuItemData[]): string[] {
+  const hrefs: string[] = [];
+  subMenu.forEach((item) => {
+    if (item.href) hrefs.push(item.href);
+    if (item.children) {
+      item.children.forEach((child) => {
+        if (child.href) hrefs.push(child.href);
+      });
+    }
+  });
+  return hrefs;
+}
+
 // Helper to find which menu should be expanded for a given pathname (returns null for /dashboard and /admin)
 function findActiveMenu(pathname: string | null, menuItems: MenuItemData[]): string | null {
   if (!pathname || pathname === "/dashboard" || pathname === "/admin") {
@@ -180,11 +194,11 @@ function findActiveMenu(pathname: string | null, menuItems: MenuItemData[]): str
   }
   for (const item of menuItems) {
     if (item.subMenu) {
-      const siblingHrefs = item.subMenu.map((s) => s.href);
+      const siblingHrefs = getAllSubMenuHrefs(item.subMenu);
       const hasActiveChild = item.subMenu.some((subItem) => {
         if (isRouteActive(pathname, subItem.href, siblingHrefs)) return true;
         if (subItem.children && subItem.children.length > 0) {
-          return subItem.children.some((child) => isRouteActive(pathname, child.href));
+          return subItem.children.some((child) => isRouteActive(pathname, child.href, siblingHrefs));
         }
         return false;
       });
@@ -212,7 +226,7 @@ export default function DashboardSidebar({
   const activeMenuFromRoute = findActiveMenu(pathname, menuItems);
 
   const [toggledMenu, setToggledMenu] = useState<{ path: string | null; label: string | null }>({
-    path: pathname,
+    path: null,
     label: null,
   });
 
@@ -237,6 +251,26 @@ export default function DashboardSidebar({
     return expanded;
   });
 
+  useEffect(() => {
+    const nextExpanded = new Set<string>();
+    const siblingHrefs = menuItems.flatMap((item) => item.subMenu ? getAllSubMenuHrefs(item.subMenu) : []);
+    menuItems.forEach((item) => {
+      if (item.subMenu) {
+        item.subMenu.forEach((subItem) => {
+          if (subItem.children) {
+            const hasActiveChild = subItem.children.some((child) =>
+              isRouteActive(pathname, child.href, siblingHrefs)
+            );
+            if (hasActiveChild) {
+              nextExpanded.add(subItem.label);
+            }
+          }
+        });
+      }
+    });
+    setExpandedSubItems(nextExpanded);
+  }, [pathname, menuItems]);
+
   const toggleMenu = (label: string) => {
     setToggledMenu((prev) => {
       const current = prev.path === pathname ? prev.label : activeMenuFromRoute;
@@ -250,11 +284,11 @@ export default function DashboardSidebar({
   const isMenuExpanded = (label: string) => openMenuLabel === label;
 
   const isSubMenuActive = (subMenu: SubMenuItemData[]) => {
-    const siblingHrefs = subMenu.map((s) => s.href);
+    const siblingHrefs = getAllSubMenuHrefs(subMenu);
     return subMenu.some((subItem) => {
       if (isRouteActive(pathname, subItem.href, siblingHrefs)) return true;
       if (subItem.children && subItem.children.length > 0) {
-        return subItem.children.some((child) => isRouteActive(pathname, child.href));
+        return subItem.children.some((child) => isRouteActive(pathname, child.href, siblingHrefs));
       }
       return false;
     });
@@ -336,7 +370,7 @@ export default function DashboardSidebar({
                 {isExpanded && (
                   <div className="ml-4 mt-1 space-y-1 border-l pl-3">
                     {(() => {
-                      const siblingHrefs = item.subMenu.map((s) => s.href);
+                      const siblingHrefs = getAllSubMenuHrefs(item.subMenu);
                       return item.subMenu.map((subItem) => {
                         const SubIcon = ICON_MAP[subItem.icon] || FiFile;
 
@@ -364,7 +398,7 @@ export default function DashboardSidebar({
                                 }}
                                 className={cn(
                                   "flex w-full items-center justify-between gap-3 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-                                  isChildActive || isRouteActive(pathname, subItem.href, siblingHrefs)
+                                  isChildActive || (subItem.href && isRouteActive(pathname, subItem.href, siblingHrefs))
                                     ? "bg-accent/70 text-accent-foreground font-semibold"
                                     : "text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground"
                                 )}
@@ -385,7 +419,7 @@ export default function DashboardSidebar({
                                   {subItem.children.map((child) => {
                                     const ChildIcon =
                                       ICON_MAP[child.icon] || FiFile;
-                                    const isActiveChild = isRouteActive(pathname, child.href);
+                                    const isActiveChild = isRouteActive(pathname, child.href, siblingHrefs);
 
                                     return (
                                       <Link
@@ -413,6 +447,7 @@ export default function DashboardSidebar({
                         }
 
                         // Standard single link item
+                        if (!subItem.href) return null;
                         const isActive = isRouteActive(pathname, subItem.href, siblingHrefs);
                         return (
                           <Link

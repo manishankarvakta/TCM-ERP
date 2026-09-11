@@ -181,6 +181,31 @@ export default function PayrollDetailsClient({
         </div>
       </div>
 
+      {/* 5-Step Visual Workflow Stepper */}
+      <Card className="p-4 bg-muted/30 border-muted">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-medium">
+          {[
+            { label: "1. Draft Generated", done: true },
+            { label: "2. Recalculated & Reviewed", done: ["REVIEWED", "APPROVED", "POSTED"].includes(payroll.status) },
+            { label: "3. Approved", done: ["APPROVED", "POSTED"].includes(payroll.status) },
+            { label: "4. Posted to GL", done: payroll.status === "POSTED" },
+            { label: "5. Disbursed (Paid)", done: Boolean(payroll.paymentVchId) },
+          ].map((step, idx) => (
+            <div key={idx} className="flex items-center gap-2">
+              <div className={`h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                step.done ? "bg-emerald-600 text-white" : "bg-muted text-muted-foreground border border-muted-foreground/30"
+              }`}>
+                {step.done ? "✓" : idx + 1}
+              </div>
+              <span className={step.done ? "text-foreground font-semibold" : "text-muted-foreground"}>
+                {step.label}
+              </span>
+              {idx < 4 && <div className="hidden sm:block h-[2px] w-8 bg-muted-foreground/20" />}
+            </div>
+          ))}
+        </div>
+      </Card>
+
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="pb-2">

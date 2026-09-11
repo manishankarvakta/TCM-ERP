@@ -1,5 +1,5 @@
 -- CreateTable
-CREATE TABLE "PortalUser" (
+CREATE TABLE IF NOT EXISTS "PortalUser" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
     "clientId" TEXT NOT NULL,
@@ -13,7 +13,7 @@ CREATE TABLE "PortalUser" (
 );
 
 -- CreateTable
-CREATE TABLE "PortalInvitation" (
+CREATE TABLE IF NOT EXISTS "PortalInvitation" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "clientId" TEXT NOT NULL,
@@ -28,7 +28,7 @@ CREATE TABLE "PortalInvitation" (
 );
 
 -- CreateTable
-CREATE TABLE "PortalFileShare" (
+CREATE TABLE IF NOT EXISTS "PortalFileShare" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "fileId" TEXT NOT NULL,
@@ -42,7 +42,7 @@ CREATE TABLE "PortalFileShare" (
 );
 
 -- CreateTable
-CREATE TABLE "ClientAcceptance" (
+CREATE TABLE IF NOT EXISTS "ClientAcceptance" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "clientId" TEXT NOT NULL,
@@ -58,91 +58,97 @@ CREATE TABLE "ClientAcceptance" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "PortalUser_userId_key" ON "PortalUser"("userId");
+CREATE UNIQUE INDEX IF NOT EXISTS "PortalUser_userId_key" ON "PortalUser"("userId");
 
 -- CreateIndex
-CREATE INDEX "PortalUser_userId_idx" ON "PortalUser"("userId");
+CREATE INDEX IF NOT EXISTS "PortalUser_userId_idx" ON "PortalUser"("userId");
 
 -- CreateIndex
-CREATE INDEX "PortalUser_clientId_idx" ON "PortalUser"("clientId");
+CREATE INDEX IF NOT EXISTS "PortalUser_clientId_idx" ON "PortalUser"("clientId");
 
 -- CreateIndex
-CREATE INDEX "PortalUser_organizationId_idx" ON "PortalUser"("organizationId");
+CREATE INDEX IF NOT EXISTS "PortalUser_organizationId_idx" ON "PortalUser"("organizationId");
 
 -- CreateIndex
-CREATE INDEX "PortalUser_status_idx" ON "PortalUser"("status");
+CREATE INDEX IF NOT EXISTS "PortalUser_status_idx" ON "PortalUser"("status");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "PortalInvitation_tokenHash_key" ON "PortalInvitation"("tokenHash");
+CREATE UNIQUE INDEX IF NOT EXISTS "PortalInvitation_tokenHash_key" ON "PortalInvitation"("tokenHash");
 
 -- CreateIndex
-CREATE INDEX "PortalInvitation_organizationId_idx" ON "PortalInvitation"("organizationId");
+CREATE INDEX IF NOT EXISTS "PortalInvitation_organizationId_idx" ON "PortalInvitation"("organizationId");
 
 -- CreateIndex
-CREATE INDEX "PortalInvitation_clientId_idx" ON "PortalInvitation"("clientId");
+CREATE INDEX IF NOT EXISTS "PortalInvitation_clientId_idx" ON "PortalInvitation"("clientId");
 
 -- CreateIndex
-CREATE INDEX "PortalInvitation_email_idx" ON "PortalInvitation"("email");
+CREATE INDEX IF NOT EXISTS "PortalInvitation_email_idx" ON "PortalInvitation"("email");
 
 -- CreateIndex
-CREATE INDEX "PortalInvitation_status_idx" ON "PortalInvitation"("status");
+CREATE INDEX IF NOT EXISTS "PortalInvitation_status_idx" ON "PortalInvitation"("status");
 
 -- CreateIndex
-CREATE INDEX "PortalFileShare_organizationId_idx" ON "PortalFileShare"("organizationId");
+CREATE INDEX IF NOT EXISTS "PortalFileShare_organizationId_idx" ON "PortalFileShare"("organizationId");
 
 -- CreateIndex
-CREATE INDEX "PortalFileShare_fileId_idx" ON "PortalFileShare"("fileId");
+CREATE INDEX IF NOT EXISTS "PortalFileShare_fileId_idx" ON "PortalFileShare"("fileId");
 
 -- CreateIndex
-CREATE INDEX "PortalFileShare_clientId_idx" ON "PortalFileShare"("clientId");
+CREATE INDEX IF NOT EXISTS "PortalFileShare_clientId_idx" ON "PortalFileShare"("clientId");
 
 -- CreateIndex
-CREATE INDEX "PortalFileShare_projectId_idx" ON "PortalFileShare"("projectId");
+CREATE INDEX IF NOT EXISTS "PortalFileShare_projectId_idx" ON "PortalFileShare"("projectId");
 
 -- CreateIndex
-CREATE INDEX "ClientAcceptance_organizationId_idx" ON "ClientAcceptance"("organizationId");
+CREATE INDEX IF NOT EXISTS "ClientAcceptance_organizationId_idx" ON "ClientAcceptance"("organizationId");
 
 -- CreateIndex
-CREATE INDEX "ClientAcceptance_clientId_idx" ON "ClientAcceptance"("clientId");
+CREATE INDEX IF NOT EXISTS "ClientAcceptance_clientId_idx" ON "ClientAcceptance"("clientId");
 
 -- CreateIndex
-CREATE INDEX "ClientAcceptance_portalUserId_idx" ON "ClientAcceptance"("portalUserId");
+CREATE INDEX IF NOT EXISTS "ClientAcceptance_portalUserId_idx" ON "ClientAcceptance"("portalUserId");
 
 -- CreateIndex
-CREATE INDEX "ClientAcceptance_artifactType_artifactId_idx" ON "ClientAcceptance"("artifactType", "artifactId");
+CREATE INDEX IF NOT EXISTS "ClientAcceptance_artifactType_artifactId_idx" ON "ClientAcceptance"("artifactType", "artifactId");
 
 -- AddForeignKey
-ALTER TABLE "PortalUser" ADD CONSTRAINT "PortalUser_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'PortalUser_userId_fkey') THEN
+    ALTER TABLE "PortalUser" ADD CONSTRAINT "PortalUser_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'PortalUser_clientId_fkey') THEN
+    ALTER TABLE "PortalUser" ADD CONSTRAINT "PortalUser_clientId_fkey" FOREIGN KEY ("clientId") REFERENCES "Client"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'PortalUser_organizationId_fkey') THEN
+    ALTER TABLE "PortalUser" ADD CONSTRAINT "PortalUser_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'PortalInvitation_clientId_fkey') THEN
+    ALTER TABLE "PortalInvitation" ADD CONSTRAINT "PortalInvitation_clientId_fkey" FOREIGN KEY ("clientId") REFERENCES "Client"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'PortalInvitation_organizationId_fkey') THEN
+    ALTER TABLE "PortalInvitation" ADD CONSTRAINT "PortalInvitation_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'PortalFileShare_fileId_fkey') THEN
+    ALTER TABLE "PortalFileShare" ADD CONSTRAINT "PortalFileShare_fileId_fkey" FOREIGN KEY ("fileId") REFERENCES "File"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'PortalFileShare_clientId_fkey') THEN
+    ALTER TABLE "PortalFileShare" ADD CONSTRAINT "PortalFileShare_clientId_fkey" FOREIGN KEY ("clientId") REFERENCES "Client"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'PortalFileShare_projectId_fkey') THEN
+    ALTER TABLE "PortalFileShare" ADD CONSTRAINT "PortalFileShare_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'PortalFileShare_organizationId_fkey') THEN
+    ALTER TABLE "PortalFileShare" ADD CONSTRAINT "PortalFileShare_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ClientAcceptance_organizationId_fkey') THEN
+    ALTER TABLE "ClientAcceptance" ADD CONSTRAINT "ClientAcceptance_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ClientAcceptance_clientId_fkey') THEN
+    ALTER TABLE "ClientAcceptance" ADD CONSTRAINT "ClientAcceptance_clientId_fkey" FOREIGN KEY ("clientId") REFERENCES "Client"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ClientAcceptance_portalUserId_fkey') THEN
+    ALTER TABLE "ClientAcceptance" ADD CONSTRAINT "ClientAcceptance_portalUserId_fkey" FOREIGN KEY ("portalUserId") REFERENCES "PortalUser"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END $$;
 
--- AddForeignKey
-ALTER TABLE "PortalUser" ADD CONSTRAINT "PortalUser_clientId_fkey" FOREIGN KEY ("clientId") REFERENCES "Client"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "PortalUser" ADD CONSTRAINT "PortalUser_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "PortalInvitation" ADD CONSTRAINT "PortalInvitation_clientId_fkey" FOREIGN KEY ("clientId") REFERENCES "Client"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "PortalInvitation" ADD CONSTRAINT "PortalInvitation_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "PortalFileShare" ADD CONSTRAINT "PortalFileShare_fileId_fkey" FOREIGN KEY ("fileId") REFERENCES "File"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "PortalFileShare" ADD CONSTRAINT "PortalFileShare_clientId_fkey" FOREIGN KEY ("clientId") REFERENCES "Client"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "PortalFileShare" ADD CONSTRAINT "PortalFileShare_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "PortalFileShare" ADD CONSTRAINT "PortalFileShare_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "ClientAcceptance" ADD CONSTRAINT "ClientAcceptance_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "ClientAcceptance" ADD CONSTRAINT "ClientAcceptance_clientId_fkey" FOREIGN KEY ("clientId") REFERENCES "Client"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "ClientAcceptance" ADD CONSTRAINT "ClientAcceptance_portalUserId_fkey" FOREIGN KEY ("portalUserId") REFERENCES "PortalUser"("id") ON DELETE CASCADE ON UPDATE CASCADE;

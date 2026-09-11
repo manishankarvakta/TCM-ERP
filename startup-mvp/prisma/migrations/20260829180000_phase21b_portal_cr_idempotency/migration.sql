@@ -1,6 +1,7 @@
 -- AlterTable
-ALTER TABLE "ChangeRequest" ADD COLUMN "idempotencyKey" TEXT;
-ALTER TABLE "ChangeRequest" ADD COLUMN "idempotencyPayloadHash" TEXT;
+ALTER TABLE "ChangeRequest" ADD COLUMN IF NOT EXISTS "idempotencyKey" TEXT;
+ALTER TABLE "ChangeRequest" ADD COLUMN IF NOT EXISTS "idempotencyPayloadHash" TEXT;
 
 -- CreateIndex
-CREATE UNIQUE INDEX "ChangeRequest_idempotencyKey_key" ON "ChangeRequest"("idempotencyKey");
+CREATE UNIQUE INDEX IF NOT EXISTS "ChangeRequest_idempotencyKey_key" ON "ChangeRequest"("idempotencyKey");
+

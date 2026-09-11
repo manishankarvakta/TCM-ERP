@@ -1,5 +1,4 @@
 import { prisma } from "@/lib/prisma";
-import { headers } from "next/headers";
 
 // Log action types
 export enum LogAction {
@@ -64,6 +63,7 @@ export interface RequestMetadata {
  */
 export async function getRequestMetadata(): Promise<RequestMetadata> {
   try {
+    const { headers } = await import("next/headers");
     const headersList = await headers();
     
     // Get IP address from various headers (for different hosting environments)

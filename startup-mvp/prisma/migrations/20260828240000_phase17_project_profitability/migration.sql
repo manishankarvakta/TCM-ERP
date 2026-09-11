@@ -1,8 +1,14 @@
--- CreateEnum
-CREATE TYPE "CostCategory" AS ENUM ('LABOR', 'PROCUREMENT', 'DIRECT_EXPENSE', 'SUBCONTRACTOR', 'OVERHEAD', 'INDIRECT', 'OTHER');
+-- Ensure CostCategory & ProfitabilityStatus enums exist if missing
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'CostCategory') THEN
+    CREATE TYPE "CostCategory" AS ENUM ('LABOR', 'PROCUREMENT', 'DIRECT_EXPENSE', 'SUBCONTRACTOR', 'OVERHEAD', 'INDIRECT', 'OTHER');
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'ProfitabilityStatus') THEN
+    CREATE TYPE "ProfitabilityStatus" AS ENUM ('HEALTHY', 'AT_RISK', 'CRITICAL', 'LOSS_MAKING', 'NOT_ENOUGH_DATA');
+  END IF;
+END $$;
 
--- CreateEnum
-CREATE TYPE "ProfitabilityStatus" AS ENUM ('HEALTHY', 'AT_RISK', 'CRITICAL', 'LOSS_MAKING', 'NOT_ENOUGH_DATA');
 
 -- Ensure TimesheetStatus & AllocationStatus enums exist if missing
 DO $$
@@ -81,7 +87,7 @@ BEGIN
 END $$;
 
 -- CreateTable
-CREATE TABLE "ProjectCostAllocation" (
+CREATE TABLE IF NOT EXISTS "ProjectCostAllocation" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "projectId" TEXT NOT NULL,
@@ -99,7 +105,7 @@ CREATE TABLE "ProjectCostAllocation" (
 );
 
 -- CreateTable
-CREATE TABLE "ProjectProfitabilitySnapshot" (
+CREATE TABLE IF NOT EXISTS "ProjectProfitabilitySnapshot" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "projectId" TEXT NOT NULL,
@@ -129,22 +135,36 @@ CREATE TABLE "ProjectProfitabilitySnapshot" (
 );
 
 -- CreateIndexes
-CREATE INDEX "ProjectCostAllocation_organizationId_idx" ON "ProjectCostAllocation"("organizationId");
-CREATE INDEX "ProjectCostAllocation_projectId_idx" ON "ProjectCostAllocation"("projectId");
-CREATE INDEX "ProjectCostAllocation_category_idx" ON "ProjectCostAllocation"("category");
-CREATE INDEX "ProjectCostAllocation_sourceType_sourceId_idx" ON "ProjectCostAllocation"("sourceType", "sourceId");
+CREATE INDEX IF NOT EXISTS "ProjectCostAllocation_organizationId_idx" ON "ProjectCostAllocation"("organizationId");
+CREATE INDEX IF NOT EXISTS "ProjectCostAllocation_projectId_idx" ON "ProjectCostAllocation"("projectId");
+CREATE INDEX IF NOT EXISTS "ProjectCostAllocation_category_idx" ON "ProjectCostAllocation"("category");
+CREATE INDEX IF NOT EXISTS "ProjectCostAllocation_sourceType_sourceId_idx" ON "ProjectCostAllocation"("sourceType", "sourceId");
 
-CREATE INDEX "ProjectProfitabilitySnapshot_organizationId_idx" ON "ProjectProfitabilitySnapshot"("organizationId");
-CREATE INDEX "ProjectProfitabilitySnapshot_projectId_idx" ON "ProjectProfitabilitySnapshot"("projectId");
-CREATE INDEX "ProjectProfitabilitySnapshot_calculatedAt_idx" ON "ProjectProfitabilitySnapshot"("calculatedAt");
-CREATE INDEX "ProjectProfitabilitySnapshot_status_idx" ON "ProjectProfitabilitySnapshot"("status");
-
--- AddForeignKey
-ALTER TABLE "ProjectCostAllocation" ADD CONSTRAINT "ProjectCostAllocation_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-ALTER TABLE "ProjectCostAllocation" ADD CONSTRAINT "ProjectCostAllocation_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "ProjectCostAllocation" ADD CONSTRAINT "ProjectCostAllocation_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+CREATE INDEX IF NOT EXISTS "ProjectProfitabilitySnapshot_organizationId_idx" ON "ProjectProfitabilitySnapshot"("organizationId");
+CREATE INDEX IF NOT EXISTS "ProjectProfitabilitySnapshot_projectId_idx" ON "ProjectProfitabilitySnapshot"("projectId");
+CREATE INDEX IF NOT EXISTS "ProjectProfitabilitySnapshot_calculatedAt_idx" ON "ProjectProfitabilitySnapshot"("calculatedAt");
+CREATE INDEX IF NOT EXISTS "ProjectProfitabilitySnapshot_status_idx" ON "ProjectProfitabilitySnapshot"("status");
 
 -- AddForeignKey
-ALTER TABLE "ProjectProfitabilitySnapshot" ADD CONSTRAINT "ProjectProfitabilitySnapshot_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-ALTER TABLE "ProjectProfitabilitySnapshot" ADD CONSTRAINT "ProjectProfitabilitySnapshot_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "ProjectProfitabilitySnapshot" ADD CONSTRAINT "ProjectProfitabilitySnapshot_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ProjectCostAllocation_organizationId_fkey') THEN
+    ALTER TABLE "ProjectCostAllocation" ADD CONSTRAINT "ProjectCostAllocation_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ProjectCostAllocation_projectId_fkey') THEN
+    ALTER TABLE "ProjectCostAllocation" ADD CONSTRAINT "ProjectCostAllocation_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ProjectCostAllocation_createdById_fkey') THEN
+    ALTER TABLE "ProjectCostAllocation" ADD CONSTRAINT "ProjectCostAllocation_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ProjectProfitabilitySnapshot_organizationId_fkey') THEN
+    ALTER TABLE "ProjectProfitabilitySnapshot" ADD CONSTRAINT "ProjectProfitabilitySnapshot_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ProjectProfitabilitySnapshot_projectId_fkey') THEN
+    ALTER TABLE "ProjectProfitabilitySnapshot" ADD CONSTRAINT "ProjectProfitabilitySnapshot_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ProjectProfitabilitySnapshot_createdById_fkey') THEN
+    ALTER TABLE "ProjectProfitabilitySnapshot" ADD CONSTRAINT "ProjectProfitabilitySnapshot_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+  END IF;
+END $$;
+

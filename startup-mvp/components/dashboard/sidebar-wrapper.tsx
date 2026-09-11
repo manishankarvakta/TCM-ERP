@@ -7,6 +7,7 @@ import {
   BOTTOM_MENU_TEMPLATE,
   getPermissionKeyFromPath,
   type MenuItemData,
+  type SubMenuItemData,
   type SubMenuGroup,
 } from "@/lib/navigation-builder";
 import DashboardSidebar from "./sidebar";
@@ -27,15 +28,34 @@ function filterMenuByPermissions(
     // Handle items with subMenus
     if (item.subMenu && item.subMenu.length > 0) {
       // Filter submenu items FIRST
-      const filteredSubMenu = item.subMenu.filter((subItem) => {
-        const permissionKey = getPermissionKeyFromPath(subItem.href);
-        if (!permissionKey) {
-          return false;
-        }
-        
-        const hasAccess = accessiblePages.get(permissionKey);
-        return hasAccess === true;
-      });
+      const filteredSubMenu = item.subMenu
+        .map((subItem) => {
+          if (subItem.children && subItem.children.length > 0) {
+            const filteredChildren = subItem.children.filter((child) => {
+              const childKey = getPermissionKeyFromPath(child.href);
+              if (!childKey) return false;
+              return accessiblePages.get(childKey) === true;
+            });
+
+            const parentKey = subItem.href ? getPermissionKeyFromPath(subItem.href) : null;
+            const parentAccess = parentKey ? accessiblePages.get(parentKey) === true : false;
+
+            if (filteredChildren.length > 0 || parentAccess) {
+              return { ...subItem, children: filteredChildren };
+            }
+            return null;
+          }
+
+          if (!subItem.href) return null;
+          const permissionKey = getPermissionKeyFromPath(subItem.href);
+          if (!permissionKey) {
+            return null;
+          }
+
+          const hasAccess = accessiblePages.get(permissionKey);
+          return hasAccess === true ? subItem : null;
+        })
+        .filter((subItem): subItem is SubMenuItemData => subItem !== null);
 
       // Only show parent if at least one submenu is accessible
       if (filteredSubMenu.length === 0) {

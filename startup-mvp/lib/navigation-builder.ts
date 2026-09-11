@@ -11,7 +11,7 @@ export interface MenuItemData {
 }
 
 export interface SubMenuItemData {
-  href: string;
+  href?: string;
   label: string;
   icon: string;
   module?: string;
@@ -203,30 +203,31 @@ export const MENU_TEMPLATE: MenuItemData[] = [
     label: "Finance",
     icon: "SlCalculator",
     module: "accounts",
-    subMenuGroups: [
-      {
-        label: "Finance Dashboard",
-        items: [
-          { href: "/dashboard/accounts", label: "Overview", icon: "FiBarChart", module: "accounts" },
-        ],
-      },
+    subMenu: [
+      { href: "/dashboard/accounts", label: "Overview", icon: "FiBarChart", module: "accounts" },
       {
         label: "Receivables",
-        items: [
-          { href: "/dashboard/quotations/invoices", label: "Invoices", icon: "FiFileText", module: "quotations" },
+        icon: "FiArrowDownRight",
+        module: "accounts",
+        children: [
+          { href: "/dashboard/accounts/invoices", label: "Invoices", icon: "FiFileText", module: "accounts" },
           { href: "/dashboard/accounts/accounts-receivable", label: "Accounts Receivable", icon: "FiArrowDownRight", module: "accounts" },
           { href: "/dashboard/accounts/collections", label: "Collections", icon: "FiDollarSign", module: "accounts" },
         ],
       },
       {
         label: "Payables",
-        items: [
+        icon: "FiArrowUpRight",
+        module: "accounts",
+        children: [
           { href: "/dashboard/accounts/accounts-payable", label: "Accounts Payable", icon: "FiArrowUpRight", module: "accounts" },
         ],
       },
       {
         label: "General Ledger",
-        items: [
+        icon: "FiBookOpen",
+        module: "accounts",
+        children: [
           { href: "/dashboard/accounts/chart-of-accounts", label: "Chart of Accounts", icon: "FiBarChart", module: "accounts" },
           { href: "/dashboard/accounts/vouchers", label: "Vouchers", icon: "FiFile", module: "accounts" },
           { href: "/dashboard/accounts/journal-entries", label: "Journal Entries", icon: "FiBookOpen", module: "accounts" },
@@ -235,13 +236,17 @@ export const MENU_TEMPLATE: MenuItemData[] = [
       },
       {
         label: "Treasury",
-        items: [
+        icon: "FiCreditCard",
+        module: "accounts",
+        children: [
           { href: "/dashboard/accounts/cash-bank", label: "Cash & Bank", icon: "FiCreditCard", module: "accounts" },
         ],
       },
       {
         label: "Fixed Assets",
-        items: [
+        icon: "FiPackage",
+        module: "accounts",
+        children: [
           { href: "/dashboard/accounts/fixed-assets", label: "Asset Register", icon: "FiPackage", module: "accounts" },
           { href: "/dashboard/accounts/fixed-assets/capitalization", label: "Capitalization", icon: "FiPlusSquare", module: "accounts" },
           { href: "/dashboard/accounts/fixed-assets/depreciation", label: "Depreciation", icon: "FiTrendingDown", module: "accounts" },
@@ -251,7 +256,9 @@ export const MENU_TEMPLATE: MenuItemData[] = [
       },
       {
         label: "Reports",
-        items: [
+        icon: "FiFileText",
+        module: "accounts",
+        children: [
           { href: "/dashboard/accounts/trial-balance", label: "Trial Balance", icon: "FiActivity", module: "accounts" },
           { href: "/dashboard/accounts/profit-loss", label: "Profit & Loss", icon: "FiTrendingUp", module: "accounts" },
           { href: "/dashboard/accounts/balance-sheet", label: "Balance Sheet", icon: "FiFileText", module: "accounts" },

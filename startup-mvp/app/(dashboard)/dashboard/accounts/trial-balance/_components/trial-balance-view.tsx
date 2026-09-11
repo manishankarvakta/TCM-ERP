@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -115,9 +116,23 @@ export default function TrialBalanceView({
             ) : (
               <>
                 {accounts.map((account) => (
-                  <TableRow key={account.id}>
-                    <TableCell className="font-mono text-sm">{account.code}</TableCell>
-                    <TableCell>{account.name}</TableCell>
+                  <TableRow key={account.id} className="hover:bg-muted/60 transition-colors">
+                    <TableCell className="font-mono text-sm font-medium text-primary">
+                      <Link
+                        href={`/dashboard/accounts/ledgers?accountId=${account.id}`}
+                        className="hover:underline flex items-center gap-1"
+                      >
+                        {account.code}
+                      </Link>
+                    </TableCell>
+                    <TableCell>
+                      <Link
+                        href={`/dashboard/accounts/ledgers?accountId=${account.id}`}
+                        className="hover:underline font-medium hover:text-primary"
+                      >
+                        {account.name}
+                      </Link>
+                    </TableCell>
                     <TableCell>
                       <Badge className={getAccountTypeColor(account.type)}>
                         {account.type}

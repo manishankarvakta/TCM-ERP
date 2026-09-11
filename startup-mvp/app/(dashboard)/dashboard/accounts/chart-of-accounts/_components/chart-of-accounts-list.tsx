@@ -14,12 +14,26 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { FiSearch, FiX, FiRotateCw } from "react-icons/fi";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { FiSearch, FiX, FiRotateCw, FiTrash2, FiCheckCircle, FiXCircle } from "react-icons/fi";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import ProtectedAction from "@/components/permissions/protected-action";
-import { updateChartOfAccount, deleteChartOfAccountsPermanently } from "../_actions/chart-of-accounts.action";
+import {
+  updateChartOfAccount,
+  deleteChartOfAccountsPermanently,
+  bulkUpdateChartOfAccountsStatus,
+} from "../_actions/chart-of-accounts.action";
 
 interface ChartOfAccount {
   id: string;
@@ -73,6 +87,16 @@ export default function ChartOfAccountsListClient({
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
 
+  const [confirmModal, setConfirmModal] = useState<{
+    open: boolean;
+    type: "move-to-trash" | "restore" | "delete-permanently" | "bulk-move-to-trash" | "bulk-restore" | "bulk-delete-permanently" | null;
+    targetId?: string;
+    targetName?: string;
+  }>({
+    open: false,
+    type: null,
+  });
+
   const handleSearch = (value: string) => {
     setSearch(value);
     const params = new URLSearchParams(searchParams.toString());
@@ -111,57 +135,79 @@ export default function ChartOfAccountsListClient({
 
   const allSelected = initialAccounts?.length > 0 && selectedAccounts.size === initialAccounts.length;
 
-  const handleMoveToTrash = (accountId: string) => {
+  const openConfirm = (
+    type: "move-to-trash" | "restore" | "delete-permanently" | "bulk-move-to-trash" | "bulk-restore" | "bulk-delete-permanently",
+    targetId?: string,
+    targetName?: string
+  ) => {
+    setConfirmModal({
+      open: true,
+      type,
+      targetId,
+      targetName,
+    });
+  };
+
+  const executeConfirmedAction = () => {
+    const { type, targetId } = confirmModal;
+    setConfirmModal({ open: false, type: null });
+
+    if (!type) return;
+
     startTransition(async () => {
-      const result = await updateChartOfAccount(accountId, { status: "trash" });
+      let result: { success: boolean; error?: string; count?: number } = { success: false };
+
+      if (type === "move-to-trash" && targetId) {
+        result = await updateChartOfAccount(targetId, { status: "trash" });
+      } else if (type === "restore" && targetId) {
+        result = await updateChartOfAccount(targetId, { status: "active" });
+      } else if (type === "delete-permanently" && targetId) {
+        result = await deleteChartOfAccountsPermanently([targetId]);
+      } else if (type === "bulk-move-to-trash") {
+        result = await bulkUpdateChartOfAccountsStatus(Array.from(selectedAccounts), "trash");
+        if (result.success) setSelectedAccounts(new Set());
+      } else if (type === "bulk-restore") {
+        result = await bulkUpdateChartOfAccountsStatus(Array.from(selectedAccounts), "active");
+        if (result.success) setSelectedAccounts(new Set());
+      } else if (type === "bulk-delete-permanently") {
+        result = await deleteChartOfAccountsPermanently(Array.from(selectedAccounts));
+        if (result.success) setSelectedAccounts(new Set());
+      }
+
       if (result.success) {
         toast({
           title: "Success",
-          description: "Account moved to trash",
+          description: "Action executed successfully",
         });
         router.refresh();
       } else {
         toast({
           title: "Error",
-          description: result.error || "Failed to move account to trash",
+          description: result.error || "Action failed to execute",
           variant: "destructive",
         });
       }
     });
   };
 
-  const handleRestore = (accountId: string) => {
+  const handleBulkStatusChange = (newStatus: "active" | "inactive") => {
+    if (selectedAccounts.size === 0) return;
     startTransition(async () => {
-      const result = await updateChartOfAccount(accountId, { status: "active" });
+      const result = await bulkUpdateChartOfAccountsStatus(
+        Array.from(selectedAccounts),
+        newStatus
+      );
       if (result.success) {
         toast({
           title: "Success",
-          description: "Account restored successfully",
+          description: `Updated ${result.count} account(s) status to ${newStatus}`,
         });
+        setSelectedAccounts(new Set());
         router.refresh();
       } else {
         toast({
           title: "Error",
-          description: result.error || "Failed to restore account",
-          variant: "destructive",
-        });
-      }
-    });
-  };
-
-  const handleDeletePermanently = (accountId: string) => {
-    startTransition(async () => {
-      const result = await deleteChartOfAccountsPermanently([accountId]);
-      if (result.success) {
-        toast({
-          title: "Success",
-          description: "Account deleted permanently",
-        });
-        router.refresh();
-      } else {
-        toast({
-          title: "Error",
-          description: result.error || "Failed to delete account permanently",
+          description: result.error || "Failed to update accounts",
           variant: "destructive",
         });
       }
@@ -185,10 +231,66 @@ export default function ChartOfAccountsListClient({
     }
   };
 
+  const getModalText = () => {
+    switch (confirmModal.type) {
+      case "move-to-trash":
+        return {
+          title: "Move Account to Trash",
+          description: `Are you sure you want to move account "${confirmModal.targetName}" to trash?`,
+          actionText: "Move to Trash",
+          destructive: true,
+        };
+      case "restore":
+        return {
+          title: "Restore Account",
+          description: `Are you sure you want to restore account "${confirmModal.targetName}" to active status?`,
+          actionText: "Restore Account",
+          destructive: false,
+        };
+      case "delete-permanently":
+        return {
+          title: "Delete Account Permanently",
+          description: `Are you sure you want to PERMANENTLY delete account "${confirmModal.targetName}"? This action CANNOT be undone.`,
+          actionText: "Delete Permanently",
+          destructive: true,
+        };
+      case "bulk-move-to-trash":
+        return {
+          title: "Bulk Move to Trash",
+          description: `Are you sure you want to move ${selectedAccounts.size} selected account(s) to trash?`,
+          actionText: "Move Selected to Trash",
+          destructive: true,
+        };
+      case "bulk-restore":
+        return {
+          title: "Bulk Restore Accounts",
+          description: `Are you sure you want to restore ${selectedAccounts.size} selected account(s) to active status?`,
+          actionText: "Restore Selected",
+          destructive: false,
+        };
+      case "bulk-delete-permanently":
+        return {
+          title: "Bulk Delete Permanently",
+          description: `Are you sure you want to PERMANENTLY delete ${selectedAccounts.size} selected account(s)? This action CANNOT be undone.`,
+          actionText: "Delete Selected Permanently",
+          destructive: true,
+        };
+      default:
+        return {
+          title: "Confirm Action",
+          description: "Are you sure you want to proceed?",
+          actionText: "Confirm",
+          destructive: false,
+        };
+    }
+  };
+
+  const modalText = getModalText();
+
   return (
     <div className="space-y-4">
-      {/* Search */}
-      <div className="flex items-center gap-2">
+      {/* Search & Bulk Action Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="relative flex-1 max-w-sm">
           <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -208,6 +310,86 @@ export default function ChartOfAccountsListClient({
             </Button>
           )}
         </div>
+
+        {selectedAccounts.size > 0 && (
+          <div className="flex items-center gap-2 bg-muted/60 p-1.5 px-3 rounded-lg border text-sm">
+            <Badge variant="secondary" className="font-semibold">
+              {selectedAccounts.size} Selected
+            </Badge>
+
+            {!isTrash ? (
+              <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleBulkStatusChange("active")}
+                  disabled={isPending}
+                  className="h-8 gap-1"
+                >
+                  <FiCheckCircle className="h-3.5 w-3.5 text-green-600" />
+                  Activate
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleBulkStatusChange("inactive")}
+                  disabled={isPending}
+                  className="h-8 gap-1"
+                >
+                  <FiXCircle className="h-3.5 w-3.5 text-amber-600" />
+                  Deactivate
+                </Button>
+                {permissions?.moveToTrash && (
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => openConfirm("bulk-move-to-trash")}
+                    disabled={isPending}
+                    className="h-8 gap-1"
+                  >
+                    <FiTrash2 className="h-3.5 w-3.5" />
+                    Move to Trash
+                  </Button>
+                )}
+              </>
+            ) : (
+              <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => openConfirm("bulk-restore")}
+                  disabled={isPending}
+                  className="h-8 gap-1"
+                >
+                  <FiRotateCw className="h-3.5 w-3.5" />
+                  Restore
+                </Button>
+                {permissions?.deletePermanently && (
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => openConfirm("bulk-delete-permanently")}
+                    disabled={isPending}
+                    className="h-8 gap-1"
+                  >
+                    <FiTrash2 className="h-3.5 w-3.5" />
+                    Delete Permanently
+                  </Button>
+                )}
+              </>
+            )}
+
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setSelectedAccounts(new Set())}
+              disabled={isPending}
+              className="h-8 text-xs text-muted-foreground"
+            >
+              Clear
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Table */}
@@ -321,7 +503,7 @@ export default function ChartOfAccountsListClient({
                             <ProtectedAction
                               permissionKey="accounts.chart-of-accounts"
                               action="move-to-trash"
-                              onClick={() => handleMoveToTrash(account.id)}
+                              onClick={() => openConfirm("move-to-trash", account.id, `${account.code} - ${account.name}`)}
                               hasAccess={permissions?.moveToTrash}
                               buttonProps={{
                                 variant: "ghost",
@@ -338,7 +520,7 @@ export default function ChartOfAccountsListClient({
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleRestore(account.id)}
+                              onClick={() => openConfirm("restore", account.id, `${account.code} - ${account.name}`)}
                               disabled={isPending}
                               className="h-8 w-8 p-0"
                               title="Restore"
@@ -348,7 +530,7 @@ export default function ChartOfAccountsListClient({
                             <ProtectedAction
                               permissionKey="accounts.chart-of-accounts"
                               action="delete-permanently"
-                              onClick={() => handleDeletePermanently(account.id)}
+                              onClick={() => openConfirm("delete-permanently", account.id, `${account.code} - ${account.name}`)}
                               hasAccess={permissions?.deletePermanently}
                               buttonProps={{
                                 variant: "ghost",
@@ -406,6 +588,29 @@ export default function ChartOfAccountsListClient({
           </div>
         </div>
       )}
+
+      {/* Confirmation Modal */}
+      <AlertDialog
+        open={confirmModal.open}
+        onOpenChange={(open) => !open && setConfirmModal({ open: false, type: null })}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{modalText.title}</AlertDialogTitle>
+            <AlertDialogDescription>{modalText.description}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={executeConfirmedAction}
+              disabled={isPending}
+              className={cn(modalText.destructive && "bg-destructive text-destructive-foreground hover:bg-destructive/90")}
+            >
+              {modalText.actionText}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

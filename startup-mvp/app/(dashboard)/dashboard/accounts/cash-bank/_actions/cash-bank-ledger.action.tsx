@@ -533,3 +533,227 @@ export async function getBankLedger(
   }
 }
 
+/**
+ * Get MFS (Mobile Financial Services: bKash, Nagad, Rocket, Upay) ledger entries
+ * derived from JournalEntry & JournalEntryLine
+ */
+export async function getMfsLedger(
+  filters?: {
+    dateFrom?: Date | string;
+    dateTo?: Date | string;
+  }
+) {
+  try {
+    const session = await auth();
+
+    if (!session?.user) {
+      return {
+        success: false,
+        error: "Unauthorized",
+        ledger: [],
+        summary: {
+          totalDebit: 0,
+          totalCredit: 0,
+        },
+      };
+    }
+
+    // Check permission
+    const canView = await hasPermission(session.user.id, "accounts.ledgers", "read") ||
+                    await hasPermission(session.user.id, "accounts.ledgers", "view") ||
+                    await hasPermission(session.user.id, "accounts.cash-bank", "read") ||
+                    await hasPermission(session.user.id, "accounts.cash-bank", "view");
+
+    if (!canView) {
+      return {
+        success: false,
+        error: "You do not have permission to view ledgers",
+        ledger: [],
+        summary: {
+          totalDebit: 0,
+          totalCredit: 0,
+        },
+      };
+    }
+
+    // Validate date range if both dates provided
+    if (filters?.dateFrom && filters?.dateTo) {
+      const dateFrom = typeof filters.dateFrom === "string" ? new Date(filters.dateFrom) : filters.dateFrom;
+      const dateTo = typeof filters.dateTo === "string" ? new Date(filters.dateTo) : filters.dateTo;
+      
+      if (dateFrom > dateTo) {
+        return {
+          success: false,
+          error: "Start date must be before or equal to end date",
+          ledger: [],
+          summary: {
+            totalDebit: 0,
+            totalCredit: 0,
+          },
+        };
+      }
+    }
+
+    // Get explicit MFS accounts
+    const mfsAccounts = await prisma.cashBankAccount.findMany({
+      where: {
+        type: CashBankAccountType.MFS,
+        status: {
+          not: "trash",
+        },
+      },
+      select: {
+        chartOfAccountId: true,
+      },
+    });
+
+    // Also find COAs matching MFS / Digital Wallet naming conventions
+    const digitalWalletCoas = await prisma.chartOfAccount.findMany({
+      where: {
+        OR: [
+          { code: { startsWith: "1030" } },
+          { code: { startsWith: "MFS-" } },
+          { code: { startsWith: "DW-" } },
+          { name: { contains: "bkash", mode: "insensitive" } },
+          { name: { contains: "nagad", mode: "insensitive" } },
+          { name: { contains: "rocket", mode: "insensitive" } },
+          { name: { contains: "upay", mode: "insensitive" } },
+        ],
+        status: "active",
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    const accountIds = Array.from(
+      new Set([
+        ...mfsAccounts.map((cb) => cb.chartOfAccountId),
+        ...digitalWalletCoas.map((c) => c.id),
+      ])
+    );
+
+    if (accountIds.length === 0) {
+      return {
+        success: true,
+        ledger: [],
+        summary: {
+          totalDebit: 0,
+          totalCredit: 0,
+        },
+      };
+    }
+
+    // Build date filter for JournalEntry
+    const journalEntryDateFilter: Prisma.DateTimeFilter = {};
+    if (filters?.dateFrom) {
+      const dateFrom = typeof filters.dateFrom === "string" ? new Date(filters.dateFrom) : filters.dateFrom;
+      journalEntryDateFilter.gte = dateFrom;
+    }
+    if (filters?.dateTo) {
+      const dateTo = typeof filters.dateTo === "string" ? new Date(filters.dateTo) : filters.dateTo;
+      dateTo.setHours(23, 59, 59, 999);
+      journalEntryDateFilter.lte = dateTo;
+    }
+
+    const where: Prisma.JournalEntryLineWhereInput = {
+      chartOfAccountId: {
+        in: accountIds,
+      },
+      JournalEntry: {
+        status: "posted",
+        ...(Object.keys(journalEntryDateFilter).length > 0 && {
+          date: journalEntryDateFilter,
+        }),
+      },
+    };
+
+    const lines = await prisma.journalEntryLine.findMany({
+      where,
+      include: {
+        JournalEntry: {
+          include: {
+            Voucher: true,
+          },
+        },
+        ChartOfAccount: true,
+        Client: true,
+        Supplier: true,
+        User: true,
+        Organization: true,
+      },
+      orderBy: {
+        JournalEntry: {
+          date: "desc",
+        },
+      },
+    });
+
+    let totalDebit = 0;
+    let totalCredit = 0;
+
+    lines.forEach((line) => {
+      totalDebit += Number(line.debitAmount);
+      totalCredit += Number(line.creditAmount);
+    });
+
+    const serializedLedger = lines.map((line) => {
+      const entry = (line as any).JournalEntry;
+
+      return {
+        id: line.id,
+        lineNumber: line.lineNumber,
+        debitAmount: Number(line.debitAmount),
+        creditAmount: Number(line.creditAmount),
+        description: line.description,
+        journalEntry: {
+          id: entry.id,
+          entryNumber: entry.entryNumber,
+          date: entry.date,
+          description: entry.description,
+          status: entry.status,
+          postedAt: entry.postedAt,
+          voucher: entry.Voucher
+            ? {
+                id: entry.Voucher.id,
+                voucherNumber: entry.Voucher.voucherNumber,
+                type: entry.Voucher.type,
+                reference: entry.Voucher.reference,
+                description: entry.Voucher.description,
+                status: entry.Voucher.status,
+              }
+            : null,
+        },
+        chartOfAccount: {
+          id: (line as any).ChartOfAccount.id,
+          code: (line as any).ChartOfAccount.code,
+          name: (line as any).ChartOfAccount.name,
+          type: (line as any).ChartOfAccount.type,
+        },
+        createdAt: line.createdAt,
+      };
+    });
+
+    return {
+      success: true,
+      ledger: serializedLedger,
+      summary: {
+        totalDebit,
+        totalCredit,
+      },
+    };
+  } catch (error) {
+    console.error("getMfsLedger error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to fetch MFS ledger",
+      ledger: [],
+      summary: {
+        totalDebit: 0,
+        totalCredit: 0,
+      },
+    };
+  }
+}
+
+

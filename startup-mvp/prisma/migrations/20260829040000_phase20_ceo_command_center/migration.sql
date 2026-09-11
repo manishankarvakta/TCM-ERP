@@ -1,5 +1,5 @@
 -- CreateTable
-CREATE TABLE "CeoCommandCenterSettings" (
+CREATE TABLE IF NOT EXISTS "CeoCommandCenterSettings" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "arOverdueWarningDays" INTEGER NOT NULL DEFAULT 30,
@@ -17,7 +17,7 @@ CREATE TABLE "CeoCommandCenterSettings" (
 );
 
 -- CreateTable
-CREATE TABLE "CeoKpiSnapshot" (
+CREATE TABLE IF NOT EXISTS "CeoKpiSnapshot" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "snapshotDate" TIMESTAMP(3) NOT NULL,
@@ -38,7 +38,7 @@ CREATE TABLE "CeoKpiSnapshot" (
 );
 
 -- CreateTable
-CREATE TABLE "CeoExecutiveAlert" (
+CREATE TABLE IF NOT EXISTS "CeoExecutiveAlert" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "sourceType" TEXT NOT NULL,
@@ -55,40 +55,46 @@ CREATE TABLE "CeoExecutiveAlert" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "CeoCommandCenterSettings_organizationId_key" ON "CeoCommandCenterSettings"("organizationId");
+CREATE UNIQUE INDEX IF NOT EXISTS "CeoCommandCenterSettings_organizationId_key" ON "CeoCommandCenterSettings"("organizationId");
 
 -- CreateIndex
-CREATE INDEX "CeoCommandCenterSettings_organizationId_idx" ON "CeoCommandCenterSettings"("organizationId");
+CREATE INDEX IF NOT EXISTS "CeoCommandCenterSettings_organizationId_idx" ON "CeoCommandCenterSettings"("organizationId");
 
 -- CreateIndex
-CREATE INDEX "CeoKpiSnapshot_organizationId_idx" ON "CeoKpiSnapshot"("organizationId");
+CREATE INDEX IF NOT EXISTS "CeoKpiSnapshot_organizationId_idx" ON "CeoKpiSnapshot"("organizationId");
 
 -- CreateIndex
-CREATE INDEX "CeoKpiSnapshot_snapshotDate_idx" ON "CeoKpiSnapshot"("snapshotDate");
+CREATE INDEX IF NOT EXISTS "CeoKpiSnapshot_snapshotDate_idx" ON "CeoKpiSnapshot"("snapshotDate");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "CeoKpiSnapshot_organizationId_snapshotDate_key" ON "CeoKpiSnapshot"("organizationId", "snapshotDate");
+CREATE UNIQUE INDEX IF NOT EXISTS "CeoKpiSnapshot_organizationId_snapshotDate_key" ON "CeoKpiSnapshot"("organizationId", "snapshotDate");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "CeoExecutiveAlert_idempotencyKey_key" ON "CeoExecutiveAlert"("idempotencyKey");
+CREATE UNIQUE INDEX IF NOT EXISTS "CeoExecutiveAlert_idempotencyKey_key" ON "CeoExecutiveAlert"("idempotencyKey");
 
 -- CreateIndex
-CREATE INDEX "CeoExecutiveAlert_organizationId_idx" ON "CeoExecutiveAlert"("organizationId");
+CREATE INDEX IF NOT EXISTS "CeoExecutiveAlert_organizationId_idx" ON "CeoExecutiveAlert"("organizationId");
 
 -- CreateIndex
-CREATE INDEX "CeoExecutiveAlert_sourceType_sourceId_idx" ON "CeoExecutiveAlert"("sourceType", "sourceId");
+CREATE INDEX IF NOT EXISTS "CeoExecutiveAlert_sourceType_sourceId_idx" ON "CeoExecutiveAlert"("sourceType", "sourceId");
 
 -- CreateIndex
-CREATE INDEX "CeoExecutiveAlert_severity_idx" ON "CeoExecutiveAlert"("severity");
+CREATE INDEX IF NOT EXISTS "CeoExecutiveAlert_severity_idx" ON "CeoExecutiveAlert"("severity");
 
 -- CreateIndex
-CREATE INDEX "CeoExecutiveAlert_resolved_idx" ON "CeoExecutiveAlert"("resolved");
+CREATE INDEX IF NOT EXISTS "CeoExecutiveAlert_resolved_idx" ON "CeoExecutiveAlert"("resolved");
 
 -- AddForeignKey
-ALTER TABLE "CeoCommandCenterSettings" ADD CONSTRAINT "CeoCommandCenterSettings_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'CeoCommandCenterSettings_organizationId_fkey') THEN
+    ALTER TABLE "CeoCommandCenterSettings" ADD CONSTRAINT "CeoCommandCenterSettings_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'CeoKpiSnapshot_organizationId_fkey') THEN
+    ALTER TABLE "CeoKpiSnapshot" ADD CONSTRAINT "CeoKpiSnapshot_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'CeoExecutiveAlert_organizationId_fkey') THEN
+    ALTER TABLE "CeoExecutiveAlert" ADD CONSTRAINT "CeoExecutiveAlert_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END $$;
 
--- AddForeignKey
-ALTER TABLE "CeoKpiSnapshot" ADD CONSTRAINT "CeoKpiSnapshot_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "CeoExecutiveAlert" ADD CONSTRAINT "CeoExecutiveAlert_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;

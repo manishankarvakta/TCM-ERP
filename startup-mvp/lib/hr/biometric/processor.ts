@@ -6,6 +6,7 @@ import {
   ShiftPolicy
 } from "@/lib/hr/shift-utils";
 import { startOfDay, endOfDay } from "date-fns";
+import { getEmployeePolicies } from "@/lib/hr/policy-evaluator";
 
 /**
  * Attendance Processor Service
@@ -73,13 +74,42 @@ export async function processBiometricAttendance(startDate: Date, endDate: Date,
         // Latest punch = Check-Out (only if multiple punches exist)
         const checkOut = timestamps.length > 1 ? timestamps[timestamps.length - 1] : null;
 
+        // Fetch policies for allowance calculation
+        const policies = await getEmployeePolicies(employee.employeeTypeId, employee.organizationId);
+
         // Calculations
         const workHours = calculateWorkHours(checkIn, checkOut);
         let otHours = 0;
-        if (checkOut && shiftPolicy) {
-          otHours = calculateOTHours(checkOut, shiftPolicy.endTime, shiftPolicy.otStartAfter);
+        if (checkOut && shiftPolicy && policies.overtime.isEligible) {
+          otHours = calculateOTHours(checkOut, shiftPolicy.endTime, policies.overtime.minMinutes);
         }
         const status = determineAttendanceStatus(checkIn, shiftPolicy);
+
+        // Calculate Shift Allowances (Tiffin, Night, Holiday)
+        let tiffinBill = 0;
+        let nightBill = 0;
+        let holidayBill = 0;
+
+        if (checkOut) {
+          const checkOutHourStr = `${checkOut.getHours().toString().padStart(2, '0')}:${checkOut.getMinutes().toString().padStart(2, '0')}`;
+          
+          // Tiffin Bill Evaluation
+          if (policies.tiffinBill.isEligible && checkOutHourStr >= policies.tiffinBill.cutoffTime) {
+            tiffinBill = policies.tiffinBill.dailyAmount;
+          }
+
+          // Night Bill Evaluation (checkout between 10 PM and 6 AM or night shift)
+          const hour = checkOut.getHours();
+          if (policies.nightBill.isEligible && (employee.shift?.isNightShift || hour >= 22 || hour < 6)) {
+            nightBill = policies.nightBill.dailyAmount;
+          }
+
+          // Holiday Bill Evaluation
+          const isWeekendOrHoliday = date.getDay() === 5 || date.getDay() === 6; // Friday/Saturday or public holiday
+          if (policies.holidayBill.isEligible && isWeekendOrHoliday) {
+            holidayBill = policies.holidayBill.dailyAmount;
+          }
+        }
 
         // Skip if attendance is already locked by payroll
         const existing = await prisma.attendance.findUnique({
@@ -110,6 +140,9 @@ export async function processBiometricAttendance(startDate: Date, endDate: Date,
             checkOut,
             workHours,
             otHours,
+            tiffinBill,
+            nightBill,
+            holidayBill,
             status,
             shiftId: employee.shiftId,
             isManual: false,
@@ -121,6 +154,9 @@ export async function processBiometricAttendance(startDate: Date, endDate: Date,
             checkOut,
             workHours,
             otHours,
+            tiffinBill,
+            nightBill,
+            holidayBill,
             status,
             shiftId: employee.shiftId,
             isManual: false,

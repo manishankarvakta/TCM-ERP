@@ -197,7 +197,7 @@ export default function AdminSidebar() {
   const activeMenuFromRoute = findActiveMenu(pathname);
 
   const [toggledMenu, setToggledMenu] = useState<{ path: string | null; label: string | null }>({
-    path: pathname,
+    path: null,
     label: null,
   });
 

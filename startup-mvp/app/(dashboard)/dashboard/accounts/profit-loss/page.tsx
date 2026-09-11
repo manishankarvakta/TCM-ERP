@@ -1,6 +1,25 @@
-import { Card, CardContent } from "@/components/ui/card";
+import { getProfitLoss } from "../reports/_actions/report.action";
+import ProfitLossView from "./_components/profit-loss-view";
 
-export default function ProfitLossPage() {
+interface ProfitLossPageProps {
+  searchParams: Promise<{
+    startDate?: string;
+    endDate?: string;
+  }>;
+}
+
+export default async function ProfitLossPage({ searchParams }: ProfitLossPageProps) {
+  const params = await searchParams;
+  const startDateParam = params.startDate;
+  const endDateParam = params.endDate;
+
+  const startDate = startDateParam
+    ? new Date(startDateParam)
+    : new Date(new Date().getFullYear(), 0, 1);
+  const endDate = endDateParam ? new Date(endDateParam) : new Date();
+
+  const reportData = await getProfitLoss(startDate, endDate);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -9,14 +28,22 @@ export default function ProfitLossPage() {
           <p className="text-sm text-muted-foreground">View profit and loss statement</p>
         </div>
       </div>
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex items-center justify-center h-[400px] text-sm text-muted-foreground">
-            No data yet
-          </div>
-        </CardContent>
-      </Card>
+
+      {!reportData.success ? (
+        <div className="p-4 text-sm text-red-600 bg-red-50 rounded-md border border-red-200">
+          {reportData.error || "Failed to load Profit & Loss"}
+        </div>
+      ) : (
+        <ProfitLossView
+          revenue={reportData.revenue}
+          expenses={reportData.expenses}
+          netIncome={reportData.netIncome}
+          startDate={reportData.startDate}
+          endDate={reportData.endDate}
+          startDateParam={startDateParam}
+          endDateParam={endDateParam}
+        />
+      )}
     </div>
   );
 }
-

@@ -2,7 +2,7 @@
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
+import { Prisma, PurchaseStatus } from "@prisma/client";
 import { hasPermission } from "@/lib/permissions";
 
 /**
@@ -107,22 +107,15 @@ export async function getAccountsReceivable(asOfDate?: Date | string, includeAgi
 
     const customerAccountIds = customerAccounts.map((acc) => acc.id);
 
-    // If no customer accounts exist, return empty result
-    if (customerAccountIds.length === 0) {
-      return {
-        success: true,
-        asOfDate: reportDate,
-        clients: [],
-        total: 0,
-      };
-    }
+    const targetAccountIds = [...customerAccountIds, arAccountId].filter(Boolean);
 
-    // Get all JournalEntryLine entries for customer COAs up to asOfDate
+    // Get all JournalEntryLine entries for AR accounts up to asOfDate
     const arEntries = await prisma.journalEntryLine.findMany({
       where: {
-        chartOfAccountId: {
-          in: customerAccountIds,
-        },
+        OR: [
+          { chartOfAccountId: { in: targetAccountIds } },
+          { clientId: { not: null } },
+        ],
         JournalEntry: {
           date: {
             lte: endOfDay,
@@ -135,6 +128,15 @@ export async function getAccountsReceivable(asOfDate?: Date | string, includeAgi
             id: true,
             code: true,
             name: true,
+          },
+        },
+        Client: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+            company: true,
           },
         },
         JournalEntry: {
@@ -196,16 +198,9 @@ export async function getAccountsReceivable(asOfDate?: Date | string, includeAgi
       }
     >();
 
-    // Get all clients with their COA IDs for mapping
-    const clientsWithCOA = await prisma.client.findMany({
-      where: {
-        chartOfAccountId: {
-          in: customerAccountIds,
-        },
-        status: {
-          not: "trash",
-        },
-      },
+    // Map clients via COA ID or direct Client relation
+    const allClients = await prisma.client.findMany({
+      where: { status: { not: "trash" } },
       select: {
         id: true,
         name: true,
@@ -216,23 +211,25 @@ export async function getAccountsReceivable(asOfDate?: Date | string, includeAgi
       },
     });
 
-    // Create a map from COA ID to Client
-    const coaToClientMap = new Map<string, typeof clientsWithCOA[0]>();
-    clientsWithCOA.forEach((client) => {
+    const coaToClientMap = new Map<string, typeof allClients[0]>();
+    const clientIdMap = new Map<string, typeof allClients[0]>();
+
+    allClients.forEach((client) => {
+      clientIdMap.set(client.id, client);
       if (client.chartOfAccountId) {
         coaToClientMap.set(client.chartOfAccountId, client);
       }
     });
 
     for (const entry of arEntries) {
-      // Find client by COA ID
-      const client = coaToClientMap.get(entry.chartOfAccountId);
+      // Find client by direct clientId or COA ID
+      const client = (entry.clientId ? clientIdMap.get(entry.clientId) : null) || coaToClientMap.get(entry.chartOfAccountId);
       if (!client) continue;
 
       const clientId = client.id;
       const debitAmount = Number(entry.debitAmount);
       const creditAmount = Number(entry.creditAmount);
-      const balance = debitAmount - creditAmount; // AR is ASSET, so debit - credit
+      const balance = debitAmount - creditAmount;
 
       if (!clientMap.has(clientId)) {
         clientMap.set(clientId, {
@@ -276,10 +273,61 @@ export async function getAccountsReceivable(asOfDate?: Date | string, includeAgi
       clientData.totalCredit += creditAmount;
       clientData.balance += balance;
 
-      // Calculate aging if requested
       if (includeAging && balance > 0) {
         const bucket = calculateAgingBucket(entry.JournalEntry.date, reportDate);
         clientData.aging![bucket] = (clientData.aging![bucket] || 0) + balance;
+      }
+    }
+
+    // Also include open Client Invoices for clients without journal entries yet
+    const openInvoices = await prisma.invoice.findMany({
+      where: {
+        date: { lte: endOfDay },
+        status: { notIn: ["PAID", "paid", "cancelled", "CANCELLED"] },
+      },
+      include: {
+        Order: {
+          include: {
+            Client: true,
+          },
+        },
+      },
+    });
+
+    for (const inv of openInvoices) {
+      const client = inv.Order?.Client;
+      if (!client) continue;
+
+      const dueAmount = Number(inv.totalAmount || 0);
+      if (dueAmount <= 0) continue;
+
+      if (!clientMap.has(client.id)) {
+        clientMap.set(client.id, {
+          client: {
+            id: client.id,
+            name: client.name,
+            email: client.email,
+            phone: client.phone,
+            company: client.company,
+          },
+          entries: [],
+          totalDebit: dueAmount,
+          totalCredit: 0,
+          balance: dueAmount,
+          ...(includeAging && {
+            aging: {
+              "0-30": 0,
+              "31-60": 0,
+              "61-90": 0,
+              "90+": 0,
+            },
+          }),
+        });
+
+        if (includeAging) {
+          const bucket = calculateAgingBucket(inv.date, reportDate);
+          clientMap.get(client.id)!.aging![bucket] = dueAmount;
+        }
       }
     }
 
@@ -381,22 +429,15 @@ export async function getAccountsPayable(asOfDate?: Date | string, includeAging:
 
     const supplierAccountIds = supplierAccounts.map((acc) => acc.id);
 
-    // If no supplier accounts exist, return empty result
-    if (supplierAccountIds.length === 0) {
-      return {
-        success: true,
-        asOfDate: reportDate,
-        suppliers: [],
-        total: 0,
-      };
-    }
+    const targetAccountIds = [...supplierAccountIds, apAccountId].filter(Boolean);
 
-    // Get all JournalEntryLine entries for supplier COAs up to asOfDate
+    // Get all JournalEntryLine entries for AP accounts up to asOfDate
     const apEntries = await prisma.journalEntryLine.findMany({
       where: {
-        chartOfAccountId: {
-          in: supplierAccountIds,
-        },
+        OR: [
+          { chartOfAccountId: { in: targetAccountIds } },
+          { supplierId: { not: null } },
+        ],
         JournalEntry: {
           date: {
             lte: endOfDay,
@@ -409,6 +450,15 @@ export async function getAccountsPayable(asOfDate?: Date | string, includeAging:
             id: true,
             code: true,
             name: true,
+          },
+        },
+        Supplier: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+            company: true,
           },
         },
         JournalEntry: {
@@ -470,16 +520,9 @@ export async function getAccountsPayable(asOfDate?: Date | string, includeAging:
       }
     >();
 
-    // Get all suppliers with their COA IDs for mapping
-    const suppliersWithCOA = await prisma.supplier.findMany({
-      where: {
-        chartOfAccountId: {
-          in: supplierAccountIds,
-        },
-        status: {
-          not: "trash",
-        },
-      },
+    // Map suppliers via COA ID or direct Supplier relation
+    const allSuppliers = await prisma.supplier.findMany({
+      where: { status: { not: "trash" } },
       select: {
         id: true,
         name: true,
@@ -490,24 +533,25 @@ export async function getAccountsPayable(asOfDate?: Date | string, includeAging:
       },
     });
 
-    // Create a map from COA ID to Supplier
-    const coaToSupplierMap = new Map<string, typeof suppliersWithCOA[0]>();
-    suppliersWithCOA.forEach((supplier) => {
+    const coaToSupplierMap = new Map<string, typeof allSuppliers[0]>();
+    const supplierIdMap = new Map<string, typeof allSuppliers[0]>();
+
+    allSuppliers.forEach((supplier) => {
+      supplierIdMap.set(supplier.id, supplier);
       if (supplier.chartOfAccountId) {
         coaToSupplierMap.set(supplier.chartOfAccountId, supplier);
       }
     });
 
     for (const entry of apEntries) {
-      // Find supplier by COA ID
-      const supplier = coaToSupplierMap.get(entry.chartOfAccountId);
+      // Find supplier by direct supplierId or COA ID
+      const supplier = (entry.supplierId ? supplierIdMap.get(entry.supplierId) : null) || coaToSupplierMap.get(entry.chartOfAccountId);
       if (!supplier) continue;
 
       const supplierId = supplier.id;
       const debitAmount = Number(entry.debitAmount);
       const creditAmount = Number(entry.creditAmount);
-      // AP is LIABILITY, so credit - debit (normal balance is credit)
-      const balance = creditAmount - debitAmount;
+      const balance = creditAmount - debitAmount; // AP is LIABILITY, so credit - debit
 
       if (!supplierMap.has(supplierId)) {
         supplierMap.set(supplierId, {
@@ -542,22 +586,66 @@ export async function getAccountsPayable(asOfDate?: Date | string, includeAging:
         debitAmount,
         creditAmount,
         balance,
-// @ts-expect-error - Legacy compatibility
-        voucherNumber: entry.JournalEntry.voucher?.voucherNumber || null,
-// @ts-expect-error - Legacy compatibility
-        voucherType: entry.JournalEntry.voucher?.type || null,
-// @ts-expect-error - Legacy compatibility
-        reference: entry.JournalEntry.voucher?.reference || null,
+        voucherNumber: entry.JournalEntry.Voucher?.voucherNumber || null,
+        voucherType: entry.JournalEntry.Voucher?.type || null,
+        reference: entry.JournalEntry.Voucher?.reference || null,
       });
 
       supplierData.totalDebit += debitAmount;
       supplierData.totalCredit += creditAmount;
       supplierData.balance += balance;
 
-      // Calculate aging if requested
       if (includeAging && balance > 0) {
         const bucket = calculateAgingBucket(entry.JournalEntry.date, reportDate);
         supplierData.aging![bucket] = (supplierData.aging![bucket] || 0) + balance;
+      }
+    }
+
+    // Also include open Purchase orders/bills for suppliers without journal entries yet
+    const openPurchases = await prisma.purchase.findMany({
+      where: {
+        date: { lte: endOfDay },
+        status: { notIn: [PurchaseStatus.CANCELLED] },
+      },
+      include: {
+        Supplier: true,
+      },
+    });
+
+    for (const purchase of openPurchases) {
+      const supplier = purchase.Supplier;
+      if (!supplier) continue;
+
+      const dueAmount = Number(purchase.grandTotal || 0);
+      if (dueAmount <= 0) continue;
+
+      if (!supplierMap.has(supplier.id)) {
+        supplierMap.set(supplier.id, {
+          supplier: {
+            id: supplier.id,
+            name: supplier.name,
+            email: supplier.email,
+            phone: supplier.phone,
+            company: supplier.company,
+          },
+          entries: [],
+          totalDebit: 0,
+          totalCredit: dueAmount,
+          balance: dueAmount,
+          ...(includeAging && {
+            aging: {
+              "0-30": 0,
+              "31-60": 0,
+              "61-90": 0,
+              "90+": 0,
+            },
+          }),
+        });
+
+        if (includeAging) {
+          const bucket = calculateAgingBucket(purchase.date, reportDate);
+          supplierMap.get(supplier.id)!.aging![bucket] = dueAmount;
+        }
       }
     }
 

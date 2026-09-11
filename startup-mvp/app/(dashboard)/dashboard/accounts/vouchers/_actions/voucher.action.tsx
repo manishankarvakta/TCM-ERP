@@ -30,7 +30,7 @@ async function generateJournalEntryNumber(tx?: Prisma.TransactionClient, organiz
  * Validate voucher lines for double-entry accounting
  * Returns { valid: boolean, error?: string }
  */
-function validateVoucherLines(lines: Array<{ debitAmount: number; creditAmount: number }>): {
+function validateVoucherLines(lines: Array<{ debitAmount: number | Prisma.Decimal; creditAmount: number | Prisma.Decimal }>): {
   valid: boolean;
   error?: string;
 } {
@@ -42,13 +42,20 @@ function validateVoucherLines(lines: Array<{ debitAmount: number; creditAmount: 
     };
   }
 
-  // Calculate totals
-  const totalDebit = lines.reduce((sum, line) => sum + Number(line.debitAmount || 0), 0);
-  const totalCredit = lines.reduce((sum, line) => sum + Number(line.creditAmount || 0), 0);
+  // Calculate exact totals using Prisma.Decimal
+  const totalDebit = lines.reduce(
+    (acc, line) => acc.plus(new Prisma.Decimal(line.debitAmount?.toString() || "0")),
+    new Prisma.Decimal(0)
+  );
 
-  // Check double-entry balance (allow small floating point differences)
-  const difference = Math.abs(totalDebit - totalCredit);
-  if (difference > 0.01) {
+  const totalCredit = lines.reduce(
+    (acc, line) => acc.plus(new Prisma.Decimal(line.creditAmount?.toString() || "0")),
+    new Prisma.Decimal(0)
+  );
+
+  // Check exact double-entry balance
+  const difference = totalDebit.minus(totalCredit).abs();
+  if (difference.greaterThan(new Prisma.Decimal("0.0001"))) {
     return {
       valid: false,
       error: `Double-entry balance mismatch: Debit total (${totalDebit.toFixed(2)}) must equal Credit total (${totalCredit.toFixed(2)})`,
@@ -58,8 +65,11 @@ function validateVoucherLines(lines: Array<{ debitAmount: number; creditAmount: 
   // Validate each line has either debit or credit (not both, not neither)
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    const hasDebit = Number(line.debitAmount || 0) > 0;
-    const hasCredit = Number(line.creditAmount || 0) > 0;
+    const debit = new Prisma.Decimal(line.debitAmount?.toString() || "0");
+    const credit = new Prisma.Decimal(line.creditAmount?.toString() || "0");
+
+    const hasDebit = debit.greaterThan(0);
+    const hasCredit = credit.greaterThan(0);
 
     if (hasDebit && hasCredit) {
       return {
@@ -1706,25 +1716,55 @@ export async function cancelVoucher(voucherId: string, tx?: Prisma.TransactionCl
 
     const voucher = await client.voucher.findUnique({
       where: { id: voucherId },
-      include: { JournalEntry: true },
+      include: { 
+        JournalEntry: {
+          include: { JournalEntryLine: true }
+        } 
+      },
     });
 
     if (!voucher) return { success: false, error: "Voucher not found" };
-    
-    // In a real system, you might want to create a REVERSAL journal instead of deleting.
-    // For this ERP, we follow the pattern of deleting/voiding the JournalEntry to revert impact.
-    
-// @ts-expect-error - Legacy compatibility
-    await client.$transaction(async (t) => {
-      // 1. Delete associated Journal Entries
-      await t.journalEntryLine.deleteMany({
-        where: { journalEntry: { voucherId: voucher.id } }
-      });
-      await t.journalEntry.deleteMany({
-        where: { voucherId: voucher.id }
-      });
 
-      // 2. Update voucher status to cancelled
+    if (await isPeriodLocked(voucher.date, voucher.organizationId)) {
+      return { success: false, error: "Cannot cancel voucher in a locked accounting period." };
+    }
+
+    await (client as any).$transaction(async (t: Prisma.TransactionClient) => {
+      // If posted, create a Reversing Journal Entry (Storno) to preserve audit immutability
+      if (voucher.status.toLowerCase() === "posted" && voucher.JournalEntry.length > 0) {
+        for (const existingJE of voucher.JournalEntry) {
+          const revEntryNumber = `JE-REV-${voucher.voucherNumber}-${Date.now().toString().slice(-4)}`;
+          
+          await t.journalEntry.create({
+            data: {
+              entryNumber: revEntryNumber,
+              date: new Date(),
+              voucherId: voucher.id,
+              description: `Reversal of Voucher ${voucher.voucherNumber} (Cancelled)`,
+              status: "posted",
+              createdBy: session.user.id,
+              postedBy: session.user.id,
+              postedAt: new Date(),
+              JournalEntryLine: {
+                create: existingJE.JournalEntryLine.map((line) => ({
+                  lineNumber: line.lineNumber,
+                  chartOfAccountId: line.chartOfAccountId,
+                  debitAmount: line.creditAmount, // Swap Credit to Debit for Storno
+                  creditAmount: line.debitAmount, // Swap Debit to Credit for Storno
+                  description: `Reversal: ${line.description || ""}`,
+                  clientId: line.clientId,
+                  supplierId: line.supplierId,
+                  userId: line.userId,
+                  organizationId: line.organizationId,
+                  projectId: line.projectId,
+                })),
+              },
+            },
+          });
+        }
+      }
+
+      // Update voucher status to cancelled
       await t.voucher.update({
         where: { id: voucherId },
         data: { status: "cancelled" }
@@ -1732,7 +1772,7 @@ export async function cancelVoucher(voucherId: string, tx?: Prisma.TransactionCl
     });
 
     revalidateBothPaths("accounts/vouchers");
-    return { success: true, message: "Voucher cancelled successfully" };
+    return { success: true, message: "Voucher cancelled successfully with reversing entry" };
   } catch (error) {
     console.error("cancelVoucher error:", error);
     return { success: false, error: "Failed to cancel voucher" };

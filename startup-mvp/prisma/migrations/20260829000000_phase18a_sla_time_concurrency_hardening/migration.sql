@@ -47,8 +47,16 @@ CREATE TABLE IF NOT EXISTS "SupportTicketResolutionHistory" (
 );
 
 -- Foreign keys & indexes for SupportTicketResolutionHistory
-ALTER TABLE "SupportTicketResolutionHistory" ADD CONSTRAINT "SupportTicketResolutionHistory_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-ALTER TABLE "SupportTicketResolutionHistory" ADD CONSTRAINT "SupportTicketResolutionHistory_ticketId_fkey" FOREIGN KEY ("ticketId") REFERENCES "SupportTicket"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'SupportTicketResolutionHistory_organizationId_fkey') THEN
+    ALTER TABLE "SupportTicketResolutionHistory" ADD CONSTRAINT "SupportTicketResolutionHistory_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'SupportTicketResolutionHistory_ticketId_fkey') THEN
+    ALTER TABLE "SupportTicketResolutionHistory" ADD CONSTRAINT "SupportTicketResolutionHistory_ticketId_fkey" FOREIGN KEY ("ticketId") REFERENCES "SupportTicket"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END $$;
+
 
 CREATE UNIQUE INDEX IF NOT EXISTS "SupportTicketResolutionHistory_ticketId_cycleNumber_key" ON "SupportTicketResolutionHistory"("ticketId", "cycleNumber");
 CREATE INDEX IF NOT EXISTS "SupportTicketResolutionHistory_organizationId_idx" ON "SupportTicketResolutionHistory"("organizationId");

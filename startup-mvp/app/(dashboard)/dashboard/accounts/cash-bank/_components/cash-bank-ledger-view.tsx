@@ -52,7 +52,7 @@ interface CashBankLedgerViewProps {
     totalDebit: number;
     totalCredit: number;
   };
-  type: "cash" | "bank";
+  type: "cash" | "bank" | "mfs";
   dateFrom?: string;
   dateTo?: string;
 }
@@ -67,6 +67,12 @@ export default function CashBankLedgerView({
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  const getBasePath = () => {
+    if (type === "cash") return "/dashboard/accounts/cash-bank/cash-ledger";
+    if (type === "bank") return "/dashboard/accounts/cash-bank/bank-ledger";
+    return "/dashboard/accounts/cash-bank/mfs-ledger";
+  };
+
   const handleDateFromChange = (value: string) => {
     const params = new URLSearchParams(searchParams.toString());
     if (value) {
@@ -74,8 +80,7 @@ export default function CashBankLedgerView({
     } else {
       params.delete("dateFrom");
     }
-    const basePath = type === "cash" ? "/dashboard/accounts/cash-bank/cash-ledger" : "/dashboard/accounts/cash-bank/bank-ledger";
-    router.push(`${basePath}?${params.toString()}`);
+    router.push(`${getBasePath()}?${params.toString()}`);
   };
 
   const handleDateToChange = (value: string) => {
@@ -85,8 +90,7 @@ export default function CashBankLedgerView({
     } else {
       params.delete("dateTo");
     }
-    const basePath = type === "cash" ? "/dashboard/accounts/cash-bank/cash-ledger" : "/dashboard/accounts/cash-bank/bank-ledger";
-    router.push(`${basePath}?${params.toString()}`);
+    router.push(`${getBasePath()}?${params.toString()}`);
   };
 
   const formatCurrency = (amount: number) => {
