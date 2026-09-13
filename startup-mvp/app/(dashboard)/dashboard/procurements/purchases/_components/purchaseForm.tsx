@@ -159,6 +159,7 @@ export default function PurchaseForm({
   const [stockMap, setStockMap] = useState<Record<string, number>>({});
   const [localSuppliers, setLocalSuppliers] = useState(suppliers);
   const [isSupplierDialogOpen, setIsSupplierDialogOpen] = useState(false);
+  const [isDraftHydrated, setIsDraftHydrated] = useState(false);
   const { toasts, closeToast } = useToast();
 
   // SKU selection modal state
@@ -327,7 +328,7 @@ export default function PurchaseForm({
     let list = items;
     if (watchedSupplierId) {
       list = list.filter((item: any) => {
-        return item.supplierIds && item.supplierIds.includes(watchedSupplierId);
+        return !item.supplierIds || item.supplierIds.length === 0 || item.supplierIds.includes(watchedSupplierId);
       });
     }
 
@@ -414,23 +415,28 @@ export default function PurchaseForm({
 
   // Active Purchase Draft Auto-Hydration on Mount (mode === "create")
   useEffect(() => {
-    if (mode !== "create") return;
+    if (mode !== "create") {
+      setIsDraftHydrated(true);
+      return;
+    }
     try {
       const savedDraft = localStorage.getItem("purchase_active_draft");
       if (savedDraft) {
         const draft = JSON.parse(savedDraft);
         if (draft && Array.isArray(draft.items) && draft.items.length > 0) {
-          const hasContent =
-            draft.items.some(
-              (i: any) =>
-                i.itemId ||
-                i.description ||
-                (Number(i.quantity) || 0) > 1 ||
-                (Number(i.unitPrice) || 0) > 0
-            ) || !!draft.supplierId || !!draft.notes;
+          // Filter out completely blank placeholder items
+          const validItems = draft.items.filter(
+            (i: any) =>
+              i.itemId ||
+              i.description ||
+              (Number(i.quantity) || 0) > 1 ||
+              (Number(i.unitPrice) || 0) > 0
+          );
+
+          const hasContent = validItems.length > 0 || !!draft.supplierId || !!draft.notes;
 
           if (hasContent) {
-            if (draft.supplierId) setValue("supplierId", draft.supplierId, { shouldValidate: true });
+            if (draft.supplierId) setValue("supplierId", draft.supplierId, { shouldValidate: true, shouldDirty: true });
             if (draft.warehouseId) setValue("warehouseId", draft.warehouseId);
             if (draft.date) setValue("date", new Date(draft.date));
             if (draft.status) setValue("status", draft.status);
@@ -438,11 +444,11 @@ export default function PurchaseForm({
             if (draft.attachmentUrl) setValue("attachmentUrl", draft.attachmentUrl);
             if (typeof draft.discount === "number") setValue("discount", draft.discount);
             if (typeof draft.tax === "number") setValue("tax", draft.tax);
-            if (Array.isArray(draft.items)) {
-              setValue("items", draft.items, { shouldValidate: true });
+            if (validItems.length > 0) {
+              setValue("items", validItems, { shouldValidate: true, shouldDirty: true });
               dispatch(
                 initializePurchase({
-                  items: draft.items.map((item: any) => ({
+                  items: validItems.map((item: any) => ({
                     itemId: item.itemId || "",
                     variantId: item.variantId || "",
                     description: item.description || "",
@@ -456,31 +462,32 @@ export default function PurchaseForm({
               );
             }
             sonnerToast.success(
-              `Restored ${draft.items.length} item(s) from your previous purchase draft.`
+              `Restored ${validItems.length} item(s) from your previous purchase draft.`
             );
           }
         }
       }
     } catch (e) {
       console.error("Failed to restore purchase active draft", e);
+    } finally {
+      setIsDraftHydrated(true);
     }
   }, [mode]);
 
   // Active Purchase Draft Auto-Save on Change (mode === "create")
   useEffect(() => {
-    if (mode !== "create") return;
+    if (mode !== "create" || !isDraftHydrated) return;
     try {
-      const hasContent =
-        (watchedItems &&
-          watchedItems.some(
-            (i: any) =>
-              i.itemId ||
-              i.description ||
-              (Number(i.quantity) || 0) > 1 ||
-              (Number(i.unitPrice) || 0) > 0
-          )) ||
-        !!watchedSupplierId ||
-        !!watchedNotes;
+      // Filter out completely blank placeholder items before saving
+      const validItems = (watchedItems || []).filter(
+        (i: any) =>
+          i.itemId ||
+          i.description ||
+          (Number(i.quantity) || 0) > 1 ||
+          (Number(i.unitPrice) || 0) > 0
+      );
+
+      const hasContent = validItems.length > 0 || !!watchedSupplierId || !!watchedNotes;
 
       if (hasContent) {
         const draftData = {
@@ -492,7 +499,7 @@ export default function PurchaseForm({
           attachmentUrl: watchedAttachmentUrl || "",
           discount: Number(watchedDiscount) || 0,
           tax: Number(watchedTax) || 0,
-          items: watchedItems || [],
+          items: validItems.length > 0 ? validItems : watchedItems || [],
           timestamp: new Date().getTime(),
         };
         localStorage.setItem("purchase_active_draft", JSON.stringify(draftData));
@@ -504,6 +511,7 @@ export default function PurchaseForm({
     }
   }, [
     mode,
+    isDraftHydrated,
     watchedItems,
     watchedSupplierId,
     watchedWarehouseId,
@@ -648,12 +656,19 @@ export default function PurchaseForm({
                       control={control}
                       render={({ field }) => (
                         <Select
-                          value={field.value}
+                          value={field.value || ""}
                           onValueChange={field.onChange}
                           disabled={loading}
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder="Select supplier" />
+                            <SelectValue placeholder="Select supplier">
+                              {field.value
+                                ? (() => {
+                                    const sup = localSuppliers.find((s) => s.id === field.value);
+                                    return sup ? `${sup.supplierCode || "N/A"} - ${sup.name || sup.email}` : undefined;
+                                  })()
+                                : undefined}
+                            </SelectValue>
                           </SelectTrigger>
                           <SelectContent className="max-h-[300px]">
                             <div className="p-2">
@@ -866,6 +881,8 @@ export default function PurchaseForm({
                       
                       // Filter out already selected items (only if all variants are selected, or it has no variants and is selected)
                       const availableItems = filteredItemsForSelect.filter(item => {
+                        const currentItemId = watch(`items.${index}.itemId`);
+                        if (currentItemId && item.id === currentItemId) return true;
                         if (!item.variants || item.variants.length === 0) {
                           return !otherSelectedItems.some(osi => osi.itemId === item.id);
                         }
