@@ -158,7 +158,7 @@ export default function POSScreenModern({
 
   // Inline Payment States for SS2 Direct Billing Sidebar
   const [isDueBill, setIsDueBill] = useState<boolean>(false);
-  const [securityAction, setSecurityAction] = useState<"DUE_SALE" | "DISCOUNT" | "COUPON" | "POINTS" | null>(null);
+  const [securityAction, setSecurityAction] = useState<"DUE_SALE" | "DISCOUNT" | "COUPON" | "POINTS" | "EXCHANGE" | null>(null);
   const [isSecurityModalOpen, setIsSecurityModalOpen] = useState<boolean>(false);
   const [permittedById, setPermittedById] = useState<string | null>(null);
   const [permittedUserName, setPermittedUserName] = useState<string>("");
@@ -331,6 +331,16 @@ export default function POSScreenModern({
     handleApplyPromo();
   };
 
+  const onAttemptExchange = () => {
+    const isSecurePosExchangeRequired = posSettings?.securePos && (posSettings?.securePosExchange ?? true);
+    if (isSecurePosExchangeRequired && !permittedById) {
+      setSecurityAction("EXCHANGE");
+      setIsSecurityModalOpen(true);
+      return;
+    }
+    onExchangeClick();
+  };
+
   const handlePrintBillClick = () => {
     if (discountLimitError) {
       toast.error(discountLimitError);
@@ -439,7 +449,7 @@ export default function POSScreenModern({
       if (e.key === "F3") {
         e.preventDefault();
         e.stopPropagation();
-        onExchangeClick();
+        onAttemptExchange();
       }
     };
 
@@ -447,7 +457,7 @@ export default function POSScreenModern({
     return () => {
       window.removeEventListener("keydown", handleF3KeyDown);
     };
-  }, [onExchangeClick]);
+  }, [onAttemptExchange]);
 
   // Global F4 key shortcut for Return Modal in Modern POS
   React.useEffect(() => {
@@ -919,7 +929,7 @@ export default function POSScreenModern({
             className="absolute bottom-4 left-4 z-20"
             onReturnClick={onReturnClick}
             isExchangeMode={isExchangeMode}
-            onExchangeClick={onExchangeClick}
+            onExchangeClick={onAttemptExchange}
             onCollectDueClick={onCollectDueClick}
             cartLength={cart.length}
             heldCartsCount={heldCartsCount}
@@ -1491,6 +1501,9 @@ export default function POSScreenModern({
             setEnablePointsRedeem(true);
             setPointsToRedeem(maxRedeemablePoints > 0 ? maxRedeemablePoints : 0);
             toast.success(`Customer Points authorized by ${userName}`);
+          } else if (securityAction === "EXCHANGE") {
+            onExchangeClick();
+            toast.success(`Exchange authorized by ${userName}`);
           } else {
             setIsDueBill(true);
             setCashAmount(0);
@@ -1507,6 +1520,8 @@ export default function POSScreenModern({
             ? "Authorize Coupon"
             : securityAction === "POINTS"
             ? "Authorize Customer Points"
+            : securityAction === "EXCHANGE"
+            ? "Authorize Item Exchange"
             : "Authorize Due Sale"
         }
         actionDescription={
@@ -1516,6 +1531,8 @@ export default function POSScreenModern({
             ? "Secure POS is enabled. Select an authorized user with POS permissions and enter password to apply coupon."
             : securityAction === "POINTS"
             ? "Secure POS is enabled. Select an authorized user with POS permissions and enter password to redeem customer points."
+            : securityAction === "EXCHANGE"
+            ? "Secure POS is enabled. Select an authorized user with POS permissions and enter password to perform item exchange."
             : "Secure POS is enabled. Select an authorized user with POS permissions and enter password to enable due sale."
         }
       />

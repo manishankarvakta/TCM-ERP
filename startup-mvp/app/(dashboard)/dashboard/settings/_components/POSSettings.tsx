@@ -945,6 +945,24 @@ export default function POSSettingsPanel() {
                           </div>
                         )}
                       />
+
+                      {/* Exchange Permission Toggle */}
+                      <Controller
+                        name="securePosExchange"
+                        control={posForm.control}
+                        render={({ field }) => (
+                          <div className="flex items-center space-x-2.5">
+                            <Checkbox
+                              id="securePosExchange"
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                            <Label htmlFor="securePosExchange" className="font-semibold text-sm cursor-pointer select-none">
+                              Exchange
+                            </Label>
+                          </div>
+                        )}
+                      />
                     </div>
                   )}
                 </CardContent>
