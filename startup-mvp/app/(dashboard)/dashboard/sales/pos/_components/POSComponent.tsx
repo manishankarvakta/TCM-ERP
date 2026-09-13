@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { FaSearch, FaHandPaper, FaSync, FaPrint, FaPlus, FaMinus, FaTrashAlt, FaShoppingCart, FaCheckCircle, FaTimes, FaUndoAlt, FaShoppingBag, FaIndustry, FaTicketAlt, FaCreditCard, FaMoneyBillWave, FaMobileAlt, FaUsers, FaGlassCheers, FaExclamationTriangle, FaBoxOpen, FaExchangeAlt, FaArrowLeft } from "react-icons/fa";
 import { createSale, getClientItemDiscounts, validateCoupon, voidSale, processSaleReturn, processSaleExchange, getLastSaleForUser, getSaleByNumber, getSalesByCustomer } from "../../_actions/sale.action";
 import { getOutstandingSales, collectCustomerDue, getClientNetARBalance } from "../../_actions/due-payment.action";
+import { getHeldCartsAction, saveHeldCartAction, deleteHeldCartAction } from "../_actions/pos-hold.action";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useToastContext } from "@/components/ui/providers/toast-provider";
 import { toast as sonnerToast } from "sonner";
@@ -283,14 +284,35 @@ export default function POSComponent({ items, clients: initialClients, warehouse
   }, []);
 
   useEffect(() => {
-    const saved = localStorage.getItem('pos_held_carts');
-    if (saved) {
-      try { setHeldCarts(JSON.parse(saved)); } catch (e) {}
-    }
+    getHeldCartsAction()
+      .then((res) => {
+        if (res.success && res.data && res.data.length > 0) {
+          setHeldCarts(res.data);
+        } else {
+          const saved = localStorage.getItem("pos_held_carts");
+          if (saved) {
+            try {
+              const parsed = JSON.parse(saved);
+              setHeldCarts(parsed);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                parsed.forEach((hc) => saveHeldCartAction(hc));
+              }
+            } catch (e) {}
+          }
+        }
+      })
+      .catch(() => {
+        const saved = localStorage.getItem("pos_held_carts");
+        if (saved) {
+          try {
+            setHeldCarts(JSON.parse(saved));
+          } catch (e) {}
+        }
+      });
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('pos_held_carts', JSON.stringify(heldCarts));
+    localStorage.setItem("pos_held_carts", JSON.stringify(heldCarts));
   }, [heldCarts]);
 
   useEffect(() => {
@@ -1689,12 +1711,14 @@ export default function POSComponent({ items, clients: initialClients, warehouse
       router.replace(`?${params.toString()}`);
     }
     setHeldCarts(heldCarts.filter((c: any) => c.id !== heldCart.id));
+    deleteHeldCartAction(heldCart.id).catch(console.error);
     setIsHeldCartsModalOpen(false);
     toast({ title: "Cart Recalled", description: "Held cart has been restored." });
   };
 
   const handleDeleteHeldCart = (id: string) => {
     setHeldCarts(heldCarts.filter((c: any) => c.id !== id));
+    deleteHeldCartAction(id).catch(console.error);
     if (heldCarts.length === 1) setIsHeldCartsModalOpen(false);
     toast({ title: "Held Cart Deleted", description: "The held cart was removed." });
   };
@@ -1720,7 +1744,8 @@ export default function POSComponent({ items, clients: initialClients, warehouse
       clientId: selectedClientId,
       amount: grandTotal
     };
-    setHeldCarts([...heldCarts, newHeldCart]);
+    setHeldCarts((prev) => [...prev, newHeldCart]);
+    saveHeldCartAction(newHeldCart).catch(console.error);
     handleNewSale(); // clear screen
     toast({ title: "Cart Held", description: "Current transaction put on hold." });
   };

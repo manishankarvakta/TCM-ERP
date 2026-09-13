@@ -87,6 +87,7 @@ model User {
   settings                         Settings[]             @relation("SettingsUser")
   billerClosingSessions            POSClosingSession[]    @relation("BillerClosingSessions")
   managerClosingVerifications       POSClosingSession[]    @relation("ManagerClosingVerifications")
+  posHeldCarts                     POSHeldCart[]          @relation("UserPOSHeldCarts")
   createdMembershipTiers           MembershipTier[]       @relation("MembershipTierCreator")
   rfidBundleScans                  RFIDBundleScan[]
   createdTPNs                      TransferPurchaseNote[] @relation("TPNCreatedBy")
@@ -2799,4 +2800,20 @@ enum POSClosingStatus {
   DRAFT
   CLOSED
   VERIFIED
+}
+
+model POSHeldCart {
+  id        String   @id @default(cuid())
+  userId    String
+  holdKey   String
+  cart      Json
+  clientId  String?
+  amount    Float    @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation("UserPOSHeldCarts", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([holdKey])
 }
