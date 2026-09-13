@@ -2270,10 +2270,10 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     return () => window.removeEventListener('keydown', handler);
   }, [isChangeDialogOpen]);
 
-  // Global Escape key shortcut to focus search input
+  // Global Escape & F1 key shortcut to focus search input
   useEffect(() => {
     const handleEscapeFocus = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
+      if (e.key === "Escape" || e.key === "F1") {
         if (
           isReturnModalOpen ||
           isConfirmModalOpen ||

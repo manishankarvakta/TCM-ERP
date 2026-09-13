@@ -338,6 +338,62 @@ export default function POSScreenModern({
     }
   }, [highlightedSearchIndex, searchQuery]);
 
+  const qtyInputRefs = React.useRef<(HTMLInputElement | null)[]>([]);
+
+  // Global F1 key shortcut to focus search input in Modern POS
+  React.useEffect(() => {
+    const handleF1KeyDown = (e: KeyboardEvent) => {
+      if (e.key === "F1") {
+        e.preventDefault();
+        e.stopPropagation();
+        if (searchInputRef.current) {
+          searchInputRef.current.focus();
+          searchInputRef.current.select();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleF1KeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleF1KeyDown);
+    };
+  }, [searchInputRef]);
+
+  // Global F2 key shortcut to cycle quantity input focus in Modern POS
+  React.useEffect(() => {
+    const handleF2KeyDown = (e: KeyboardEvent) => {
+      if (e.key === "F2") {
+        e.preventDefault();
+        e.stopPropagation();
+
+        if (sortedCart.length === 0) return;
+
+        const activeEl = document.activeElement;
+        const activeIndex = qtyInputRefs.current.findIndex(
+          (el) => el && el === activeEl
+        );
+
+        let nextIndex = 0;
+        if (activeIndex !== -1) {
+          nextIndex = (activeIndex + 1) % sortedCart.length;
+        } else {
+          nextIndex = 0;
+        }
+
+        const targetEl = qtyInputRefs.current[nextIndex];
+        if (targetEl) {
+          targetEl.focus();
+          targetEl.select();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleF2KeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleF2KeyDown);
+    };
+  }, [sortedCart.length]);
+
   const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       e.preventDefault();
@@ -462,7 +518,7 @@ export default function POSScreenModern({
             <div className="relative flex items-center">
               <Input
                 ref={searchInputRef}
-                placeholder="Product Search (↑ ↓ navigate, Enter to select)"
+                placeholder="Product Search (F1 to focus, ↑ ↓ navigate, Enter to select)"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={handleSearchKeyDown}
@@ -629,6 +685,9 @@ export default function POSScreenModern({
                               <FaMinus className="w-2.5 h-2.5" />
                             </button>
                             <input
+                              ref={(el) => {
+                                qtyInputRefs.current[index] = el;
+                              }}
                               type="number"
                               min="1"
                               value={itemQty === 0 ? "" : itemQty}
@@ -636,7 +695,16 @@ export default function POSScreenModern({
                                 const val = parseInt(e.target.value, 10);
                                 handleCustomQuantitySet(item.cartKey, isNaN(val) ? 1 : val);
                               }}
-                              className="w-10 text-center text-xs font-bold bg-transparent outline-none py-0.5"
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  if (searchInputRef.current) {
+                                    searchInputRef.current.focus();
+                                    searchInputRef.current.select();
+                                  }
+                                }
+                              }}
+                              className="w-10 text-center text-xs font-bold bg-transparent outline-none py-0.5 focus:bg-accent/60 focus:ring-1 focus:ring-primary rounded"
                             />
                             <button
                               type="button"
