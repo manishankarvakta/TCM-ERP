@@ -31,6 +31,7 @@ import {
   FiMonitor,
   FiTv,
   FiLayout,
+  FiShield,
 } from "react-icons/fi";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getPOSSettingsAction, savePOSSettingsAction } from "../_actions/pos-settings.action";
@@ -702,29 +703,6 @@ export default function POSSettingsPanel() {
                       )}
                     />
 
-                    {/* 7. Secure POS */}
-                    <Controller
-                      name="securePos"
-                      control={posForm.control}
-                      render={({ field }) => (
-                        <div className="sm:col-span-2 flex items-start space-x-3 rounded-xl border p-3 bg-card hover:bg-accent/30 transition-colors">
-                          <Checkbox
-                            id="securePos"
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                            className="mt-0.5"
-                          />
-                          <div className="space-y-0.5 leading-none">
-                            <Label htmlFor="securePos" className="font-semibold text-sm cursor-pointer">
-                              Secure POS
-                            </Label>
-                            <p className="text-xs text-muted-foreground">
-                              Enable restrictions and permission enforcement on the POS screen
-                            </p>
-                          </div>
-                        </div>
-                      )}
-                    />
                   </div>
 
                   {/* Default Tax / VAT Rate % Input */}
@@ -855,6 +833,43 @@ export default function POSSettingsPanel() {
                       />
                     </div>
                   )}
+                </CardContent>
+              </Card>
+
+              {/* Secure POS Settings Card */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base font-bold">
+                    <FiShield className="h-4 w-4 text-primary" />
+                    Secure POS Settings
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Enable security restrictions and manager permission enforcement for sensitive POS actions
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <Controller
+                    name="securePos"
+                    control={posForm.control}
+                    render={({ field }) => (
+                      <div className="flex items-start space-x-3 rounded-xl border p-3.5 bg-card hover:bg-accent/30 transition-colors">
+                        <Checkbox
+                          id="securePos"
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                          className="mt-0.5"
+                        />
+                        <div className="space-y-0.5 leading-none">
+                          <Label htmlFor="securePos" className="font-bold text-sm cursor-pointer">
+                            Secure POS
+                          </Label>
+                          <p className="text-xs text-muted-foreground">
+                            Require password verification from authorized users (with POS permissions) for sensitive POS operations like due sales.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  />
                 </CardContent>
               </Card>
 
