@@ -135,6 +135,8 @@ export default async function DashboardSidebarWrapper() {
   // Get user's permissions in enhanced format
   const permissions = await getUserPermissionsEnhanced(session.user.id);
   
+  const isAdmin = session.user.role?.toLowerCase() === "admin";
+
   // Check if user has any permissions (excluding always visible items)
   const hasAnyPermissions = Object.keys(permissions).length > 0;
   
@@ -142,28 +144,40 @@ export default async function DashboardSidebarWrapper() {
   const accessiblePages = new Map<string, boolean>();
   
   if (!hasAnyPermissions) {
-    // User has no permissions - only show Dashboard and Profile
-    // Settings is excluded even though it's alwaysVisible
-    
-    // Only set Dashboard and Profile as accessible
-    accessiblePages.set("dashboard", true);
-    accessiblePages.set("profile", true);
-    // Explicitly exclude Settings pages
-    for (const navItem of NAVIGATION_STRUCTURE) {
-      if (navItem.id === "settings") {
+    if (isAdmin) {
+      // Default Admin with no specific permissions configured: allow full access
+      accessiblePages.set("dashboard", true);
+      accessiblePages.set("profile", true);
+      accessiblePages.set("settings", true);
+      for (const navItem of NAVIGATION_STRUCTURE) {
         for (const page of navItem.pages) {
-          accessiblePages.set(page.permissionKey, false);
+          accessiblePages.set(page.permissionKey, true);
+        }
+      }
+    } else {
+      // Non-admin user with no permissions - only show Dashboard and Profile
+      accessiblePages.set("dashboard", true);
+      accessiblePages.set("profile", true);
+      for (const navItem of NAVIGATION_STRUCTURE) {
+        if (navItem.id === "settings") {
+          for (const page of navItem.pages) {
+            accessiblePages.set(page.permissionKey, false);
+          }
         }
       }
     }
   } else {
-    // User has permissions - build full accessible pages map
-    // IMPORTANT: We iterate through ALL pages in NAVIGATION_STRUCTURE to ensure
-    // every page is in the accessiblePages map (either true or false)
+    // User has permissions configured - build full accessible pages map based on actual permissions
     for (const navItem of NAVIGATION_STRUCTURE) {
       for (const page of navItem.pages) {
-        const pagePerm = permissions[page.permissionKey] as PagePermission | undefined;
+        let pagePerm = permissions[page.permissionKey] as PagePermission | undefined;
         
+        // Fallback: Check parent module permission if sub-module permission is not defined directly
+        if (!pagePerm && page.permissionKey.includes(".")) {
+          const [parentModule] = page.permissionKey.split(".");
+          pagePerm = permissions[parentModule] as PagePermission | undefined;
+        }
+
         // Core rule: Check navigationVisible and pageAccess flags first
         // These flags explicitly control visibility regardless of operations
         const permissionExists = pagePerm !== undefined && pagePerm !== null;
@@ -217,16 +231,12 @@ export default async function DashboardSidebarWrapper() {
         }
       }
     }
-  }
 
-  // Force allow "settings" and all other routes for Admin users
-  // This ensures new routes appear instantly for Admins even if DB permissions are missing
-  if (session.user.role?.toLowerCase() === "admin") {
-    accessiblePages.set("settings", true);
-    for (const navItem of NAVIGATION_STRUCTURE) {
-      for (const page of navItem.pages) {
-        accessiblePages.set(page.permissionKey, true);
-      }
+    // Admin role guarantees access to Settings, Dashboard, and Profile
+    if (isAdmin) {
+      accessiblePages.set("settings", true);
+      accessiblePages.set("dashboard", true);
+      accessiblePages.set("profile", true);
     }
   }
 

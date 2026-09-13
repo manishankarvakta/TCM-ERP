@@ -101,30 +101,32 @@ export async function hasPermission(
   operation: Operation
 ): Promise<boolean> {
   try {
-    // Admin has full access to all permissions
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { role: true },
     });
-    if (user?.role === "admin") {
-      return true;
-    }
 
-    let permissions;
+    let permissions: Partial<EnhancedPermissions>;
     try {
       permissions = await getUserPermissionsEnhanced(userId);
     } catch (e) {
-      // Fallback to uncached version if unstable_cache fails (e.g. in CLI/tests)
-      permissions = await getUserPermissions(userId);
+      permissions = (await getUserPermissions(userId)) as Partial<EnhancedPermissions>;
+    }
+
+    const hasAnyPermissions = Object.keys(permissions).length > 0;
+
+    // Admin with NO configured permissions gets full access by default
+    if (user?.role?.toLowerCase() === "admin" && !hasAnyPermissions) {
+      return true;
     }
 
     // Get equivalent operations for checking (e.g. read maps to view)
     const allowedOps = mapOperation(operation);
 
-    // Check direct permission
+    // Direct permission check
     const pagePermission = permissions[permissionKey] as PagePermission | undefined;
-    if (pagePermission?.operations?.some(op => allowedOps.includes(op))) {
-      return true;
+    if (pagePermission !== undefined && pagePermission !== null) {
+      return pagePermission.operations?.some((op) => allowedOps.includes(op)) ?? false;
     }
 
     // If checking top-level module (e.g., "crm"), check if any sub-module (e.g., "crm.leads") has the permission
@@ -134,17 +136,17 @@ export async function hasPermission(
       );
       const hasSubModulePermission = subModuleKeys.some((key) => {
         const p = permissions[key] as PagePermission | undefined;
-        return p?.operations?.some(op => allowedOps.includes(op));
+        return p?.operations?.some((op) => allowedOps.includes(op));
       });
       if (hasSubModulePermission) return true;
     }
 
-    // Also check parent module permission if checking sub-module
+    // Fallback: Check parent module permission ONLY if sub-module permission is NOT defined directly
     if (permissionKey.includes(".")) {
       const [parentModule] = permissionKey.split(".");
       const parentPermission = permissions[parentModule] as PagePermission | undefined;
-      if (parentPermission?.operations?.some(op => allowedOps.includes(op))) {
-        return true;
+      if (parentPermission !== undefined && parentPermission !== null) {
+        return parentPermission.operations?.some((op) => allowedOps.includes(op)) ?? false;
       }
     }
 
@@ -169,10 +171,14 @@ export async function canAccessModule(
       where: { id: userId },
       select: { role: true },
     });
-    if (user?.role === "admin") return true;
 
     const permissions = await getUserPermissions(userId);
-    
+    const hasAnyPermissions = Object.keys(permissions).length > 0;
+
+    if (user?.role?.toLowerCase() === "admin" && !hasAnyPermissions) {
+      return true;
+    }
+
     // Check module-level permission
     const modulePermissions = permissions[module];
     if (modulePermissions) {
@@ -206,34 +212,7 @@ export async function canAccessSubModule(
   userId: string,
   permissionKey: string
 ): Promise<boolean> {
-  try {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { role: true },
-    });
-    if (user?.role === "admin") return true;
-
-    const permissions = await getUserPermissionsEnhanced(userId);
-    const pagePermission = permissions[permissionKey] as PagePermission | undefined;
-    
-    if (pagePermission) {
-      return pagePermission.pageAccess === true;
-    }
-    
-    // Also check parent module permission
-    if (permissionKey.includes(".")) {
-      const [parentModule] = permissionKey.split(".");
-      const parentPermission = permissions[parentModule] as PagePermission | undefined;
-      if (parentPermission?.pageAccess) {
-        return true;
-      }
-    }
-    
-    return false;
-  } catch (error) {
-    console.error("Error checking sub-module access:", error);
-    return false;
-  }
+  return canAccessPage(userId, permissionKey);
 }
 
 /**
@@ -248,32 +227,32 @@ export async function canSeeNavigation(
       where: { id: userId },
       select: { role: true },
     });
-    if (user?.role === "admin") return true;
+
+    const permissions = await getUserPermissionsEnhanced(userId);
+    const hasAnyPermissions = Object.keys(permissions).length > 0;
+
+    if (user?.role?.toLowerCase() === "admin" && !hasAnyPermissions) {
+      return true;
+    }
+
     const navItem = NAVIGATION_STRUCTURE.find((nav) => nav.id === navigationId);
     if (!navItem) return false;
     
-    const permissions = await getUserPermissionsEnhanced(userId);
-    const hasAnyPermissions = Object.keys(permissions).length > 0;
-    
     // Always visible items (Dashboard, Profile)
-    // Settings is always visible but only if user has permissions
     if (navItem.alwaysVisible) {
-      // If user has no permissions, only Dashboard and Profile are visible
       if (!hasAnyPermissions) {
         return navigationId === "dashboard" || navigationId === "profile";
       }
-      return true; // User has permissions, show all always visible items
+      return true;
     }
     
-    // For non-always-visible items, check permissions
     if (!hasAnyPermissions) {
-      return false; // No permissions = no access to non-always-visible items
+      return false;
     }
     
     // Check if any page under this navigation is visible
     for (const page of navItem.pages) {
       const pagePermission = permissions[page.permissionKey] as PagePermission | undefined;
-      // Only show navigation if permission exists, has operations, and is visible
       if (
         pagePermission &&
         pagePermission.operations &&
@@ -299,19 +278,29 @@ export async function canAccessPage(
   permissionKey: string
 ): Promise<boolean> {
   try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+
     const permissions = await getUserPermissionsEnhanced(userId);
+    const hasAnyPermissions = Object.keys(permissions).length > 0;
+
+    if (user?.role?.toLowerCase() === "admin" && !hasAnyPermissions) {
+      return true;
+    }
+
     const pagePermission = permissions[permissionKey] as PagePermission | undefined;
-    
-    if (pagePermission) {
+    if (pagePermission !== undefined && pagePermission !== null) {
       return pagePermission.pageAccess === true;
     }
     
-    // Also check parent module permission
+    // Fallback: Check parent module permission ONLY if sub-module permission is NOT defined directly
     if (permissionKey.includes(".")) {
       const [parentModule] = permissionKey.split(".");
       const parentPermission = permissions[parentModule] as PagePermission | undefined;
-      if (parentPermission?.pageAccess) {
-        return true;
+      if (parentPermission !== undefined && parentPermission !== null) {
+        return parentPermission.pageAccess === true;
       }
     }
     

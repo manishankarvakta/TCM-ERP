@@ -16,7 +16,14 @@ export async function getEmployees(
   page: number = 1,
   limit: number = 10,
   search: string = "",
-  status: "active" | "inactive" | "trash" | "all" = "all"
+  status: "active" | "inactive" | "trash" | "all" = "all",
+  filters?: {
+    department?: string;
+    designation?: string;
+    employeeTypeId?: string;
+    warehouseId?: string;
+    gender?: string;
+  }
 ) {
   try {
     const session = await auth();
@@ -26,6 +33,7 @@ export async function getEmployees(
         success: false,
         error: "Unauthorized",
         employees: [],
+        summary: { total: 0, active: 0, onDuty: 0 },
         pagination: {
           page: 1,
           limit: 10,
@@ -58,11 +66,34 @@ export async function getEmployees(
     } else if (status === "inactive") {
       where.status = "inactive";
     } else if (status === "all") {
-      // Show all except trash by default
       where.status = { not: "trash" };
     }
 
-    // Get total count
+    // Additional multi-filters
+    if (filters?.department && filters.department !== "all") {
+      where.department = filters.department;
+    }
+    if (filters?.designation && filters.designation !== "all") {
+      where.designation = filters.designation;
+    }
+    if (filters?.employeeTypeId && filters.employeeTypeId !== "all") {
+      where.employeeTypeId = filters.employeeTypeId;
+    }
+    if (filters?.warehouseId && filters.warehouseId !== "all") {
+      where.warehouseId = filters.warehouseId;
+    }
+    if (filters?.gender && filters.gender !== "all") {
+      where.gender = filters.gender;
+    }
+
+    // Counts for header summary badges
+    const [totalCount, activeCount, onDutyCount] = await Promise.all([
+      prisma.employee.count({ where: { status: { not: "trash" } } }).catch(() => 0),
+      prisma.employee.count({ where: { status: "active" } }).catch(() => 0),
+      prisma.employee.count({ where: { status: "active" } }).catch(() => 0),
+    ]);
+
+    // Get total filtered count
     const total = await prisma.employee.count({ where });
 
     // Get employees
@@ -85,6 +116,8 @@ export async function getEmployees(
           },
         },
         status: true,
+        employeeTypeId: true,
+        employeeType: { select: { id: true, name: true, code: true } },
         designation: true,
         department: true,
         salary: true,
@@ -132,6 +165,11 @@ export async function getEmployees(
     return {
       success: true,
       employees,
+      summary: {
+        total: totalCount,
+        active: activeCount,
+        onDuty: onDutyCount,
+      },
       pagination: {
         page,
         limit,
@@ -187,6 +225,8 @@ export async function getEmployeeById(employeeId: string) {
           },
         },
         status: true,
+        employeeTypeId: true,
+        employeeType: { select: { id: true, name: true, code: true } },
         designation: true,
         department: true,
         salary: true,
@@ -389,6 +429,7 @@ export async function createEmployee(input: {
   email?: string;
   phone?: string;
   status?: "active" | "inactive";
+  employeeTypeId?: string;
   designation?: string;
   department?: string;
   salary?: number;
@@ -656,6 +697,7 @@ export async function createEmployee(input: {
           email: input.email || null,
           phone: input.phone || null,
           status: input.status || "active",
+          employeeTypeId: input.employeeTypeId || null,
           designation: input.designation || null,
           department: input.department || null,
           salary: input.salary || null,
@@ -763,6 +805,7 @@ export async function updateEmployee(input: {
   phone?: string;
   userId?: string;
   status?: "active" | "inactive";
+  employeeTypeId?: string;
   designation?: string;
   department?: string;
   salary?: number;
@@ -1020,6 +1063,7 @@ export async function updateEmployee(input: {
 // @ts-expect-error - Legacy compatibility
         userId: input.userId !== undefined ? (input.userId || null) : undefined,
         status: input.status !== undefined ? input.status : undefined,
+        employeeTypeId: input.employeeTypeId !== undefined ? (input.employeeTypeId || null) : undefined,
         designation: input.designation !== undefined ? (input.designation || null) : undefined,
         department: input.department !== undefined ? (input.department || null) : undefined,
         salary: input.salary !== undefined ? (input.salary || null) : undefined,

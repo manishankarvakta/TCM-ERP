@@ -396,6 +396,7 @@ model Employee {
   floor                    Floor?                            @relation(fields: [floorId], references: [id], onDelete: SetNull)
   line                     Line?                             @relation(fields: [lineId], references: [id], onDelete: SetNull)
   employeeType             EmployeeType?                     @relation(fields: [employeeTypeId], references: [id], onDelete: SetNull)
+  rosters                  EmployeeRoster[]
   appointmentLetters       AppointmentLetter[]
   resignations             Resignation[]
   ResourceAllocations      ProjectResourceAllocation[]
@@ -971,6 +972,7 @@ model Department {
   Milestones          Milestone[]
   Tasks               Task[]
   ResourceAllocations ProjectResourceAllocation[]
+  Designations        Designation[]
 
   @@unique([organizationId, code])
   @@index([organizationId])
@@ -1306,6 +1308,7 @@ model User {
   approvedTimesheets                 Timesheet[]                       @relation("TimesheetApprover")
   createdPayrolls                    Payroll[]                         @relation("PayrollCreator")
   createdShifts                      Shift[]                           @relation("ShiftCreator")
+  createdRosters                     EmployeeRoster[]                  @relation("RosterCreator")
   defaultWarehouseId                 String?
   defaultWarehouse                   Warehouse?                        @relation("UserDefaultWarehouse", fields: [defaultWarehouseId], references: [id])
   File                               File[]
@@ -2183,11 +2186,34 @@ model Shift {
   updatedAt       DateTime     @updatedAt
   attendances     Attendance[]
   employees       Employee[]   @relation("EmployeeShift")
+  rosters         EmployeeRoster[]
   creator         User         @relation("ShiftCreator", fields: [createdBy], references: [id])
 
   @@index([status])
   @@index([isTrash])
   @@index([createdBy])
+}
+
+model EmployeeRoster {
+  id              String       @id @default(cuid())
+  employeeId      String
+  shiftId         String?
+  date            DateTime     @db.Date
+  isOffDay        Boolean      @default(false)
+  isOvertimeShift Boolean      @default(false)
+  notes           String?
+  createdById     String
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  employee        Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  shift           Shift?       @relation(fields: [shiftId], references: [id], onDelete: SetNull)
+  createdBy       User         @relation("RosterCreator", fields: [createdById], references: [id])
+
+  @@unique([employeeId, date])
+  @@index([date])
+  @@index([employeeId])
+  @@index([shiftId])
 }
 
 model Holiday {
@@ -2599,6 +2625,25 @@ model EmployeeType {
   employees             Employee[]
 
   @@index([organizationId])
+}
+
+model Designation {
+  id             String      @id @default(cuid())
+  name           String
+  code           String?     @unique
+  description    String?
+  departmentId   String?
+  departmentName String?
+  Department     Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  status         String      @default("active")
+  isTrash        Boolean     @default(false)
+  organizationId String      @default("default-org")
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  @@index([status])
+  @@index([isTrash])
+  @@index([departmentId])
 }
 
 model SalaryStructurePolicy {

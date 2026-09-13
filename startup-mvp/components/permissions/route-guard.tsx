@@ -18,8 +18,9 @@ export default function RouteGuard({ children, permissions, role }: RouteGuardPr
   const [checking, setChecking] = useState<boolean>(true);
 
   useEffect(() => {
-    // 1. Admin bypass
-    if (role?.toLowerCase() === "admin") {
+    // 1. Admin bypass ONLY if user has no permissions configured
+    const hasAnyPermissions = permissions && Object.keys(permissions).length > 0;
+    if (role?.toLowerCase() === "admin" && !hasAnyPermissions) {
       setAuthorized(true);
       setChecking(false);
       return;
@@ -49,20 +50,26 @@ export default function RouteGuard({ children, permissions, role }: RouteGuardPr
     const pagePermission = permissions[permissionKey];
     let hasAccess = false;
 
-    if (pagePermission) {
-      hasAccess =
-        pagePermission.pageAccess === true ||
-        (Array.isArray(pagePermission.operations) && pagePermission.operations.length > 0);
-    }
-
-    // Fallback: Check parent module permission
-    if (!hasAccess && permissionKey.includes(".")) {
+    if (pagePermission !== undefined && pagePermission !== null) {
+      if (Array.isArray(pagePermission)) {
+        hasAccess = pagePermission.length > 0;
+      } else {
+        hasAccess =
+          pagePermission.pageAccess === true ||
+          (Array.isArray(pagePermission.operations) && pagePermission.operations.length > 0);
+      }
+    } else if (permissionKey.includes(".")) {
+      // Fallback: Check parent module permission ONLY if sub-module permission is NOT defined directly
       const [parentModule] = permissionKey.split(".");
       const parentPermission = permissions[parentModule];
-      if (parentPermission) {
-        hasAccess =
-          parentPermission.pageAccess === true ||
-          (Array.isArray(parentPermission.operations) && parentPermission.operations.length > 0);
+      if (parentPermission !== undefined && parentPermission !== null) {
+        if (Array.isArray(parentPermission)) {
+          hasAccess = parentPermission.length > 0;
+        } else {
+          hasAccess =
+            parentPermission.pageAccess === true ||
+            (Array.isArray(parentPermission.operations) && parentPermission.operations.length > 0);
+        }
       }
     }
 

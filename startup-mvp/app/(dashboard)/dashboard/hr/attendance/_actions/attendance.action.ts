@@ -58,15 +58,31 @@ export async function processManualAttendance(input: {
     const canEdit = await hasPermission(session.user.id, "hr.attendance", "edit");
     if (!canEdit) return { success: false, error: "Permission denied" };
 
-    const targetDate = new Date(input.date);
+    const targetDate = startOfDay(new Date(input.date));
     
-    // Fetch employee and their assigned shift
+    // Fetch employee and default shift
     const employee = await prisma.employee.findUnique({
       where: { id: input.employeeId },
       include: { shift: true }
     });
 
     if (!employee) return { success: false, error: "Employee not found" };
+
+    // Fetch roster override if exists for this date
+    const roster = await prisma.employeeRoster.findUnique({
+      where: {
+        employeeId_date: {
+          employeeId: input.employeeId,
+          date: targetDate,
+        },
+      },
+      include: { shift: true },
+    });
+
+    // Roster overlay resolution: Roster -> Employee default shift
+    const activeShift = roster ? roster.shift : employee.shift;
+    const activeShiftId = roster ? roster.shiftId : employee.shiftId;
+    const isOffDay = roster?.isOffDay ?? false;
 
     let checkInDate = input.checkIn ? new Date(input.checkIn) : null;
     let checkOutDate = input.checkOut ? new Date(input.checkOut) : null;
@@ -92,13 +108,13 @@ export async function processManualAttendance(input: {
     }
 
     // Calculations
-    const shiftPolicy: ShiftPolicy | null = employee.shift ? {
-      startTime: employee.shift.startTime,
-      endTime: employee.shift.endTime,
-      graceMinutes: employee.shift.graceMinutes,
-      lateAfter: employee.shift.lateAfter,
-      halfDayAfter: employee.shift.halfDayAfter,
-      otStartAfter: employee.shift.otStartAfter
+    const shiftPolicy: ShiftPolicy | null = (!isOffDay && activeShift) ? {
+      startTime: activeShift.startTime,
+      endTime: activeShift.endTime,
+      graceMinutes: activeShift.graceMinutes,
+      lateAfter: activeShift.lateAfter,
+      halfDayAfter: activeShift.halfDayAfter,
+      otStartAfter: activeShift.otStartAfter
     } : null;
 
     let workHours = calculateWorkHours(checkInDate, checkOutDate);
@@ -108,7 +124,10 @@ export async function processManualAttendance(input: {
       otHours = calculateOTHours(checkOutDate, shiftPolicy.endTime, shiftPolicy.otStartAfter);
     }
 
-    const status = determineAttendanceStatus(checkInDate, shiftPolicy);
+    let status = determineAttendanceStatus(checkInDate, shiftPolicy);
+    if (!checkInDate && isOffDay) {
+      status = "OFF_DAY" as any;
+    }
 
     if (attendance) {
       // Update
@@ -122,7 +141,7 @@ export async function processManualAttendance(input: {
           otHours,
           status,
           notes: input.notes !== undefined ? input.notes : attendance.notes,
-          shiftId: employee.shiftId,
+          shiftId: activeShiftId,
           updatedBy: session.user.id,
           isManual: true,
         }
@@ -140,7 +159,7 @@ export async function processManualAttendance(input: {
           otHours,
           status,
           notes: input.notes,
-          shiftId: employee.shiftId,
+          shiftId: activeShiftId,
           createdBy: session.user.id,
           isManual: true,
         }
@@ -238,15 +257,29 @@ export async function processBulkAttendance(date: string, warehouseId?: string) 
       });
 
       if (!existing) {
-        // If no attendance record, mark as ABSENT
+        // Fetch roster override if present
+        const roster = await prisma.employeeRoster.findUnique({
+          where: {
+            employeeId_date: {
+              employeeId: emp.id,
+              date: targetDate,
+            },
+          },
+        });
+
+        const isOffDay = roster ? roster.isOffDay : false;
+        const activeShiftId = roster ? roster.shiftId : emp.shiftId;
+        const autoStatus = isOffDay ? "OFF_DAY" : "ABSENT";
+        const autoNotes = isOffDay ? "Scheduled Off Day (Roster)" : "Auto-marked by system";
+
         await prisma.attendance.create({
           data: {
             employeeId: emp.id,
             date: targetDate,
-            status: "ABSENT",
-            shiftId: emp.shiftId,
+            status: autoStatus as any,
+            shiftId: activeShiftId,
             isManual: false,
-            notes: "Auto-marked by system",
+            notes: autoNotes,
             createdBy: session.user.id
           }
         });

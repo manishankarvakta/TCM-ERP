@@ -5,6 +5,11 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
+// In development, ensure HMR reloads pick up newly generated Prisma Client models
+if (process.env.NODE_ENV !== "production") {
+  globalForPrisma.prisma = undefined;
+}
+
 export const prisma = new Proxy({} as PrismaClient, {
   get(_target, prop) {
     if (!globalForPrisma.prisma) {
@@ -18,9 +23,5 @@ export const prisma = new Proxy({} as PrismaClient, {
     return value;
   }
 });
-
-if (process.env.NODE_ENV !== "production") {
-  // preserve proxy
-}
 
 export default prisma;

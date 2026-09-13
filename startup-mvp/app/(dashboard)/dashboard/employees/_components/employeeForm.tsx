@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -20,8 +20,11 @@ import { FiAlertCircle, FiUser, FiMapPin, FiPhone, FiBriefcase, FiDollarSign, Fi
 import { createEmployee, updateEmployee } from "../_actions/employee.action";
 import { getWarehouses } from "../../master/warehouses/_actions/warehouse.action";
 import { getShifts } from "../../hr/shifts/_actions/shift.action";
+import { getEmployeeTypes } from "../types/_actions/employee-type.action";
+import { getDepartments } from "../departments/_actions/department.action";
+import { getDesignations } from "../designations/_actions/designation.action";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { getBasePathFromPathname } from "@/lib/route-utils-client";
-import { useEffect } from "react";
 import MediaSelector from "@/components/MediaSelector";
 import { useToast } from "@/hooks/use-toast";
 
@@ -30,6 +33,7 @@ const employeeFormSchema = z.object({
   email: z.union([z.string().email("Invalid email address"), z.literal("")]).optional(),
   phone: z.string().optional().or(z.literal("")),
   status: z.enum(["active", "inactive"]),
+  employeeTypeId: z.string().optional().or(z.literal("")),
   designation: z.string().optional().or(z.literal("")),
   department: z.string().optional().or(z.literal("")),
   salary: z.coerce.number().optional().or(z.literal(0)),
@@ -73,6 +77,7 @@ interface EmployeeFormProps {
       email: string;
     } | null;
     status: string;
+    employeeTypeId?: string | null;
     designation: string | null;
     department: string | null;
     salary: any;
@@ -126,6 +131,7 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
           email: initialData.email || "",
           phone: initialData.phone || "",
           status: (initialData.status === "trash" ? "active" : initialData.status) as "active" | "inactive",
+          employeeTypeId: initialData.employeeTypeId || "",
           designation: initialData.designation || "",
           department: initialData.department || "",
           salary: initialData.salary ? Number(initialData.salary) : 0,
@@ -156,6 +162,7 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
           email: "",
           phone: "",
           status: "active",
+          employeeTypeId: "",
           designation: "",
           department: "",
           salary: 0,
@@ -185,6 +192,9 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
 
   const [warehouses, setWarehouses] = useState<any[]>([]);
   const [shifts, setShifts] = useState<any[]>([]);
+  const [employeeTypes, setEmployeeTypes] = useState<any[]>([]);
+  const [departments, setDepartments] = useState<any[]>([]);
+  const [designations, setDesignations] = useState<any[]>([]);
 
   useEffect(() => {
     async function fetchData() {
@@ -196,6 +206,21 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
       const shiftResult = await getShifts(1, 100, "", "active");
       if (shiftResult.success) {
         setShifts(shiftResult.shifts);
+      }
+
+      const typeResult = await getEmployeeTypes(1, 1000, "", "active");
+      if (typeResult.success && typeResult.data) {
+        setEmployeeTypes(typeResult.data);
+      }
+
+      const deptResult = await getDepartments(1, 1000, "", "active");
+      if (deptResult.success && deptResult.data) {
+        setDepartments(deptResult.data);
+      }
+
+      const desigResult = await getDesignations(1, 1000, "", "active");
+      if (desigResult.success && desigResult.data) {
+        setDesignations(desigResult.data);
       }
     }
     fetchData();
@@ -258,6 +283,19 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
     }
   };
 
+
+  const selectedDepartment = watch("department");
+
+  const filteredDesignations = useMemo(() => {
+    if (!selectedDepartment) return designations;
+    const filtered = designations.filter(
+      (des) =>
+        des.departmentName === selectedDepartment ||
+        des.Department?.name === selectedDepartment ||
+        !des.departmentName
+    );
+    return filtered.length > 0 ? filtered : designations;
+  }, [designations, selectedDepartment]);
 
   return (
     <div className="w-full">
@@ -413,21 +451,57 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="designation">Designation</Label>
-                      <Input
-                        id="designation"
-                        placeholder="Software Engineer"
-                        {...register("designation")}
+                      <Label htmlFor="employeeTypeId">Employee Type</Label>
+                      <SearchableSelect
+                        options={employeeTypes.map((t) => ({
+                          label: t.name,
+                          value: t.id,
+                        }))}
+                        value={watch("employeeTypeId") || ""}
+                        onValueChange={(val) => setValue("employeeTypeId", val || "")}
+                        placeholder="Select Employee Type"
+                        searchPlaceholder="Search employee type..."
                         disabled={loading}
                       />
                     </div>
 
                     <div className="space-y-2">
                       <Label htmlFor="department">Department</Label>
-                      <Input
-                        id="department"
-                        placeholder="IT"
-                        {...register("department")}
+                      <SearchableSelect
+                        options={departments.map((d) => ({
+                          label: d.name,
+                          value: d.name,
+                        }))}
+                        value={watch("department") || ""}
+                        onValueChange={(val) => {
+                          setValue("department", val || "");
+                          if (val) {
+                            const validDesigs = designations.filter(
+                              (des) => des.departmentName === val || des.Department?.name === val
+                            );
+                            const currentDesig = watch("designation");
+                            if (currentDesig && validDesigs.length > 0 && !validDesigs.some((d) => d.name === currentDesig)) {
+                              setValue("designation", "");
+                            }
+                          }
+                        }}
+                        placeholder="Select Department"
+                        searchPlaceholder="Search department..."
+                        disabled={loading}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="designation">Designation</Label>
+                      <SearchableSelect
+                        options={filteredDesignations.map((d) => ({
+                          label: d.name,
+                          value: d.name,
+                        }))}
+                        value={watch("designation") || ""}
+                        onValueChange={(val) => setValue("designation", val || "")}
+                        placeholder={selectedDepartment ? `Select ${selectedDepartment} Designation` : "Select Designation"}
+                        searchPlaceholder="Search designation..."
                         disabled={loading}
                       />
                     </div>
@@ -525,17 +599,6 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
                         type="text"
                         placeholder="E.g. 101"
                         {...register("deviceUserId")}
-                        disabled={loading}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="fingerprintDeviceId">Fingerprint Machine ID</Label>
-                      <Input
-                        id="fingerprintDeviceId"
-                        type="text"
-                        placeholder="E.g. Main_Entrance"
-                        {...register("fingerprintDeviceId")}
                         disabled={loading}
                       />
                     </div>

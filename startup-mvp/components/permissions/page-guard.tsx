@@ -31,11 +31,6 @@ export default async function PageGuard({
     return <>{children}</>;
   }
 
-  // Admin Bypass: Automatically grant access to all pages for Admins
-  if (session.user.role?.toLowerCase() === "admin") {
-    return <>{children}</>;
-  }
-
   // Try new permission structure first (pageAccess)
   let hasAccess = await canAccessPage(session.user.id, permissionKey);
 

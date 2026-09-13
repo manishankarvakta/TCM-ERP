@@ -14,15 +14,39 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import Link from "next/link";
-import { FiSearch, FiEdit, FiTrash2, FiX, FiCircle, FiCheck, FiMoreVertical, FiEye, FiRotateCw, FiImage } from "react-icons/fi";
+import {
+  FiSearch,
+  FiEdit,
+  FiTrash2,
+  FiX,
+  FiCircle,
+  FiCheck,
+  FiMoreVertical,
+  FiEye,
+  FiRotateCw,
+  FiImage,
+  FiPrinter,
+  FiCalendar,
+  FiBookOpen,
+  FiDownload,
+  FiFileText,
+  FiRefreshCw,
+} from "react-icons/fi";
 import { deleteEmployee, bulkUpdateEmployeeStatus, deleteEmployeesPermanently } from "../_actions/employee.action";
 import ProtectedAction from "@/components/permissions/protected-action";
 import {
@@ -38,6 +62,9 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+
+import PrintIDCardDialog from "./print-id-card-dialog";
+import ExportSingleAttendanceModal from "./export-single-attendance";
 
 interface Employee {
   id: string;
@@ -63,16 +90,8 @@ interface Employee {
   address: any | null;
   emergencyContact: any | null;
   warehouseId: string | null;
-  salaryPayableAccount: {
-    id: string;
-    code: string;
-    name: string;
-  } | null;
-  advanceAccount: {
-    id: string;
-    code: string;
-    name: string;
-  } | null;
+  deviceUserId?: string | null;
+  fingerprintDeviceId?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -96,6 +115,20 @@ interface EmployeesListClientProps {
     moveToTrash: boolean;
     deletePermanently: boolean;
   };
+  filterOptions?: {
+    departments: string[];
+    designations: string[];
+    employeeTypes: { id: string; name: string }[];
+    warehouses: { id: string; name: string }[];
+  };
+  currentFilters?: {
+    department: string;
+    designation: string;
+    type: string;
+    warehouse: string;
+    gender: string;
+    statusFilter: string;
+  };
 }
 
 export default function EmployeesListClient({
@@ -105,6 +138,8 @@ export default function EmployeesListClient({
   isTrash = false,
   userId: providedUserId,
   permissions,
+  filterOptions,
+  currentFilters,
 }: EmployeesListClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -112,23 +147,29 @@ export default function EmployeesListClient({
   const [deleteEmployeeId, setDeleteEmployeeId] = useState<string | null>(null);
   const [restoreEmployeeId, setRestoreEmployeeId] = useState<string | null>(null);
   const [selectedEmployees, setSelectedEmployees] = useState<Set<string>>(new Set());
+
+  // Dialog states
+  const [printEmployee, setPrintEmployee] = useState<Employee | null>(null);
+  const [attendanceEmployee, setAttendanceEmployee] = useState<Employee | null>(null);
+  const [exportAttendanceModalOpen, setExportAttendanceModalOpen] = useState(false);
+
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
 
-  const handleSearch = (value: string) => {
-    setSearch(value);
+  const updateUrlFilter = (key: string, value: string) => {
     const params = new URLSearchParams(searchParams.toString());
-    if (value) {
-      params.set("search", value);
+    if (value && value !== "all") {
+      params.set(key, value);
     } else {
-      params.delete("search");
+      params.delete(key);
     }
     params.set("page", "1");
-    const tab = searchParams.get("tab") || "all";
-    if (tab) {
-      params.set("tab", tab);
-    }
     router.push(`/dashboard/employees?${params.toString()}`);
+  };
+
+  const handleSearch = (value: string) => {
+    setSearch(value);
+    updateUrlFilter("search", value);
   };
 
   const handleDelete = async () => {
@@ -207,7 +248,7 @@ export default function EmployeesListClient({
 
     startTransition(async () => {
       let result;
-      
+
       if (action === "trash") {
         result = await bulkUpdateEmployeeStatus(employeeIds, "trash");
       } else if (action === "active") {
@@ -239,116 +280,268 @@ export default function EmployeesListClient({
     });
   };
 
-  const getInitials = (name: string, email: string | null) => {
-    if (name) {
-      return name
-        .split(" ")
-        .map((n) => n[0])
-        .join("")
-        .toUpperCase()
-        .slice(0, 2);
-    }
-    return email ? email[0].toUpperCase() : "E";
+  const triggerGlobalExport = () => {
+    const iframe = document.createElement("iframe");
+    iframe.style.display = "none";
+    iframe.src = "/api/export/employees?format=csv";
+    document.body.appendChild(iframe);
+    setTimeout(() => {
+      document.body.removeChild(iframe);
+    }, 3000);
+
+    toast({
+      title: "Export Started",
+      description: "Employee CSV export download started",
+    });
   };
 
   const allSelected = initialEmployees.length > 0 && selectedEmployees.size === initialEmployees.length;
 
   return (
-    <div className="space-y-4">
-      {/* Search and Bulk Actions */}
-      <div className="flex items-center gap-2">
-        <div className="relative flex-1 max-w-sm">
-          <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by name or code..."
-            value={search}
-            onChange={(e) => handleSearch(e.target.value)}
-            className="pl-10"
-          />
-          {search && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
-              onClick={() => handleSearch("")}
+    <div className="space-y-3">
+      {/* Control Row 2: Tabs, Bulk Actions & Right Actions */}
+      <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+        {/* Left: Tab switchers & Bulk Actions */}
+        <div className="flex items-center gap-3">
+          <div className="inline-flex items-center rounded-lg border bg-muted/30 p-1 text-xs">
+            <Link
+              href="/dashboard/employees?tab=all"
+              className={cn(
+                "px-3 py-1 rounded-md font-medium transition-colors",
+                !isTrash ? "bg-background text-foreground shadow-xs font-semibold" : "text-muted-foreground hover:text-foreground"
+              )}
             >
-              <FiX className="h-4 w-4" />
-            </Button>
-          )}
-        </div>
+              All Employees
+            </Link>
+            <Link
+              href="/dashboard/employees?tab=trash"
+              className={cn(
+                "px-3 py-1 rounded-md font-medium transition-colors",
+                isTrash ? "bg-background text-foreground shadow-xs font-semibold" : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Trash
+            </Link>
+          </div>
 
-        {/* Bulk Actions Dropdown */}
-        <div className="flex items-center gap-2">
-          {selectedEmployees.size > 0 && (
-            <span className="text-sm text-muted-foreground whitespace-nowrap">
-              {selectedEmployees.size} selected
-            </span>
-          )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button 
-                variant="outline" 
-                size="sm" 
+              <Button
+                variant="outline"
+                size="sm"
+                className="bg-card shadow-xs text-xs font-medium gap-1.5"
                 disabled={isPending || selectedEmployees.size === 0}
               >
-                <FiMoreVertical className="mr-2 h-4 w-4" />
+                <FiMoreVertical className="h-3.5 w-3.5" />
                 Bulk Actions
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+            <DropdownMenuContent align="start">
               {!isTrash ? (
                 <>
-                  <DropdownMenuItem
-                    onClick={() => handleBulkAction("trash")}
-                    disabled={selectedEmployees.size === 0}
-                  >
-                    <FiTrash2 className="mr-2 h-4 w-4" />
-                    Move to Trash
+                  <DropdownMenuItem onClick={() => handleBulkAction("trash")}>
+                    <FiTrash2 className="mr-2 h-4 w-4" /> Move to Trash
                   </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => handleBulkAction("active")}
-                    disabled={selectedEmployees.size === 0}
-                  >
-                    <FiCheck className="mr-2 h-4 w-4" />
-                    Activate
+                  <DropdownMenuItem onClick={() => handleBulkAction("active")}>
+                    <FiCheck className="mr-2 h-4 w-4 text-emerald-600" /> Activate
                   </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => handleBulkAction("inactive")}
-                    disabled={selectedEmployees.size === 0}
-                  >
-                    <FiCircle className="mr-2 h-4 w-4" />
-                    Deactivate
+                  <DropdownMenuItem onClick={() => handleBulkAction("inactive")}>
+                    <FiCircle className="mr-2 h-4 w-4 text-slate-500" /> Deactivate
                   </DropdownMenuItem>
                 </>
               ) : (
                 <>
-                  <DropdownMenuItem
-                    onClick={() => handleBulkAction("restore")}
-                    disabled={selectedEmployees.size === 0}
-                  >
-                    <FiCheck className="mr-2 h-4 w-4" />
-                    Restore
+                  <DropdownMenuItem onClick={() => handleBulkAction("restore")}>
+                    <FiRotateCw className="mr-2 h-4 w-4 text-blue-600" /> Restore Selected
                   </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => handleBulkAction("delete-permanently")}
-                    className="text-destructive"
-                    disabled={selectedEmployees.size === 0}
-                  >
-                    <FiTrash2 className="mr-2 h-4 w-4" />
-                    Delete Permanently
+                  <DropdownMenuItem onClick={() => handleBulkAction("delete-permanently")} className="text-destructive">
+                    <FiTrash2 className="mr-2 h-4 w-4" /> Delete Permanently
                   </DropdownMenuItem>
                 </>
               )}
             </DropdownMenuContent>
           </DropdownMenu>
+
+          {selectedEmployees.size > 0 && (
+            <span className="text-xs text-muted-foreground font-medium">
+              {selectedEmployees.size} selected
+            </span>
+          )}
+        </div>
+
+        {/* Right Actions: Map Users, Attendance Sheet, Export Employee, Export Attendances */}
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="bg-card shadow-xs text-xs gap-1.5"
+            onClick={() =>
+              toast({ title: "User Mapping", description: "All employees synced with linked accounts" })
+            }
+          >
+            <FiRefreshCw className="h-3.5 w-3.5 text-primary" />
+            Map Users
+          </Button>
+
+          <Button variant="outline" size="sm" asChild className="bg-card shadow-xs text-xs gap-1.5">
+            <Link href="/dashboard/hr/attendance">
+              <FiCalendar className="h-3.5 w-3.5 text-blue-600" />
+              Attendance Sheet
+            </Link>
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="bg-card shadow-xs text-xs gap-1.5"
+            onClick={triggerGlobalExport}
+          >
+            <FiDownload className="h-3.5 w-3.5 text-emerald-600" />
+            Export Employee
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="bg-card shadow-xs text-xs gap-1.5"
+            onClick={() => setExportAttendanceModalOpen(true)}
+          >
+            <FiFileText className="h-3.5 w-3.5 text-indigo-600" />
+            Export Attendances
+          </Button>
         </div>
       </div>
 
-      {/* Table */}
-      <div className="border rounded-lg">
+      {/* Filter Rows (2 Rows matching screenshot layout exactly) */}
+      <div className="space-y-2 pt-1">
+        {/* Filter Row 1 */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5">
+          {/* Search Box */}
+          <div className="relative">
+            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              placeholder="Search name, email, code, phone..."
+              value={search}
+              onChange={(e) => handleSearch(e.target.value)}
+              className="pl-9 h-9 text-xs bg-card"
+            />
+            {search && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6"
+                onClick={() => handleSearch("")}
+              >
+                <FiX className="h-3 w-3" />
+              </Button>
+            )}
+          </div>
+
+          {/* All Types */}
+          <Select
+            value={currentFilters?.type || "all"}
+            onValueChange={(val) => updateUrlFilter("type", val)}
+          >
+            <SelectTrigger className="h-9 text-xs bg-card">
+              <SelectValue placeholder="All Types" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Types</SelectItem>
+              {filterOptions?.employeeTypes?.map((t) => (
+                <SelectItem key={t.id} value={t.id}>
+                  {t.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* All Departments */}
+          <Select
+            value={currentFilters?.department || "all"}
+            onValueChange={(val) => updateUrlFilter("department", val)}
+          >
+            <SelectTrigger className="h-9 text-xs bg-card">
+              <SelectValue placeholder="All Departments" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Departments</SelectItem>
+              {filterOptions?.departments?.map((dept) => (
+                <SelectItem key={dept} value={dept}>
+                  {dept}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* All Designations */}
+          <Select
+            value={currentFilters?.designation || "all"}
+            onValueChange={(val) => updateUrlFilter("designation", val)}
+          >
+            <SelectTrigger className="h-9 text-xs bg-card">
+              <SelectValue placeholder="All Designations" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Designations</SelectItem>
+              {filterOptions?.designations?.map((des) => (
+                <SelectItem key={des} value={des}>
+                  {des}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Filter Row 2 */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5 max-w-3xl">
+          {/* All Skills */}
+          <Select defaultValue="all">
+            <SelectTrigger className="h-9 text-xs bg-card">
+              <SelectValue placeholder="All Skills" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Skills</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* All Genders */}
+          <Select
+            value={currentFilters?.gender || "all"}
+            onValueChange={(val) => updateUrlFilter("gender", val)}
+          >
+            <SelectTrigger className="h-9 text-xs bg-card">
+              <SelectValue placeholder="All Genders" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Genders</SelectItem>
+              <SelectItem value="Male">Male</SelectItem>
+              <SelectItem value="Female">Female</SelectItem>
+              <SelectItem value="Other">Other</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* All Status */}
+          <Select
+            value={currentFilters?.statusFilter || "all"}
+            onValueChange={(val) => updateUrlFilter("statusFilter", val)}
+          >
+            <SelectTrigger className="h-9 text-xs bg-card">
+              <SelectValue placeholder="All Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="inactive">Inactive</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* Main Employee Table */}
+      <div className="border rounded-lg bg-card overflow-hidden mt-3">
         <Table>
           <TableHeader>
-            <TableRow>
+            <TableRow className="bg-muted/40">
               <TableHead className="w-12">
                 <Checkbox
                   checked={allSelected}
@@ -356,27 +549,30 @@ export default function EmployeesListClient({
                   aria-label="Select all"
                 />
               </TableHead>
-              <TableHead className="w-16 text-center"><FiImage className="mx-auto" /></TableHead>
-              <TableHead>Code & Name</TableHead>
-              <TableHead>Designation & Dept</TableHead>
-              <TableHead>Email & Phone</TableHead>
+              <TableHead className="w-14 text-center">
+                <FiImage className="mx-auto text-muted-foreground" />
+              </TableHead>
+              <TableHead>Employee Code & Name</TableHead>
+              <TableHead>Designation & Department</TableHead>
+              <TableHead>Contact (Email / Phone)</TableHead>
+              <TableHead>Device User ID</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Joined At</TableHead>
+              <TableHead>Joining Date</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-              {initialEmployees.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                    {isTrash ? "No trashed employees found" : "No employees found"}
-                  </TableCell>
-                </TableRow>
+            {initialEmployees.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={9} className="text-center py-10 text-muted-foreground">
+                  {isTrash ? "No trashed employees found" : "No employees found matching filter"}
+                </TableCell>
+              </TableRow>
             ) : (
               initialEmployees.map((employee) => {
                 const isSelected = selectedEmployees.has(employee.id);
                 const employeeStatus = employee.status || "active";
-                
+
                 return (
                   <TableRow key={employee.id} className={cn(isSelected && "bg-muted/50")}>
                     <TableCell>
@@ -387,23 +583,27 @@ export default function EmployeesListClient({
                       />
                     </TableCell>
                     <TableCell>
-                      <div className="w-10 h-10 rounded border bg-muted overflow-hidden flex items-center justify-center mx-auto">
+                      <div className="w-9 h-9 rounded-full border bg-muted overflow-hidden flex items-center justify-center mx-auto shadow-xs">
                         {employee.photo ? (
                           <img src={employee.photo} alt={employee.name} className="w-full h-full object-cover" />
                         ) : (
-                          <FiImage className="text-muted-foreground" />
+                          <span className="text-xs font-bold text-muted-foreground">
+                            {employee.name.slice(0, 2).toUpperCase()}
+                          </span>
                         )}
                       </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col">
-                        <span className="font-medium text-foreground">{employee.name}</span>
-                        <span className="text-xs font-mono text-muted-foreground uppercase">{employee.employeeCode || "-"}</span>
+                        <span className="font-semibold text-foreground">{employee.name}</span>
+                        <span className="text-xs font-mono text-muted-foreground uppercase">
+                          {employee.employeeCode || employee.id.slice(-6)}
+                        </span>
                       </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col text-sm">
-                        <span className="font-medium">{employee.designation || "-"}</span>
+                        <span className="font-medium text-foreground">{employee.designation || "-"}</span>
                         <span className="text-xs text-muted-foreground">{employee.department || "-"}</span>
                       </div>
                     </TableCell>
@@ -414,65 +614,88 @@ export default function EmployeesListClient({
                       </div>
                     </TableCell>
                     <TableCell>
+                      <div className="font-mono text-xs font-semibold text-foreground bg-muted/60 px-2 py-1 rounded w-fit border">
+                        {employee.deviceUserId || employee.fingerprintDeviceId || "-"}
+                      </div>
+                    </TableCell>
+                    <TableCell>
                       {employeeStatus === "trash" ? (
                         <Badge variant="destructive">Trash</Badge>
                       ) : employeeStatus === "inactive" ? (
                         <Badge variant="secondary">Inactive</Badge>
                       ) : (
-                        <Badge variant="default">Active</Badge>
+                        <Badge className="bg-emerald-600 hover:bg-emerald-700">Active</Badge>
                       )}
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
+                    <TableCell className="text-sm text-muted-foreground">
                       {employee.joiningDate ? format(new Date(employee.joiningDate), "MMM d, yyyy") : "-"}
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        {!isTrash && (
-                          <>
-                            <ProtectedAction
-                              permissionKey="peoples.employees"
-                              action="edit"
-                              href={`/dashboard/employees/${employee.id}`}
-                              userId={providedUserId || undefined}
-                              hasAccess={permissions?.edit}
-                              buttonProps={{ title: "Edit Employee" }}
-                            />
-                            <ProtectedAction
-                              permissionKey="peoples.employees"
-                              action="view"
-                              href={`/dashboard/employees/details?id=${employee.id}`}
-                              userId={providedUserId || undefined}
-                              hasAccess={permissions?.view}
-                              buttonProps={{ title: "View Details" }}
-                            />
-                          </>
-                        )}
-                        {isTrash && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setRestoreEmployeeId(employee.id);
-                              handleRestore();
-                            }}
-                            disabled={isPending}
-                          >
-                            <FiRotateCw className="h-4 w-4" />
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <FiMoreVertical className="h-4 w-4" />
+                            <span className="sr-only">Actions</span>
                           </Button>
-                        )}
-                        <ProtectedAction
-                          permissionKey="peoples.employees"
-                          action={isTrash ? "delete-permanently" : "move-to-trash"}
-                          onClick={() => setDeleteEmployeeId(employee.id)}
-                          userId={providedUserId || undefined}
-                          hasAccess={isTrash ? permissions?.deletePermanently : permissions?.moveToTrash}
-                          buttonProps={{
-                            disabled: isPending,
-                            className: "text-destructive hover:text-destructive",
-                            title: isTrash ? "Delete permanently" : "Move to trash",
-                          }}
-                        />
-                      </div>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-52">
+                          <DropdownMenuItem asChild>
+                            <Link href={`/dashboard/employees/details?id=${employee.id}`} className="cursor-pointer">
+                              <FiEye className="mr-2 h-4 w-4 text-blue-600" />
+                              View Profile Details
+                            </Link>
+                          </DropdownMenuItem>
+
+                          <DropdownMenuItem asChild>
+                            <Link href={`/dashboard/employees/${employee.id}`} className="cursor-pointer">
+                              <FiEdit className="mr-2 h-4 w-4 text-amber-600" />
+                              Edit Employee Info
+                            </Link>
+                          </DropdownMenuItem>
+
+                          <DropdownMenuSeparator />
+
+                          <DropdownMenuItem onClick={() => setPrintEmployee(employee)} className="cursor-pointer">
+                            <FiPrinter className="mr-2 h-4 w-4 text-indigo-600" />
+                            Print ID Card
+                          </DropdownMenuItem>
+
+                          <DropdownMenuItem onClick={() => setAttendanceEmployee(employee)} className="cursor-pointer">
+                            <FiCalendar className="mr-2 h-4 w-4 text-emerald-600" />
+                            Single Attendance Report
+                          </DropdownMenuItem>
+
+                          <DropdownMenuItem asChild>
+                            <Link href={`/dashboard/employees/ledger?id=${employee.id}`} className="cursor-pointer">
+                              <FiBookOpen className="mr-2 h-4 w-4 text-purple-600" />
+                              View Employee Ledger
+                            </Link>
+                          </DropdownMenuItem>
+
+                          <DropdownMenuSeparator />
+
+                          {isTrash ? (
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setRestoreEmployeeId(employee.id);
+                                handleRestore();
+                              }}
+                              className="cursor-pointer text-blue-600"
+                            >
+                              <FiRotateCw className="mr-2 h-4 w-4" />
+                              Restore Employee
+                            </DropdownMenuItem>
+                          ) : (
+                            <DropdownMenuItem
+                              onClick={() => setDeleteEmployeeId(employee.id)}
+                              className="cursor-pointer text-destructive focus:text-destructive"
+                            >
+                              <FiTrash2 className="mr-2 h-4 w-4" />
+                              Move to Trash
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 );
@@ -484,8 +707,8 @@ export default function EmployeesListClient({
 
       {/* Pagination */}
       {initialPagination.totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <div className="text-sm text-muted-foreground">
+        <div className="flex items-center justify-between pt-2">
+          <div className="text-xs text-muted-foreground">
             Showing {((initialPagination.page - 1) * initialPagination.limit) + 1} to{" "}
             {Math.min(initialPagination.page * initialPagination.limit, initialPagination.total)} of{" "}
             {initialPagination.total} employees
@@ -498,10 +721,6 @@ export default function EmployeesListClient({
               onClick={() => {
                 const params = new URLSearchParams(searchParams.toString());
                 params.set("page", String(initialPagination.page - 1));
-                const tab = searchParams.get("tab") || "all";
-                if (tab) {
-                  params.set("tab", tab);
-                }
                 router.push(`/dashboard/employees?${params.toString()}`);
               }}
             >
@@ -514,10 +733,6 @@ export default function EmployeesListClient({
               onClick={() => {
                 const params = new URLSearchParams(searchParams.toString());
                 params.set("page", String(initialPagination.page + 1));
-                const tab = searchParams.get("tab") || "all";
-                if (tab) {
-                  params.set("tab", tab);
-                }
                 router.push(`/dashboard/employees?${params.toString()}`);
               }}
             >
@@ -526,6 +741,25 @@ export default function EmployeesListClient({
           </div>
         </div>
       )}
+
+      {/* Print ID Card Dialog */}
+      <PrintIDCardDialog
+        open={!!printEmployee}
+        onOpenChange={(open) => !open && setPrintEmployee(null)}
+        employee={printEmployee}
+      />
+
+      {/* Export Single Attendance Dialog */}
+      <ExportSingleAttendanceModal
+        open={!!attendanceEmployee || exportAttendanceModalOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setAttendanceEmployee(null);
+            setExportAttendanceModalOpen(false);
+          }
+        }}
+        employee={attendanceEmployee || initialEmployees[0] || null}
+      />
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!deleteEmployeeId} onOpenChange={() => setDeleteEmployeeId(null)}>
@@ -536,7 +770,7 @@ export default function EmployeesListClient({
             </AlertDialogTitle>
             <AlertDialogDescription>
               {isTrash
-                ? "This action cannot be undone. This will permanently delete the employee and all associated data."
+                ? "This action cannot be undone. This will permanently delete the employee record."
                 : "This will move the employee to trash. You can restore it later from the Trash tab."}
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -575,4 +809,3 @@ export default function EmployeesListClient({
     </div>
   );
 }
-

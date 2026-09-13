@@ -104,6 +104,8 @@ export default function PermissionMatrix({
     onChange(newPermissions);
   };
 
+  const employeeSubPageKeys = ["hr.departments", "hr.designations", "hr.employee-types"];
+
   const handlePageToggle = (
     permissionKey: string,
     checked: boolean,
@@ -126,6 +128,37 @@ export default function PermissionMatrix({
         pageAccess: false,
         operations: [],
       };
+    }
+
+    // Special handling for peoples.employees: also toggle its setup sub-pages
+    if (permissionKey === "peoples.employees") {
+      for (const childKey of employeeSubPageKeys) {
+        const childNavPage = NAVIGATION_STRUCTURE.flatMap((n) => n.pages).find(
+          (p) => p.permissionKey === childKey
+        );
+        const childOps =
+          (childNavPage?.operations as Operation[]) || [
+            "create",
+            "view",
+            "edit",
+            "move-to-trash",
+            "delete-permanently",
+          ];
+
+        if (checked) {
+          newPermissions[childKey] = {
+            navigationVisible: true,
+            pageAccess: true,
+            operations: [...childOps],
+          };
+        } else {
+          newPermissions[childKey] = {
+            navigationVisible: false,
+            pageAccess: false,
+            operations: [],
+          };
+        }
+      }
     }
 
     onChange(newPermissions);
@@ -618,6 +651,10 @@ export default function PermissionMatrix({
                 ) : (
                   <div className="mt-3 space-y-2 pl-8">
                     {navItem.pages.map((page) => {
+                      if (employeeSubPageKeys.includes(page.permissionKey)) {
+                        return null; // Rendered nested under peoples.employees
+                      }
+
                       const pagePerm = getPagePermission(page.permissionKey);
                       const isPageExpanded = expandedPages.has(page.permissionKey);
                       const hasPageAccess = pagePerm?.pageAccess ?? false;
@@ -657,7 +694,7 @@ export default function PermissionMatrix({
                             />
                             <Label
                               htmlFor={`page-${page.permissionKey}`}
-                              className="text-sm cursor-pointer flex-1"
+                              className="text-sm font-medium cursor-pointer flex-1"
                             >
                               {page.label}
                             </Label>
@@ -697,6 +734,101 @@ export default function PermissionMatrix({
                                   </div>
                                 );
                               })}
+                            </div>
+                          )}
+
+                          {/* Nested Setup Permissions for Employees */}
+                          {page.permissionKey === "peoples.employees" && isPageExpanded && (
+                            <div className="mt-4 pt-3 border-t space-y-2">
+                              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                                Employee Setup Permissions
+                              </div>
+                              {navItem.pages
+                                .filter((p) => employeeSubPageKeys.includes(p.permissionKey))
+                                .map((subPage) => {
+                                  const subPagePerm = getPagePermission(subPage.permissionKey);
+                                  const isSubExpanded = expandedPages.has(subPage.permissionKey);
+                                  const hasSubPageAccess = subPagePerm?.pageAccess ?? false;
+
+                                  return (
+                                    <div
+                                      key={subPage.permissionKey}
+                                      className={cn(
+                                        "border rounded p-3 bg-background/50",
+                                        hasSubPageAccess ? "bg-muted/40" : ""
+                                      )}
+                                    >
+                                      <div className="flex items-center gap-3">
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => togglePage(subPage.permissionKey)}
+                                          className="h-6 w-6 p-0"
+                                        >
+                                          {isSubExpanded ? (
+                                            <FiChevronDown className="h-3 w-3" />
+                                          ) : (
+                                            <FiChevronRight className="h-3 w-3" />
+                                          )}
+                                        </Button>
+                                        <Checkbox
+                                          id={`page-${subPage.permissionKey}`}
+                                          checked={hasSubPageAccess}
+                                          onCheckedChange={(checked) =>
+                                            handlePageToggle(
+                                              subPage.permissionKey,
+                                              checked as boolean,
+                                              subPage.operations
+                                            )
+                                          }
+                                          disabled={disabled}
+                                        />
+                                        <Label
+                                          htmlFor={`page-${subPage.permissionKey}`}
+                                          className="text-sm font-medium cursor-pointer flex-1"
+                                        >
+                                          {subPage.label}
+                                        </Label>
+                                      </div>
+                                      {isSubExpanded && (
+                                        <div className="mt-3 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 pl-8">
+                                          {subPage.operations.map((operation) => {
+                                            const operationId = operation as Operation;
+                                            const isChecked =
+                                              subPagePerm?.operations.includes(operationId) ?? false;
+                                            const operationMeta = OPERATIONS[operationId];
+
+                                            return (
+                                              <div
+                                                key={operationId}
+                                                className="flex items-center space-x-2"
+                                              >
+                                                <Checkbox
+                                                  id={`${subPage.permissionKey}-${operationId}`}
+                                                  checked={isChecked}
+                                                  onCheckedChange={(checked) =>
+                                                    handleOperationToggle(
+                                                      subPage.permissionKey,
+                                                      operationId,
+                                                      checked as boolean
+                                                    )
+                                                  }
+                                                  disabled={disabled}
+                                                />
+                                                <Label
+                                                  htmlFor={`${subPage.permissionKey}-${operationId}`}
+                                                  className="text-xs cursor-pointer"
+                                                >
+                                                  {operationMeta?.label || operationId}
+                                                </Label>
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
                             </div>
                           )}
                         </div>
