@@ -212,7 +212,7 @@ export default function ClientForm({ mode, initialData }: ClientFormProps) {
           warehouseId: "",
           membershipNumber: "",
           membershipTier: "NONE",
-          membershipStatus: "INACTIVE",
+          membershipStatus: "ACTIVE",
           membershipPoints: "0",
           membershipExpiry: "",
           discounts: [],

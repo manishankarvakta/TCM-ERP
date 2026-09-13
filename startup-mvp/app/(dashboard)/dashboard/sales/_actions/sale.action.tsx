@@ -46,6 +46,8 @@ const saleSchema = z.object({
     mfsAmount: z.number().optional().nullable(),
     mfsAccountId: z.string().optional().nullable(),
     changeAmount: z.number().optional().nullable(),
+    pointsRedeemed: z.number().optional().nullable(),
+    pointsDiscountAmount: z.number().optional().nullable(),
   }).optional().nullable(),
 });
 
@@ -2162,8 +2164,9 @@ export async function createSale(input: z.infer<typeof saleSchema>) {
         const voucherResult = await createSaleAccountingVoucher(sale.id, tx, validated.paymentMethod || undefined);
         if (!voucherResult.success) throw new Error(voucherResult.error || "Failed to create accounting voucher");
 
-        // Award loyalty points if customer has active membership status
-        if (client && client.membershipStatus === "ACTIVE") {
+        // Process loyalty reward points (earning & redemption)
+        const pointsRedeemed = Number(validated.paymentDetails?.pointsRedeemed || 0);
+        if (client && (client.membershipStatus === "ACTIVE" || pointsRedeemed > 0)) {
           const globalSetting = await tx.settings.findFirst({
             where: {
               code: "membership",
@@ -2185,13 +2188,14 @@ export async function createSale(input: z.infer<typeof saleSchema>) {
               pointsSpentRatio = Number(settings.pointsSpentRatio);
             }
           }
-          const pointsEarned = Math.floor(grandTotal / pointsSpentRatio);
-          if (pointsEarned > 0) {
+          const pointsEarned = client.membershipStatus === "ACTIVE" ? Math.floor(grandTotal / pointsSpentRatio) : 0;
+          if (pointsEarned > 0 || pointsRedeemed > 0) {
             const clientRecord = await tx.client.findUnique({
               where: { id: validated.clientId },
               select: { membershipPoints: true }
             });
-            const newPointsTotal = (clientRecord?.membershipPoints || 0) + pointsEarned;
+            const currentPoints = clientRecord?.membershipPoints || 0;
+            const newPointsTotal = Math.max(0, currentPoints - pointsRedeemed + pointsEarned);
 
             await tx.client.update({
               where: { id: validated.clientId },

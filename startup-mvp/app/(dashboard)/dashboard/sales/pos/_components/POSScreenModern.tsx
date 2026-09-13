@@ -25,6 +25,7 @@ import {
   FaTag,
   FaExclamationTriangle,
 } from "react-icons/fa";
+import { FiAward } from "react-icons/fi";
 import POSBottomToolbar from "./POSBottomToolbar";
 
 export interface POSScreenModernProps {
@@ -38,41 +39,29 @@ export interface POSScreenModernProps {
   orderType: "RETAIL" | "WHOLESALE";
   isWholesaleAllowed: boolean;
   updateOrderMode: (mode: "RETAIL" | "WHOLESALE") => void;
-
-  // Search Props
   searchQuery: string;
-  setSearchQuery: (q: string) => void;
+  setSearchQuery: (query: string) => void;
   searchInputRef: React.RefObject<HTMLInputElement | null>;
   onExitPOS: () => void;
-
-  // Customer Props
   clients: any[];
   clientOptions: any[];
   selectedClientId: string;
-  changeCustomerAndSyncMode: (id: string) => void;
+  changeCustomerAndSyncMode: (clientId: string) => void;
   onOpenAddCustomer: () => void;
-
-  // Coupon / Promo Props
   promoCode: string;
   setPromoCode: (code: string) => void;
-  appliedPromo: string | null;
+  appliedPromo: any;
   handleApplyPromo: () => void;
   handleRemovePromo: () => void;
-
-  // Cart & Pricing Props
   cart: any[];
-  getItemDiscount: (item: any, variantId?: string) => any;
+  getItemDiscount: (item: any) => number;
   getItemLineUnitPrice: (item: any) => number;
   handleAddToCart: (item: any) => void;
-  handleUpdateQuantity: (cartKey: string, delta: number) => void;
-  handleCustomQuantitySet: (cartKey: string, quantity: number) => void;
-  handleRemoveItem: (cartKey: string) => void;
+  handleUpdateQuantity: (item: any, qty: number) => void;
+  handleCustomQuantitySet: (item: any, qty: number) => void;
+  handleRemoveItem: (item: any) => void;
   isNegativeSaleAllowed: boolean;
-
-  // Payment Accounts & State
   paymentAccounts: any[];
-
-  // Totals
   itemCount: number;
   subTotal: number;
   discountAmount: number;
@@ -81,16 +70,16 @@ export interface POSScreenModernProps {
   taxPercent: number;
   grandTotal: number;
   previousCustomerDue?: number;
-
-  // Direct Billing Handlers
-  onConfirmDirectPayment: (paymentDetails: {
-    cashAmount: number;
-    cardAmount: number;
-    mfsAmount: number;
+  onConfirmDirectPayment: (overrides?: {
+    cashAmount?: number;
+    cardAmount?: number;
+    mfsAmount?: number;
     cashAccountId?: string;
     cardAccountId?: string;
     mfsAccountId?: string;
     isDueBill?: boolean;
+    pointsRedeemed?: number;
+    pointsDiscountAmount?: number;
   }) => void;
 
   // Toolbar Props
@@ -105,6 +94,7 @@ export interface POSScreenModernProps {
   onRefreshClick: () => void;
   onLastBillClick: () => void;
   posSettings?: any;
+  membershipSettings?: any;
 }
 
 export default function POSScreenModern({
@@ -153,12 +143,17 @@ export default function POSScreenModern({
   onRefreshClick,
   onLastBillClick,
   posSettings,
+  membershipSettings,
 }: POSScreenModernProps) {
   const allowDiscount = posSettings?.allowDiscount ?? true;
   const allowCoupon = posSettings?.allowCoupon ?? true;
   const allowDueSale = posSettings?.allowDueSale ?? true;
   const allowItemDiscount = posSettings?.allowItemDiscount ?? true;
   const allowCustomerPoints = posSettings?.allowCustomerPoints ?? true;
+
+  const pointsSpentRatio = Number(membershipSettings?.pointsSpentRatio) || 100;
+  const pointValue = Number(membershipSettings?.pointValue) || 1.0;
+
   // Inline Payment States for SS2 Direct Billing Sidebar
   const [isDueBill, setIsDueBill] = useState(false);
   const [cashAmount, setCashAmount] = useState<number | "">(0);
@@ -167,6 +162,8 @@ export default function POSScreenModern({
   const [enableDiscountInput, setEnableDiscountInput] = useState(false);
   const [discountType, setDiscountType] = useState<"FLAT" | "PERCENT">("FLAT");
   const [customDiscount, setCustomDiscount] = useState<number | "">(0);
+  const [pointsToRedeem, setPointsToRedeem] = useState<number | "">(0);
+  const [enablePointsRedeem, setEnablePointsRedeem] = useState(false);
 
   const updateDiscountAmount = React.useCallback(
     (
@@ -234,15 +231,37 @@ export default function POSScreenModern({
 
   const roundedGrandTotal = Math.round(grandTotal);
 
+  const selectedClientObj = clients.find((c) => c.id === selectedClientId);
+  const clientPoints = Number((selectedClientObj as any)?.membershipPoints) || 0;
+
+  const effectivePointsToRedeem = enablePointsRedeem ? (Number(pointsToRedeem) || 0) : 0;
+
+  // Maximum points client can redeem against rounded grand total
+  const maxRedeemablePoints = Math.min(
+    clientPoints,
+    Math.floor((roundedGrandTotal + effectivePointsToRedeem * pointValue) / (pointValue || 1))
+  );
+
+  const pointsDiscountAmount = effectivePointsToRedeem * pointValue;
+  const netGrandTotal = Math.max(0, roundedGrandTotal - pointsDiscountAmount);
+  const pointsEarnedThisSale = (selectedClientObj as any)?.membershipStatus === "ACTIVE" 
+    ? Math.floor(netGrandTotal / pointsSpentRatio) 
+    : 0;
+
+  // Reset points input if cart is emptied or customer changed
+  React.useEffect(() => {
+    if (cart.length === 0 || !selectedClientId) {
+      setPointsToRedeem(0);
+      setEnablePointsRedeem(false);
+    }
+  }, [cart.length, selectedClientId]);
+
   const totalPaid =
     (Number(cashAmount) || 0) +
     (Number(cardAmount) || 0) +
     (Number(mfsAmount) || 0);
 
   const changeAmount = Math.max(0, totalPaid - roundedGrandTotal);
-
-  const selectedClientObj = clients.find((c) => c.id === selectedClientId);
-  const clientPoints = (selectedClientObj as any)?.loyaltyPoints || 0;
 
   const isWalkwayCustomer =
     !selectedClientId ||
@@ -301,7 +320,8 @@ export default function POSScreenModern({
       toast.error(discountLimitError);
       return;
     }
-    if (!allowDueSale && totalPaid < roundedGrandTotal) {
+    const payableTotal = Math.max(0, roundedGrandTotal - pointsDiscountAmount);
+    if (!allowDueSale && totalPaid < payableTotal) {
       toast.error("Due Sale Disabled: Due / credit sales are disabled in POS settings. Total paid must equal or exceed total amount.");
       return;
     }
@@ -313,6 +333,8 @@ export default function POSScreenModern({
       cardAccountId: selectedCardAccount,
       mfsAccountId: selectedMfsAccount,
       isDueBill: isDueBill,
+      pointsRedeemed: effectivePointsToRedeem,
+      pointsDiscountAmount: pointsDiscountAmount,
     });
   };
 
@@ -1153,6 +1175,76 @@ export default function POSScreenModern({
                 </div>
               )}
 
+              {/* Customer Points Redemption Section (directly under Discount) */}
+              {allowCustomerPoints && (
+                <div className="pt-2 border-t border-border/50 space-y-1">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <Checkbox
+                        id="enablePointsRedeem"
+                        checked={enablePointsRedeem}
+                        disabled={!selectedClientObj || clientPoints <= 0}
+                        onCheckedChange={(c) => {
+                          const isChecked = !!c;
+                          setEnablePointsRedeem(isChecked);
+                          if (!isChecked) {
+                            setPointsToRedeem(0);
+                          } else {
+                            setPointsToRedeem(maxRedeemablePoints > 0 ? maxRedeemablePoints : 0);
+                          }
+                        }}
+                      />
+                      <label
+                        htmlFor="enablePointsRedeem"
+                        className={`text-xs font-semibold select-none flex items-center gap-1 ${
+                          !selectedClientObj || clientPoints <= 0
+                            ? "text-muted-foreground cursor-not-allowed opacity-60"
+                            : "text-foreground cursor-pointer"
+                        }`}
+                      >
+                        <FiAward className="w-3.5 h-3.5 text-amber-500" />
+                        Use Points:
+                      </label>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                      <Input
+                        type="number"
+                        disabled={!enablePointsRedeem || !selectedClientObj || clientPoints <= 0}
+                        placeholder={clientPoints > 0 ? `0` : "0"}
+                        value={enablePointsRedeem ? pointsToRedeem : 0}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === "") {
+                            setPointsToRedeem("");
+                            return;
+                          }
+                          const num = Math.max(0, Math.min(maxRedeemablePoints, Number(val)));
+                          setPointsToRedeem(num);
+                        }}
+                        className="h-8 text-xs text-right font-bold flex-1 min-w-0 shadow-sm disabled:opacity-50 bg-background border-border"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Points status & monetary value subtext */}
+                  {selectedClientObj && clientPoints > 0 ? (
+                    <div className="flex justify-between items-center text-[10px] font-medium text-muted-foreground px-0.5 pt-0.5">
+                      <span>Available: {clientPoints} Pts (৳{(clientPoints * pointValue).toFixed(2)})</span>
+                      {enablePointsRedeem && effectivePointsToRedeem > 0 && (
+                        <span className="font-bold text-amber-600 dark:text-amber-400">
+                          Discount: -৳{pointsDiscountAmount.toFixed(2)}
+                        </span>
+                      )}
+                    </div>
+                  ) : selectedClientObj ? (
+                    <div className="text-[10px] text-muted-foreground px-0.5 pt-0.5">
+                      Customer has 0 available points
+                    </div>
+                  ) : null}
+                </div>
+              )}
+
               {/* Coupon / Promo Code Input Section */}
               {allowCoupon && (
                 <div className="pt-2 border-t border-border/50 space-y-1.5">
@@ -1293,11 +1385,13 @@ export default function POSScreenModern({
               )}
             </div>
 
-            {/* Loyalty Points Display */}
-            {allowCustomerPoints && clientPoints > 0 && (
+            {/* Loyalty Points Earning & Net Balance Summary Bar */}
+            {allowCustomerPoints && selectedClientObj && clientPoints > 0 && (
               <div className="flex justify-between items-center text-muted-foreground text-[11px] font-medium pt-1 border-t border-border/40">
-                <span>Old Point: {clientPoints}</span>
-                <span>New Point: {clientPoints + Math.floor(roundedGrandTotal / 100)}</span>
+                <span>Earn Points: +{pointsEarnedThisSale} Pts</span>
+                <span className="font-semibold text-foreground">
+                  Net Balance: {clientPoints - effectivePointsToRedeem + pointsEarnedThisSale} Pts
+                </span>
               </div>
             )}
           </div>

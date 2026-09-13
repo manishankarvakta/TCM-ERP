@@ -168,6 +168,9 @@ export async function getPOSClosingData(billerId: string, warehouseId: string, d
         const cashAmt = Number(paymentDetails.cashAmount || 0) * factor;
         const cardAmt = Number(paymentDetails.cardAmount || 0) * factor;
         const mfsAmt = Number(paymentDetails.mfsAmount || 0) * factor;
+        if (paymentDetails.pointsRedeemed) {
+          loyaltyPointsUsed += Number(paymentDetails.pointsRedeemed || 0) * factor;
+        }
 
         if (cashAmt !== 0 && paymentDetails.cashAccountId && collectionsMap[paymentDetails.cashAccountId]) {
           collectionsMap[paymentDetails.cashAccountId].regularCollection += cashAmt;

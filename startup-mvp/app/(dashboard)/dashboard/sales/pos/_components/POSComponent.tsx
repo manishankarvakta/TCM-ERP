@@ -1884,7 +1884,11 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     cardAccountId?: string;
     mfsAccountId?: string;
     isDueSale?: boolean;
+    pointsRedeemed?: number;
+    pointsDiscountAmount?: number;
   }) => {
+    const effectivePointsRedeemed = overrides?.pointsRedeemed || 0;
+    const effectivePointsDiscountAmount = overrides?.pointsDiscountAmount || 0;
     const effectiveCashAmount = overrides?.cashAmount ?? cashAmount;
     const effectiveCardAmount = overrides?.cardAmount ?? cardAmount;
     const effectiveMfsAmount = overrides?.mfsAmount ?? mfsAmount;
@@ -2020,7 +2024,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
         orderType: orderType as any,
         notes: `POS Sale - Paid via Split Payment${membershipDiscountAmount > 0 ? ` (Includes Membership Discount of ৳${membershipDiscountAmount.toFixed(2)})` : ""}`,
         tax: tax,
-        discount: effectiveDiscountAmount,
+        discount: effectiveDiscountAmount + effectivePointsDiscountAmount,
         items: saleItems,
         couponCode: appliedPromo || undefined,
         paymentMethod: primaryPaymentMethod,
@@ -2032,6 +2036,8 @@ export default function POSComponent({ items, clients: initialClients, warehouse
           cardAccountId: effectiveCardAccountId || null,
           mfsAmount: effectiveMfsAmount,
           mfsAccountId: effectiveMfsAccountId || null,
+          pointsRedeemed: effectivePointsRedeemed,
+          pointsDiscountAmount: effectivePointsDiscountAmount,
         }
       });
 
@@ -2356,22 +2362,26 @@ export default function POSComponent({ items, clients: initialClients, warehouse
   };
 
   const handleDirectPaymentCheckout = async ({
-    cashAmount: directCashAmount,
-    cardAmount: directCardAmount,
-    mfsAmount: directMfsAmount,
+    cashAmount: directCashAmount = 0,
+    cardAmount: directCardAmount = 0,
+    mfsAmount: directMfsAmount = 0,
     cashAccountId: directCashAccountId,
     cardAccountId: directCardAccountId,
     mfsAccountId: directMfsAccountId,
     isDueBill: directIsDueBill,
+    pointsRedeemed: directPointsRedeemed = 0,
+    pointsDiscountAmount: directPointsDiscountAmount = 0,
   }: {
-    cashAmount: number;
-    cardAmount: number;
-    mfsAmount: number;
+    cashAmount?: number;
+    cardAmount?: number;
+    mfsAmount?: number;
     cashAccountId?: string;
     cardAccountId?: string;
     mfsAccountId?: string;
     isDueBill?: boolean;
-  }) => {
+    pointsRedeemed?: number;
+    pointsDiscountAmount?: number;
+  } = {}) => {
     if (cart.length === 0) {
       toast({
         title: "Warning",
@@ -2412,6 +2422,8 @@ export default function POSComponent({ items, clients: initialClients, warehouse
       cardAccountId: directCardAccountId || cardAccountId,
       mfsAccountId: directMfsAccountId || mfsAccountId,
       isDueSale: directIsDueBill ?? isDueSale,
+      pointsRedeemed: directPointsRedeemed,
+      pointsDiscountAmount: directPointsDiscountAmount,
     });
   };
 
@@ -2508,6 +2520,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
           }}
           onLastBillClick={handlePrintLastBill}
           posSettings={posSettings}
+          membershipSettings={membershipSettings}
         />
       ) : (
         <POSScreenStandard
