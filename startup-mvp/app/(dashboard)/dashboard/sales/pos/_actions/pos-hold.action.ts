@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 export interface POSHeldCartDto {
   id: string;
   cart: any[];
-  clientId?: string;
+  clientId: string;
   amount: number;
 }
 
