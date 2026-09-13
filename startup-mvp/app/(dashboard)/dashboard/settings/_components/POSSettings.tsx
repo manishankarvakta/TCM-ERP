@@ -1035,6 +1035,24 @@ export default function POSSettingsPanel() {
                           </div>
                         )}
                       />
+
+                      {/* Hold Bill Delete Permission Toggle */}
+                      <Controller
+                        name="securePosHoldBillDelete"
+                        control={posForm.control}
+                        render={({ field }) => (
+                          <div className="flex items-center space-x-2.5">
+                            <Checkbox
+                              id="securePosHoldBillDelete"
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                            <Label htmlFor="securePosHoldBillDelete" className="font-semibold text-sm cursor-pointer select-none">
+                              Hold Bill Delete
+                            </Label>
+                          </div>
+                        )}
+                      />
                     </div>
                   )}
                 </CardContent>

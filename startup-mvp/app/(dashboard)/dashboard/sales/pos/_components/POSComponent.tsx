@@ -17,6 +17,7 @@ import { getMembershipTiers } from "@/app/(dashboard)/dashboard/settings/_action
 import POSBottomToolbar from "./POSBottomToolbar";
 import POSScreenStandard from "./POSScreenStandard";
 import POSScreenModern from "./POSScreenModern";
+import POSSecurityModal from "./POSSecurityModal";
 import { ItemType } from "@prisma/client";
 import {
   Select,
@@ -379,6 +380,9 @@ export default function POSComponent({ items, clients: initialClients, warehouse
   // Sale completion flow
   const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false);
   const [isHeldCartsModalOpen, setIsHeldCartsModalOpen] = useState(false);
+  const [isHoldBillDeleteSecurityModalOpen, setIsHoldBillDeleteSecurityModalOpen] = useState(false);
+  const [pendingDeleteHeldCartId, setPendingDeleteHeldCartId] = useState<string | null>(null);
+  const [holdBillDeletePermittedById, setHoldBillDeletePermittedById] = useState<string | null>(null);
   const [hasLastSale, setHasLastSale] = useState(false);
   const [isVoidModalOpen, setIsVoidModalOpen] = useState(false);
   const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
@@ -1693,6 +1697,16 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     setHeldCarts(heldCarts.filter((c: any) => c.id !== id));
     if (heldCarts.length === 1) setIsHeldCartsModalOpen(false);
     toast({ title: "Held Cart Deleted", description: "The held cart was removed." });
+  };
+
+  const onAttemptDeleteHeldCart = (id: string) => {
+    const isSecureHoldBillDeleteRequired = posSettings?.securePos && (posSettings?.securePosHoldBillDelete ?? true);
+    if (isSecureHoldBillDeleteRequired && !holdBillDeletePermittedById) {
+      setPendingDeleteHeldCartId(id);
+      setIsHoldBillDeleteSecurityModalOpen(true);
+      return;
+    }
+    handleDeleteHeldCart(id);
   };
 
   const handleHoldCart = () => {
@@ -3729,7 +3743,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                       variant="outline" 
                       size="sm" 
                       className="text-destructive border-destructive/30 hover:bg-destructive/10"
-                      onClick={() => handleDeleteHeldCart(hc.id)}
+                      onClick={() => onAttemptDeleteHeldCart(hc.id)}
                     >
                       Delete
                     </Button>
@@ -3747,6 +3761,26 @@ export default function POSComponent({ items, clients: initialClients, warehouse
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Hold Bill Delete Security Verification Modal */}
+      <POSSecurityModal
+        isOpen={isHoldBillDeleteSecurityModalOpen}
+        onClose={() => {
+          setIsHoldBillDeleteSecurityModalOpen(false);
+          setPendingDeleteHeldCartId(null);
+        }}
+        onSuccess={(userId, userName) => {
+          setHoldBillDeletePermittedById(userId);
+          if (pendingDeleteHeldCartId) {
+            handleDeleteHeldCart(pendingDeleteHeldCartId);
+            setPendingDeleteHeldCartId(null);
+          }
+          setIsHoldBillDeleteSecurityModalOpen(false);
+          sonnerToast.success(`Hold Bill Deletion authorized by ${userName}`);
+        }}
+        actionTitle="Authorize Hold Bill Deletion"
+        actionDescription="Secure POS is enabled. Select an authorized user with POS permissions and enter password to delete held bill."
+      />
 
       {/* Collect Customer Due Dialog Modal */}
       <Dialog open={isPayDueModalOpen} onOpenChange={setIsPayDueModalOpen}>

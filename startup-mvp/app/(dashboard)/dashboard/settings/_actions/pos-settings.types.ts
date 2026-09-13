@@ -36,6 +36,7 @@ export const posSettingsSchema = z.object({
   securePosCollectDue: z.boolean().default(true),
   securePosRefresh: z.boolean().default(true),
   securePosLastBill: z.boolean().default(true),
+  securePosHoldBillDelete: z.boolean().default(true),
 });
 
 export type POSSettings = z.infer<typeof posSettingsSchema>;
@@ -74,5 +75,6 @@ export const DEFAULT_POS_SETTINGS: POSSettings = {
   securePosCollectDue: true,
   securePosRefresh: true,
   securePosLastBill: true,
+  securePosHoldBillDelete: true,
 };
 
