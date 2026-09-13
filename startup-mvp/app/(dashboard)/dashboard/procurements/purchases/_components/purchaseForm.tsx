@@ -52,6 +52,7 @@ import {
 import SupplierDialog from "./supplierDialog";
 import { useToast } from "@/hooks/use-toast";
 import { Toaster } from "@/components/ui/toast";
+import { toast as sonnerToast } from "sonner";
 
 const purchaseItemSchema = z.object({
   itemId: z.string().optional().nullable(),
@@ -406,6 +407,113 @@ export default function PurchaseForm({
   }, [watchedTax, dispatch]);
 
   const watchedWarehouseId = watch("warehouseId");
+  const watchedDate = watch("date");
+  const watchedStatus = watch("status");
+  const watchedNotes = watch("notes");
+  const watchedAttachmentUrl = watch("attachmentUrl");
+
+  // Active Purchase Draft Auto-Hydration on Mount (mode === "create")
+  useEffect(() => {
+    if (mode !== "create") return;
+    try {
+      const savedDraft = localStorage.getItem("purchase_active_draft");
+      if (savedDraft) {
+        const draft = JSON.parse(savedDraft);
+        if (draft && Array.isArray(draft.items) && draft.items.length > 0) {
+          const hasContent =
+            draft.items.some(
+              (i: any) =>
+                i.itemId ||
+                i.description ||
+                (Number(i.quantity) || 0) > 1 ||
+                (Number(i.unitPrice) || 0) > 0
+            ) || !!draft.supplierId || !!draft.notes;
+
+          if (hasContent) {
+            if (draft.supplierId) setValue("supplierId", draft.supplierId, { shouldValidate: true });
+            if (draft.warehouseId) setValue("warehouseId", draft.warehouseId);
+            if (draft.date) setValue("date", new Date(draft.date));
+            if (draft.status) setValue("status", draft.status);
+            if (draft.notes) setValue("notes", draft.notes);
+            if (draft.attachmentUrl) setValue("attachmentUrl", draft.attachmentUrl);
+            if (typeof draft.discount === "number") setValue("discount", draft.discount);
+            if (typeof draft.tax === "number") setValue("tax", draft.tax);
+            if (Array.isArray(draft.items)) {
+              setValue("items", draft.items, { shouldValidate: true });
+              dispatch(
+                initializePurchase({
+                  items: draft.items.map((item: any) => ({
+                    itemId: item.itemId || "",
+                    variantId: item.variantId || "",
+                    description: item.description || "",
+                    quantity: Number(item.quantity) || 1,
+                    unitPrice: Number(item.unitPrice) || 0,
+                    amount: Number(item.amount) || 0,
+                  })),
+                  discount: Number(draft.discount) || 0,
+                  tax: Number(draft.tax) || 0,
+                })
+              );
+            }
+            sonnerToast.success(
+              `Restored ${draft.items.length} item(s) from your previous purchase draft.`
+            );
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Failed to restore purchase active draft", e);
+    }
+  }, [mode]);
+
+  // Active Purchase Draft Auto-Save on Change (mode === "create")
+  useEffect(() => {
+    if (mode !== "create") return;
+    try {
+      const hasContent =
+        (watchedItems &&
+          watchedItems.some(
+            (i: any) =>
+              i.itemId ||
+              i.description ||
+              (Number(i.quantity) || 0) > 1 ||
+              (Number(i.unitPrice) || 0) > 0
+          )) ||
+        !!watchedSupplierId ||
+        !!watchedNotes;
+
+      if (hasContent) {
+        const draftData = {
+          supplierId: watchedSupplierId || "",
+          warehouseId: watchedWarehouseId || "",
+          date: watchedDate ? new Date(watchedDate).toISOString() : new Date().toISOString(),
+          status: watchedStatus || "DRAFT",
+          notes: watchedNotes || "",
+          attachmentUrl: watchedAttachmentUrl || "",
+          discount: Number(watchedDiscount) || 0,
+          tax: Number(watchedTax) || 0,
+          items: watchedItems || [],
+          timestamp: new Date().getTime(),
+        };
+        localStorage.setItem("purchase_active_draft", JSON.stringify(draftData));
+      } else {
+        localStorage.removeItem("purchase_active_draft");
+      }
+    } catch (e) {
+      console.error("Failed to auto-save purchase active draft", e);
+    }
+  }, [
+    mode,
+    watchedItems,
+    watchedSupplierId,
+    watchedWarehouseId,
+    watchedDate,
+    watchedStatus,
+    watchedNotes,
+    watchedAttachmentUrl,
+    watchedDiscount,
+    watchedTax,
+  ]);
 
   // Fetch ALL stocks for warehouse when warehouse changes
   useEffect(() => {
@@ -460,6 +568,11 @@ export default function PurchaseForm({
         const result = await createPurchase(data);
         if (!result.success) {
           throw new Error(result.error || "Failed to create purchase");
+        }
+        try {
+          localStorage.removeItem("purchase_active_draft");
+        } catch (e) {
+          console.error("Failed to clear purchase active draft", e);
         }
         router.push("/dashboard/procurements/purchases");
       } else {
@@ -1076,7 +1189,16 @@ export default function PurchaseForm({
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => router.back()}
+                onClick={() => {
+                  if (mode === "create") {
+                    try {
+                      localStorage.removeItem("purchase_active_draft");
+                    } catch (e) {
+                      console.error("Failed to clear purchase active draft", e);
+                    }
+                  }
+                  router.back();
+                }}
                 disabled={loading}
               >
                 Cancel
