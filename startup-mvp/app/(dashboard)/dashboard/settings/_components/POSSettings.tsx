@@ -871,9 +871,9 @@ export default function POSSettingsPanel() {
                     )}
                   />
 
-                  {/* Sub-options for Secure POS operations */}
+                  {/* Sub-options for Secure POS operations (2-column layout) */}
                   {posForm.watch("securePos") && (
-                    <div className="pl-6 space-y-3 pt-3 border-t border-border animate-in fade-in duration-200">
+                    <div className="pl-6 pt-3 border-t border-border grid grid-cols-2 gap-4 animate-in fade-in duration-200">
                       {/* Due Sale Permission Toggle */}
                       <Controller
                         name="securePosDueSale"
