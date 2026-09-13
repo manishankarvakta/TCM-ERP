@@ -499,7 +499,23 @@ async function executePgRestore(
 ): Promise<void> {
   const config = parsePostgresConfig();
   const manager = getRestoreManager();
-  const containerName = config.containerName || 'fferp-postgres';
+  const possibleContainers = config.containerName 
+    ? [config.containerName] 
+    : ['espacio-postgres', 'fferp-postgres', 'startup-mvp-postgres'];
+
+  // Perform clean schema wipe if cleanDatabase is requested
+  if (cleanDatabase) {
+    try {
+      manager.addLog(restoreId, 'Cleaning target database schema (DROP SCHEMA public CASCADE)...');
+      const { prisma } = await import('@/lib/prisma');
+      await prisma.$executeRawUnsafe(`DROP SCHEMA IF EXISTS public CASCADE;`);
+      await prisma.$executeRawUnsafe(`CREATE SCHEMA public;`);
+      await prisma.$executeRawUnsafe(`GRANT ALL ON SCHEMA public TO public;`);
+      manager.addLog(restoreId, 'Target database schema cleaned successfully.');
+    } catch (cleanErr: any) {
+      manager.addLog(restoreId, `Schema clean warning: ${cleanErr.message || cleanErr}`, 'warn');
+    }
+  }
 
   // Read header of dump file to detect format (binary vs SQL text)
   let isBinaryDump = true;
@@ -536,13 +552,22 @@ async function executePgRestore(
           '--no-owner',
           '--no-acl',
         ];
-        if (cleanDatabase) args.push('--clean');
+        if (cleanDatabase) args.push('--clean', '--if-exists');
         args.push(dumpPath);
 
-        await execAsync(`pg_restore ${args.join(' ')}`, {
-          env: { ...process.env, PGPASSWORD: config.password },
-          maxBuffer: 100 * 1024 * 1024,
-        });
+        try {
+          await execAsync(`pg_restore ${args.join(' ')}`, {
+            env: { ...process.env, PGPASSWORD: config.password },
+            maxBuffer: 100 * 1024 * 1024,
+          });
+        } catch (hostExecErr: any) {
+          // pg_restore exit code 1 means completed with warnings
+          if (hostExecErr.code === 1 || hostExecErr.status === 1) {
+            manager.addLog(restoreId, `Host pg_restore finished with non-fatal warnings: ${hostExecErr.stderr || hostExecErr.message}`, 'warn');
+          } else {
+            throw hostExecErr;
+          }
+        }
       } else {
         const command = `psql -h ${config.host} -p ${config.port} -U ${config.user} -d ${config.database} -f ${dumpPath}`;
         await execAsync(command, {
@@ -558,16 +583,18 @@ async function executePgRestore(
   }
 
   // Tier 2: Try Docker container pg_restore / psql
-  try {
-    manager.addLog(restoreId, `Attempting database restore via Docker container ${containerName}...`);
-    await executeDockerPgRestore(containerName, config.user, config.password, config.database, dumpPath, cleanDatabase, isBinaryDump);
-    manager.addLog(restoreId, `Database restore completed successfully via Docker container`);
-    return;
-  } catch (dockerError: any) {
-    manager.addLog(restoreId, `Docker container restore failed: ${dockerError.message || dockerError}`, 'warn');
+  for (const containerName of possibleContainers) {
+    try {
+      manager.addLog(restoreId, `Attempting database restore via Docker container ${containerName}...`);
+      await executeDockerPgRestore(containerName, config.user, config.password, config.database, dumpPath, cleanDatabase, isBinaryDump);
+      manager.addLog(restoreId, `Database restore completed successfully via Docker container ${containerName}`);
+      return;
+    } catch (dockerError: any) {
+      manager.addLog(restoreId, `Docker container (${containerName}) restore failed: ${dockerError.message || dockerError}`, 'warn');
+    }
   }
 
-  // Tier 3: Prisma ORM SQL fallback execution
+  // Tier 3: Prisma ORM SQL fallback execution (for plain SQL text dumps only)
   try {
     manager.addLog(restoreId, `Falling back to Prisma ORM SQL restore...`);
     await executePrismaFallbackRestore(dumpPath);
@@ -598,7 +625,7 @@ function executeDockerPgRestore(
     const inputStream = fs.createReadStream(dumpPath);
     const toolName = isBinaryDump ? 'pg_restore' : 'psql';
     const toolArgs = isBinaryDump
-      ? ['-U', user, '-d', dbName, '--no-owner', '--no-acl', ...(cleanDatabase ? ['--clean'] : [])]
+      ? ['-U', user, '-d', dbName, '--no-owner', '--no-acl', ...(cleanDatabase ? ['--clean', '--if-exists'] : [])]
       : ['-U', user, '-d', dbName];
 
     const dockerArgs = [
@@ -637,8 +664,13 @@ function executeDockerPgRestore(
  * Fallback database restore using Prisma ORM execution
  */
 async function executePrismaFallbackRestore(dumpPath: string): Promise<void> {
+  const headerBuffer = await fs.readFile(dumpPath);
+  if (headerBuffer.length >= 5 && headerBuffer.toString('utf-8', 0, 5) === 'PGDMP') {
+    throw new Error('Binary PostgreSQL dump (.dump) cannot be executed as raw text SQL. Please install pg_restore client tools or ensure PostgreSQL Docker container is running.');
+  }
+
   const { prisma } = await import('@/lib/prisma');
-  const sqlContent = await fs.readFile(dumpPath, 'utf-8');
+  const sqlContent = headerBuffer.toString('utf-8');
   const statements = sqlContent.split(/;\s*$/m).map(s => s.trim()).filter(Boolean);
 
   for (const statement of statements) {

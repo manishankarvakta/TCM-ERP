@@ -142,36 +142,71 @@ export async function scanBackupDirectory(type: BackupType): Promise<BackupListI
 export async function getBackupDetails(backupId: string): Promise<BackupListItem | null> {
   // Search in all three directories
   const types: BackupType[] = ['database', 'files', 'full'];
+  const extensions = ['.zip', '.zip.encrypted', '.encrypted'];
 
   for (const type of types) {
     const dir = getBackupTypeDir(type);
-    const filename = `${backupId}.zip`;
-    const filePath = path.join(dir, filename);
 
-    try {
-      // Check if file exists
-      await fs.access(filePath);
+    for (const ext of extensions) {
+      const filename = `${backupId}${ext}`;
+      const filePath = path.join(dir, filename);
 
-      // Get file stats
-      const stats = await fs.stat(filePath);
+      try {
+        // Check if file exists
+        await fs.access(filePath);
 
-      // Extract metadata
-      const metadata = await extractMetadataFromZip(filePath);
+        // Get file stats
+        const stats = await fs.stat(filePath);
 
-      // Determine status
-      const status = await determineBackupStatus(filePath);
+        // Extract metadata (handling encrypted backups)
+        let metadata;
+        try {
+          metadata = await extractMetadataFromZip(filePath);
+        } catch {
+          const { loadBackupMetadata } = await import("@/lib/backup-metadata");
+          const legacyMeta = await loadBackupMetadata(filePath);
+          if (legacyMeta) {
+            metadata = {
+              id: backupId,
+              type,
+              timestamp: legacyMeta.createdAt,
+              size: legacyMeta.originalSize || stats.size,
+              encrypted: legacyMeta.encrypted,
+              checksum: legacyMeta.checksum || '',
+              version: '1.0',
+              application: { name: 'legacy', version: '1.0' },
+              compression: { algorithm: 'deflate', level: 6 },
+            };
+          } else {
+            metadata = {
+              id: backupId,
+              type,
+              timestamp: stats.mtime.toISOString(),
+              size: stats.size,
+              encrypted: filename.endsWith('.encrypted'),
+              checksum: '',
+              version: '1.0',
+              application: { name: 'unknown', version: 'unknown' },
+              compression: { algorithm: 'deflate', level: 6 },
+            };
+          }
+        }
 
-      return {
-        metadata,
-        filePath,
-        fileName: filename,
-        status,
-        modifiedAt: stats.mtime,
-        fileSize: stats.size,
-      };
-    } catch (error) {
-      // File not found in this directory, continue searching
-      continue;
+        // Determine status
+        const status = await determineBackupStatus(filePath);
+
+        return {
+          metadata: metadata as any,
+          filePath,
+          fileName: filename,
+          status,
+          modifiedAt: stats.mtime,
+          fileSize: stats.size,
+        };
+      } catch (error) {
+        // File not found with this extension/directory, continue searching
+        continue;
+      }
     }
   }
 
@@ -186,24 +221,34 @@ export async function getBackupDetails(backupId: string): Promise<BackupListItem
  */
 export async function deleteBackup(backupId: string): Promise<boolean> {
   const types: BackupType[] = ['database', 'files', 'full'];
+  const extensions = ['.zip', '.zip.encrypted', '.encrypted'];
 
   for (const type of types) {
     const dir = getBackupTypeDir(type);
-    const filename = `${backupId}.zip`;
-    const filePath = path.join(dir, filename);
 
-    try {
-      // Check if file exists
-      await fs.access(filePath);
+    for (const ext of extensions) {
+      const filename = `${backupId}${ext}`;
+      const filePath = path.join(dir, filename);
 
-      // Delete the file
-      await fs.unlink(filePath);
+      try {
+        // Check if file exists
+        await fs.access(filePath);
 
-      console.log(`Deleted backup: ${backupId} (${type})`);
-      return true;
-    } catch (error) {
-      // File not found in this directory, continue searching
-      continue;
+        // Delete the file
+        await fs.unlink(filePath);
+
+        // Delete sidecar metadata if exists
+        try {
+          const { deleteBackupMetadata } = await import("@/lib/backup-metadata");
+          await deleteBackupMetadata(filePath);
+        } catch {}
+
+        console.log(`Deleted backup: ${backupId} (${type})`);
+        return true;
+      } catch (error) {
+        // File not found with this extension, continue searching
+        continue;
+      }
     }
   }
 
