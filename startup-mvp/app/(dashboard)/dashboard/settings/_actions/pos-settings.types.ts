@@ -33,6 +33,7 @@ export const posSettingsSchema = z.object({
   securePosPoints: z.boolean().default(true),
   securePosExchange: z.boolean().default(true),
   securePosReturn: z.boolean().default(true),
+  securePosCollectDue: z.boolean().default(true),
 });
 
 export type POSSettings = z.infer<typeof posSettingsSchema>;
@@ -68,5 +69,6 @@ export const DEFAULT_POS_SETTINGS: POSSettings = {
   securePosPoints: true,
   securePosExchange: true,
   securePosReturn: true,
+  securePosCollectDue: true,
 };
 

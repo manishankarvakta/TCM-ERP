@@ -158,7 +158,7 @@ export default function POSScreenModern({
 
   // Inline Payment States for SS2 Direct Billing Sidebar
   const [isDueBill, setIsDueBill] = useState<boolean>(false);
-  const [securityAction, setSecurityAction] = useState<"DUE_SALE" | "DISCOUNT" | "COUPON" | "POINTS" | "EXCHANGE" | "RETURN" | null>(null);
+  const [securityAction, setSecurityAction] = useState<"DUE_SALE" | "DISCOUNT" | "COUPON" | "POINTS" | "EXCHANGE" | "RETURN" | "COLLECT_DUE" | null>(null);
   const [isSecurityModalOpen, setIsSecurityModalOpen] = useState<boolean>(false);
   const [permittedById, setPermittedById] = useState<string | null>(null);
   const [permittedUserName, setPermittedUserName] = useState<string>("");
@@ -351,6 +351,16 @@ export default function POSScreenModern({
     onReturnClick();
   };
 
+  const onAttemptCollectDue = () => {
+    const isSecurePosCollectDueRequired = posSettings?.securePos && (posSettings?.securePosCollectDue ?? true);
+    if (isSecurePosCollectDueRequired && !permittedById) {
+      setSecurityAction("COLLECT_DUE");
+      setIsSecurityModalOpen(true);
+      return;
+    }
+    onCollectDueClick();
+  };
+
   const handlePrintBillClick = () => {
     if (discountLimitError) {
       toast.error(discountLimitError);
@@ -492,7 +502,7 @@ export default function POSScreenModern({
         e.preventDefault();
         e.stopPropagation();
         if (allowDueSale) {
-          onCollectDueClick();
+          onAttemptCollectDue();
         }
       }
     };
@@ -501,7 +511,7 @@ export default function POSScreenModern({
     return () => {
       window.removeEventListener("keydown", handleF5KeyDown);
     };
-  }, [onCollectDueClick, allowDueSale]);
+  }, [onAttemptCollectDue, allowDueSale]);
 
   // Global F6 key shortcut for Hold / Recall Hold in Modern POS
   React.useEffect(() => {
@@ -940,7 +950,7 @@ export default function POSScreenModern({
             onReturnClick={onAttemptReturn}
             isExchangeMode={isExchangeMode}
             onExchangeClick={onAttemptExchange}
-            onCollectDueClick={onCollectDueClick}
+            onCollectDueClick={onAttemptCollectDue}
             cartLength={cart.length}
             heldCartsCount={heldCartsCount}
             onHoldClick={onHoldClick}
@@ -1517,6 +1527,9 @@ export default function POSScreenModern({
           } else if (securityAction === "RETURN") {
             onReturnClick();
             toast.success(`Sales Return authorized by ${userName}`);
+          } else if (securityAction === "COLLECT_DUE") {
+            onCollectDueClick();
+            toast.success(`Due Collection authorized by ${userName}`);
           } else {
             setIsDueBill(true);
             setCashAmount(0);
@@ -1537,6 +1550,8 @@ export default function POSScreenModern({
             ? "Authorize Item Exchange"
             : securityAction === "RETURN"
             ? "Authorize Sales Return"
+            : securityAction === "COLLECT_DUE"
+            ? "Authorize Due Collection"
             : "Authorize Due Sale"
         }
         actionDescription={
@@ -1550,6 +1565,8 @@ export default function POSScreenModern({
             ? "Secure POS is enabled. Select an authorized user with POS permissions and enter password to perform item exchange."
             : securityAction === "RETURN"
             ? "Secure POS is enabled. Select an authorized user with POS permissions and enter password to perform sales return."
+            : securityAction === "COLLECT_DUE"
+            ? "Secure POS is enabled. Select an authorized user with POS permissions and enter password to collect customer due."
             : "Secure POS is enabled. Select an authorized user with POS permissions and enter password to enable due sale."
         }
       />
