@@ -423,20 +423,24 @@ export default function PurchaseForm({
       const savedDraft = localStorage.getItem("purchase_active_draft");
       if (savedDraft) {
         const draft = JSON.parse(savedDraft);
-        if (draft && Array.isArray(draft.items) && draft.items.length > 0) {
+        if (draft && typeof draft === "object") {
           // Filter out completely blank placeholder items
-          const validItems = draft.items.filter(
-            (i: any) =>
-              i.itemId ||
-              i.description ||
-              (Number(i.quantity) || 0) > 1 ||
-              (Number(i.unitPrice) || 0) > 0
-          );
+          const validItems = Array.isArray(draft.items)
+            ? draft.items.filter(
+                (i: any) =>
+                  i.itemId ||
+                  i.description ||
+                  (Number(i.quantity) || 0) > 1 ||
+                  (Number(i.unitPrice) || 0) > 0
+              )
+            : [];
 
-          const hasContent = validItems.length > 0 || !!draft.supplierId || !!draft.notes;
+          const hasContent = validItems.length > 0 || !!draft.supplierId || !!draft.notes || !!draft.warehouseId;
 
           if (hasContent) {
-            if (draft.supplierId) setValue("supplierId", draft.supplierId, { shouldValidate: true, shouldDirty: true });
+            if (draft.supplierId) {
+              setValue("supplierId", draft.supplierId, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
+            }
             if (draft.warehouseId) setValue("warehouseId", draft.warehouseId);
             if (draft.date) setValue("date", new Date(draft.date));
             if (draft.status) setValue("status", draft.status);
@@ -462,7 +466,7 @@ export default function PurchaseForm({
               );
             }
             sonnerToast.success(
-              `Restored ${validItems.length} item(s) from your previous purchase draft.`
+              `Restored previous purchase draft${validItems.length > 0 ? ` (${validItems.length} item(s))` : ""}.`
             );
           }
         }
@@ -661,14 +665,7 @@ export default function PurchaseForm({
                           disabled={loading}
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder="Select supplier">
-                              {field.value
-                                ? (() => {
-                                    const sup = localSuppliers.find((s) => s.id === field.value);
-                                    return sup ? `${sup.supplierCode || "N/A"} - ${sup.name || sup.email}` : undefined;
-                                  })()
-                                : undefined}
-                            </SelectValue>
+                            <SelectValue placeholder="Select supplier" />
                           </SelectTrigger>
                           <SelectContent className="max-h-[300px]">
                             <div className="p-2">
