@@ -383,6 +383,41 @@ export default function POSComponent({ items, clients: initialClients, warehouse
   const [isVoidModalOpen, setIsVoidModalOpen] = useState(false);
   const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
 
+  const returnProductOptions = useMemo(() => {
+    if (!isReturnModalOpen) return [];
+    const isWholesale = orderType === "WHOLESALE";
+    return items
+      .filter((item) => {
+        return isWholesale
+          ? item.itemType === "WHOLESALE"
+          : item.itemType === "READY_PRODUCT" || item.itemType === "RETAIL";
+      })
+      .flatMap((item) => {
+        const codeStr = item.code ? ` [Code: ${item.code}]` : "";
+        if (item.variants && item.variants.length > 0) {
+          return item.variants.map((v) => {
+            const stockQty =
+              v.stocks?.find((s) => s.warehouseId === selectedWarehouseId)
+                ?.quantity || 0;
+            return {
+              value: `${item.id}:${v.id}`,
+              label: `${item.name || item.description}${codeStr} - ${v.color} / ${v.size} (${v.sku}) | Stock: ${stockQty}`,
+            };
+          });
+        } else {
+          const stockQty =
+            item.stocks?.find((s) => s.warehouseId === selectedWarehouseId)
+              ?.quantity || 0;
+          return [
+            {
+              value: item.id,
+              label: `${item.name || item.description}${codeStr} | Stock: ${stockQty}`,
+            },
+          ];
+        }
+      });
+  }, [items, orderType, selectedWarehouseId, isReturnModalOpen]);
+
   const [returnMode, setReturnMode] = useState<"invoice" | "customer">("invoice");
   const [returnCustomerId, setReturnCustomerId] = useState("");
   const [customerSales, setCustomerSales] = useState<any[]>([]);
@@ -3292,31 +3327,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                     <div className="relative">
                       <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <SearchableSelect 
-                        options={items
-                          .filter(item => {
-                            const isWholesale = orderType === "WHOLESALE";
-                            return isWholesale
-                              ? item.itemType === "WHOLESALE"
-                              : (item.itemType === "READY_PRODUCT" || item.itemType === "RETAIL");
-                          })
-                          .flatMap(item => {
-                            const codeStr = item.code ? ` [Code: ${item.code}]` : "";
-                            if (item.variants && item.variants.length > 0) {
-                              return item.variants.map(v => {
-                                const stockQty = v.stocks?.find(s => s.warehouseId === selectedWarehouseId)?.quantity || 0;
-                                return {
-                                  value: `${item.id}:${v.id}`,
-                                  label: `${item.name || item.description}${codeStr} - ${v.color} / ${v.size} (${v.sku}) | Stock: ${stockQty}`
-                                };
-                              });
-                            } else {
-                              const stockQty = item.stocks?.find(s => s.warehouseId === selectedWarehouseId)?.quantity || 0;
-                              return [{
-                                value: item.id,
-                                label: `${item.name || item.description}${codeStr} | Stock: ${stockQty}`
-                              }];
-                            }
-                          })}
+                        options={returnProductOptions}
                         value=""
                         onValueChange={(val) => {
                           if(val) {

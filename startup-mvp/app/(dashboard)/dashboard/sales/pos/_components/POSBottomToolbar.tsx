@@ -47,7 +47,7 @@ export default function POSBottomToolbar({
         className="flex items-center justify-center gap-2 h-10 px-4 bg-[#e11d48] text-white hover:bg-[#e11d48]/90 transition-colors border border-[#e11d48]/20 rounded-lg text-xs font-bold shadow-lg shrink-0"
         onClick={onReturnClick}
       >
-        Return <FaUndoAlt className="w-3.5 h-3.5" />
+        Return (F4) <FaUndoAlt className="w-3.5 h-3.5" />
       </button>
 
       {/* Exchange Button */}
@@ -60,7 +60,7 @@ export default function POSBottomToolbar({
         }`}
         onClick={onExchangeClick}
       >
-        {isExchangeMode ? "Exit Exchange Mode" : "Exchange"}{" "}
+        {isExchangeMode ? "Exit Exchange Mode (F3)" : "Exchange (F3)"}{" "}
         <FaExchangeAlt className="w-3.5 h-3.5" />
       </button>
 
@@ -71,7 +71,7 @@ export default function POSBottomToolbar({
           className="flex items-center justify-center gap-2 h-10 px-4 bg-[#6366f1] text-white hover:bg-[#6366f1]/90 transition-colors border border-[#6366f1]/20 rounded-lg text-xs font-bold shadow-lg shrink-0"
           onClick={onCollectDueClick}
         >
-          Collect Due <FaMoneyBillWave className="w-3.5 h-3.5" />
+          Collect Due (F5) <FaMoneyBillWave className="w-3.5 h-3.5" />
         </button>
       )}
 
@@ -81,7 +81,7 @@ export default function POSBottomToolbar({
         className="flex items-center justify-center gap-2 h-10 px-4 bg-[#ffb000] text-black hover:bg-[#ffb000]/90 transition-colors border border-[#ffb000]/20 rounded-lg text-xs font-bold shadow-lg shrink-0"
         onClick={onHoldClick}
       >
-        Hold
+        Hold (F6)
         {heldCartsCount > 0 && (
           <span className="ml-1 bg-black text-[#ffb000] rounded-full w-4 h-4 flex items-center justify-center text-[9px] font-bold">
             {heldCartsCount}

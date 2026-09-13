@@ -394,6 +394,72 @@ export default function POSScreenModern({
     };
   }, [sortedCart.length]);
 
+  // Global F3 key shortcut for Exchange Mode in Modern POS
+  React.useEffect(() => {
+    const handleF3KeyDown = (e: KeyboardEvent) => {
+      if (e.key === "F3") {
+        e.preventDefault();
+        e.stopPropagation();
+        onExchangeClick();
+      }
+    };
+
+    window.addEventListener("keydown", handleF3KeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleF3KeyDown);
+    };
+  }, [onExchangeClick]);
+
+  // Global F4 key shortcut for Return Modal in Modern POS
+  React.useEffect(() => {
+    const handleF4KeyDown = (e: KeyboardEvent) => {
+      if (e.key === "F4") {
+        e.preventDefault();
+        e.stopPropagation();
+        onReturnClick();
+      }
+    };
+
+    window.addEventListener("keydown", handleF4KeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleF4KeyDown);
+    };
+  }, [onReturnClick]);
+
+  // Global F5 key shortcut for Collect Due Modal in Modern POS
+  React.useEffect(() => {
+    const handleF5KeyDown = (e: KeyboardEvent) => {
+      if (e.key === "F5") {
+        e.preventDefault();
+        e.stopPropagation();
+        if (allowDueSale) {
+          onCollectDueClick();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleF5KeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleF5KeyDown);
+    };
+  }, [onCollectDueClick, allowDueSale]);
+
+  // Global F6 key shortcut for Hold / Recall Hold in Modern POS
+  React.useEffect(() => {
+    const handleF6KeyDown = (e: KeyboardEvent) => {
+      if (e.key === "F6") {
+        e.preventDefault();
+        e.stopPropagation();
+        onHoldClick();
+      }
+    };
+
+    window.addEventListener("keydown", handleF6KeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleF6KeyDown);
+    };
+  }, [onHoldClick]);
+
   const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       e.preventDefault();

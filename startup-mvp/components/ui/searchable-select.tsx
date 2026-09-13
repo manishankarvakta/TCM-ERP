@@ -49,15 +49,17 @@ export function SearchableSelect({
   const inputRef = React.useRef<HTMLInputElement>(null);
 
   const filteredOptions = React.useMemo(() => {
-    if (!searchQuery) return options;
+    if (!searchQuery) return options.slice(0, 50);
     
     const query = searchQuery.toLowerCase();
-    return options.filter(
-      (option) =>
-        option.label.toLowerCase().includes(query) ||
-        option.description?.toLowerCase().includes(query) ||
-        option.value.toLowerCase().includes(query)
-    );
+    return options
+      .filter(
+        (option) =>
+          option.label.toLowerCase().includes(query) ||
+          option.description?.toLowerCase().includes(query) ||
+          option.value.toLowerCase().includes(query)
+      )
+      .slice(0, 50);
   }, [options, searchQuery]);
 
   const handleSelect = (selectedValue: string) => {
