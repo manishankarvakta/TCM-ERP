@@ -30,6 +30,8 @@ export interface SearchableSelectProps {
   className?: string;
   allowClear?: boolean;
   renderOption?: (option: SearchableSelectOption) => React.ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 export function SearchableSelect({
@@ -43,10 +45,18 @@ export function SearchableSelect({
   className,
   allowClear = false,
   renderOption,
+  open: openProp,
+  onOpenChange: onOpenChangeProp,
 }: SearchableSelectProps) {
   const [searchQuery, setSearchQuery] = React.useState("");
-  const [open, setOpen] = React.useState(false);
+  const [internalOpen, setInternalOpen] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
+
+  const open = openProp !== undefined ? openProp : internalOpen;
+  const setOpen = (isOpen: boolean) => {
+    setInternalOpen(isOpen);
+    onOpenChangeProp?.(isOpen);
+  };
 
   const filteredOptions = React.useMemo(() => {
     if (!searchQuery) return options.slice(0, 50);

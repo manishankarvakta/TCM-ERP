@@ -460,6 +460,74 @@ export default function POSScreenModern({
     };
   }, [onHoldClick]);
 
+  // Global F7 key shortcut for Refresh in Modern POS
+  React.useEffect(() => {
+    const handleF7KeyDown = (e: KeyboardEvent) => {
+      if (e.key === "F7") {
+        e.preventDefault();
+        e.stopPropagation();
+        onRefreshClick();
+      }
+    };
+
+    window.addEventListener("keydown", handleF7KeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleF7KeyDown);
+    };
+  }, [onRefreshClick]);
+
+  const [isCustomerSelectOpen, setIsCustomerSelectOpen] = useState(false);
+
+  // Global F8 key shortcut for Last Bill in Modern POS
+  React.useEffect(() => {
+    const handleF8KeyDown = (e: KeyboardEvent) => {
+      if (e.key === "F8") {
+        e.preventDefault();
+        e.stopPropagation();
+        if (hasLastSale || completedSaleNumber) {
+          onLastBillClick();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleF8KeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleF8KeyDown);
+    };
+  }, [onLastBillClick, hasLastSale, completedSaleNumber]);
+
+  // Global F9 key shortcut to toggle Customer Select dropdown in Modern POS
+  React.useEffect(() => {
+    const handleF9KeyDown = (e: KeyboardEvent) => {
+      if (e.key === "F9") {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsCustomerSelectOpen((prev) => !prev);
+      }
+    };
+
+    window.addEventListener("keydown", handleF9KeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleF9KeyDown);
+    };
+  }, []);
+
+  // Global F10 key shortcut for Add Customer modal in Modern POS
+  React.useEffect(() => {
+    const handleF10KeyDown = (e: KeyboardEvent) => {
+      if (e.key === "F10") {
+        e.preventDefault();
+        e.stopPropagation();
+        onOpenAddCustomer();
+      }
+    };
+
+    window.addEventListener("keydown", handleF10KeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleF10KeyDown);
+    };
+  }, [onOpenAddCustomer]);
+
   const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       e.preventDefault();
@@ -534,8 +602,10 @@ export default function POSScreenModern({
                 options={clientOptions}
                 value={selectedClientId || null}
                 onValueChange={(val) => changeCustomerAndSyncMode(val || "")}
-                placeholder="Walkway Customer"
-                searchPlaceholder="Search customer..."
+                placeholder="Walkway Customer (F9)"
+                searchPlaceholder="Search customer... (F9)"
+                open={isCustomerSelectOpen}
+                onOpenChange={setIsCustomerSelectOpen}
                 className="w-full h-9 text-xs bg-background shadow-sm"
               />
             </div>
@@ -545,7 +615,7 @@ export default function POSScreenModern({
               onClick={onOpenAddCustomer}
               className="h-9 px-3 text-xs font-semibold border-border bg-background text-foreground hover:bg-accent shrink-0 shadow-sm rounded-md"
             >
-              Add +
+              Add + (F10)
             </Button>
           </div>
         </div>
