@@ -909,6 +909,24 @@ export default function POSSettingsPanel() {
                           </div>
                         )}
                       />
+
+                      {/* Coupon Permission Toggle */}
+                      <Controller
+                        name="securePosCoupon"
+                        control={posForm.control}
+                        render={({ field }) => (
+                          <div className="flex items-center space-x-2.5">
+                            <Checkbox
+                              id="securePosCoupon"
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                            <Label htmlFor="securePosCoupon" className="font-semibold text-sm cursor-pointer select-none">
+                              Coupon
+                            </Label>
+                          </div>
+                        )}
+                      />
                     </div>
                   )}
                 </CardContent>

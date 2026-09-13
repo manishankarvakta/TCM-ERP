@@ -29,6 +29,7 @@ export const posSettingsSchema = z.object({
   securePos: z.boolean().default(false),
   securePosDueSale: z.boolean().default(true),
   securePosDiscount: z.boolean().default(true),
+  securePosCoupon: z.boolean().default(true),
 });
 
 export type POSSettings = z.infer<typeof posSettingsSchema>;
@@ -60,5 +61,6 @@ export const DEFAULT_POS_SETTINGS: POSSettings = {
   securePos: false,
   securePosDueSale: true,
   securePosDiscount: true,
+  securePosCoupon: true,
 };
 

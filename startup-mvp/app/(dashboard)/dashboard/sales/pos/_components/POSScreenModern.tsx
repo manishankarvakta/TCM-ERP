@@ -158,7 +158,7 @@ export default function POSScreenModern({
 
   // Inline Payment States for SS2 Direct Billing Sidebar
   const [isDueBill, setIsDueBill] = useState<boolean>(false);
-  const [securityAction, setSecurityAction] = useState<"DUE_SALE" | "DISCOUNT" | null>(null);
+  const [securityAction, setSecurityAction] = useState<"DUE_SALE" | "DISCOUNT" | "COUPON" | null>(null);
   const [isSecurityModalOpen, setIsSecurityModalOpen] = useState<boolean>(false);
   const [permittedById, setPermittedById] = useState<string | null>(null);
   const [permittedUserName, setPermittedUserName] = useState<string>("");
@@ -319,6 +319,17 @@ export default function POSScreenModern({
 
     return null;
   }, [posSettings, enableDiscountInput, discountAmount, customDiscount, discountType, subTotal, cart]);
+
+  const onAttemptApplyCoupon = () => {
+    if (!promoCode.trim()) return;
+    const isSecurePosCouponRequired = posSettings?.securePos && (posSettings?.securePosCoupon ?? true);
+    if (isSecurePosCouponRequired && !permittedById) {
+      setSecurityAction("COUPON");
+      setIsSecurityModalOpen(true);
+      return;
+    }
+    handleApplyPromo();
+  };
 
   const handlePrintBillClick = () => {
     if (discountLimitError) {
@@ -1308,7 +1319,7 @@ export default function POSScreenModern({
                         onKeyDown={(e) => {
                           if (e.key === "Enter") {
                             e.preventDefault();
-                            handleApplyPromo();
+                            onAttemptApplyCoupon();
                           }
                         }}
                         className="h-8 text-xs font-mono uppercase bg-background border-border flex-1 shadow-sm"
@@ -1317,7 +1328,7 @@ export default function POSScreenModern({
                         type="button"
                         size="sm"
                         className="h-8 px-3 text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shrink-0 shadow-sm"
-                        onClick={handleApplyPromo}
+                        onClick={onAttemptApplyCoupon}
                         disabled={!promoCode.trim()}
                       >
                         Apply
@@ -1466,6 +1477,9 @@ export default function POSScreenModern({
             setEnableDiscountInput(true);
             updateDiscountAmount(customDiscount, discountType, true, subTotal);
             toast.success(`Discount authorized by ${userName}`);
+          } else if (securityAction === "COUPON") {
+            handleApplyPromo();
+            toast.success(`Coupon authorized by ${userName}`);
           } else {
             setIsDueBill(true);
             setCashAmount(0);
@@ -1475,10 +1489,18 @@ export default function POSScreenModern({
           }
           setSecurityAction(null);
         }}
-        actionTitle={securityAction === "DISCOUNT" ? "Authorize Discount" : "Authorize Due Sale"}
+        actionTitle={
+          securityAction === "DISCOUNT"
+            ? "Authorize Discount"
+            : securityAction === "COUPON"
+            ? "Authorize Coupon"
+            : "Authorize Due Sale"
+        }
         actionDescription={
           securityAction === "DISCOUNT"
             ? "Secure POS is enabled. Select an authorized user with POS permissions and enter password to enable discount."
+            : securityAction === "COUPON"
+            ? "Secure POS is enabled. Select an authorized user with POS permissions and enter password to apply coupon."
             : "Secure POS is enabled. Select an authorized user with POS permissions and enter password to enable due sale."
         }
       />
