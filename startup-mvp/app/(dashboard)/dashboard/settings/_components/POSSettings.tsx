@@ -999,6 +999,42 @@ export default function POSSettingsPanel() {
                           </div>
                         )}
                       />
+
+                      {/* Refresh Permission Toggle */}
+                      <Controller
+                        name="securePosRefresh"
+                        control={posForm.control}
+                        render={({ field }) => (
+                          <div className="flex items-center space-x-2.5">
+                            <Checkbox
+                              id="securePosRefresh"
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                            <Label htmlFor="securePosRefresh" className="font-semibold text-sm cursor-pointer select-none">
+                              Refresh
+                            </Label>
+                          </div>
+                        )}
+                      />
+
+                      {/* Last Bill Permission Toggle */}
+                      <Controller
+                        name="securePosLastBill"
+                        control={posForm.control}
+                        render={({ field }) => (
+                          <div className="flex items-center space-x-2.5">
+                            <Checkbox
+                              id="securePosLastBill"
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                            <Label htmlFor="securePosLastBill" className="font-semibold text-sm cursor-pointer select-none">
+                              Last Bill
+                            </Label>
+                          </div>
+                        )}
+                      />
                     </div>
                   )}
                 </CardContent>
