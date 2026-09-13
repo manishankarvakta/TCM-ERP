@@ -287,8 +287,8 @@ export const MODULES: Record<Module, ModuleMetadata> = {
     description: "Human Resource and Payroll Management",
     subModules: [
       { id: "attendance", label: "Attendance", path: "/dashboard/hr/attendance", module: "hr", permissionKey: "hr.attendance" },
+      { id: "roster", label: "Duty Roster", path: "/dashboard/hr/roster", module: "hr", permissionKey: "hr.roster" },
       { id: "shifts", label: "Shifts", path: "/dashboard/hr/shifts", module: "hr", permissionKey: "hr.shifts" },
-      { id: "roster", label: "Duty Roster", path: "/dashboard/hr/roster", module: "hr", permissionKey: "hr.attendance" },
       { id: "holidays", label: "Holidays", path: "/dashboard/hr/holidays", module: "hr", permissionKey: "hr.holidays" },
       { id: "leave", label: "Leave", path: "/dashboard/hr/leave", module: "hr", permissionKey: "hr.leave" },
       { id: "loans", label: "Loans", path: "/dashboard/hr/loans", module: "hr", permissionKey: "hr.loans" },
@@ -742,6 +742,7 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
       { permissionKey: "hr.designations", path: "/dashboard/employees/designations", label: "Designations", operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"] },
       { permissionKey: "hr.employee-types", path: "/dashboard/employees/types", label: "Employee Types", operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"] },
       { permissionKey: "hr.attendance", path: "/dashboard/hr/attendance", label: "Attendance", operations: ["view", "create", "edit", "sync"] },
+      { permissionKey: "hr.roster", path: "/dashboard/hr/roster", label: "Duty Roster", operations: ["view", "create", "edit"] },
       { permissionKey: "hr.shifts", path: "/dashboard/hr/shifts", label: "Shifts", operations: ["view", "create", "edit", "move-to-trash", "delete-permanently"] },
       { permissionKey: "hr.holidays", path: "/dashboard/hr/holidays", label: "Holidays", operations: ["view", "create", "edit", "move-to-trash", "delete-permanently"] },
       { permissionKey: "hr.leave", path: "/dashboard/hr/leave", label: "Leave", operations: ["view", "create", "edit", "approve"] },

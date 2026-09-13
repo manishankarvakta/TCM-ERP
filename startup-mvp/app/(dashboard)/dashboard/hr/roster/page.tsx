@@ -24,7 +24,9 @@ export default async function RosterPage({ searchParams }: RosterPageProps) {
   const session = await auth();
   const userId = session?.user?.id;
 
-  const canView = userId ? await hasPermission(userId, "hr.attendance", "view") : false;
+  const canView = userId
+    ? (await hasPermission(userId, "hr.roster", "view")) || (await hasPermission(userId, "hr.attendance", "view"))
+    : false;
 
   if (!canView) {
     return (

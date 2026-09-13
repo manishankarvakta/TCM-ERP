@@ -53,7 +53,7 @@ export function getPathPermissionKey(pathname: string): string | null {
     "/dashboard/hr/attendance/devices": "hr.devices",
     "/dashboard/hr/attendance": "hr.attendance",
     "/dashboard/hr/shifts": "hr.shifts",
-    "/dashboard/hr/roster": "hr.attendance",
+    "/dashboard/hr/roster": "hr.roster",
     "/dashboard/hr/holidays": "hr.holidays",
     "/dashboard/hr/leave": "hr.leave",
     "/dashboard/hr/loans": "hr.loans",

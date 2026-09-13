@@ -303,8 +303,8 @@ export const MENU_TEMPLATE: MenuItemData[] = [
     subMenu: [
       { href: "/dashboard/employees", label: "Employees", icon: "FiUser", module: "peoples" },
       { href: "/dashboard/hr/attendance", label: "Attendance", icon: "FiClock", module: "hr" },
-      { href: "/dashboard/hr/shifts", label: "Shifts", icon: "FiLayers", module: "hr" },
       { href: "/dashboard/hr/roster", label: "Duty Roster", icon: "FiCalendar", module: "hr" },
+      { href: "/dashboard/hr/shifts", label: "Shifts", icon: "FiLayers", module: "hr" },
       { href: "/dashboard/hr/holidays", label: "Holidays", icon: "FiCalendar", module: "hr" },
       { href: "/dashboard/hr/leave", label: "Leave", icon: "FiFileText", module: "hr" },
       { href: "/dashboard/hr/payroll", label: "Payroll", icon: "FiDollarSign", module: "hr" },

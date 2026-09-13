@@ -18,9 +18,8 @@ export default function RouteGuard({ children, permissions, role }: RouteGuardPr
   const [checking, setChecking] = useState<boolean>(true);
 
   useEffect(() => {
-    // 1. Admin bypass ONLY if user has no permissions configured
-    const hasAnyPermissions = permissions && Object.keys(permissions).length > 0;
-    if (role?.toLowerCase() === "admin" && !hasAnyPermissions) {
+    // 1. Admin bypass
+    if (role?.toLowerCase() === "admin") {
       setAuthorized(true);
       setChecking(false);
       return;
@@ -50,7 +49,7 @@ export default function RouteGuard({ children, permissions, role }: RouteGuardPr
     const pagePermission = permissions[permissionKey];
     let hasAccess = false;
 
-    if (pagePermission !== undefined && pagePermission !== null) {
+    if (pagePermission) {
       if (Array.isArray(pagePermission)) {
         hasAccess = pagePermission.length > 0;
       } else {
@@ -58,11 +57,13 @@ export default function RouteGuard({ children, permissions, role }: RouteGuardPr
           pagePermission.pageAccess === true ||
           (Array.isArray(pagePermission.operations) && pagePermission.operations.length > 0);
       }
-    } else if (permissionKey.includes(".")) {
-      // Fallback: Check parent module permission ONLY if sub-module permission is NOT defined directly
+    }
+
+    // Fallback: Check parent module permission
+    if (!hasAccess && permissionKey.includes(".")) {
       const [parentModule] = permissionKey.split(".");
       const parentPermission = permissions[parentModule];
-      if (parentPermission !== undefined && parentPermission !== null) {
+      if (parentPermission) {
         if (Array.isArray(parentPermission)) {
           hasAccess = parentPermission.length > 0;
         } else {
