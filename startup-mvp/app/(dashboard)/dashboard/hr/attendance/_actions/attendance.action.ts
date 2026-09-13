@@ -22,6 +22,40 @@ import { applyDailyAttendancePolicyValues } from "@/lib/hr-payroll/attendance-po
 import { syncTimezoneFromDb } from "@/lib/hr/shift-utils";
 
 /**
+ * Resolves effective shift for an employee on a target date using the Roster Overlay Architecture.
+ */
+export async function resolveEffectiveShift(employeeId: string, date: Date, defaultShift: any = null) {
+  try {
+    const rosterEntry = await prisma.employeeRoster.findUnique({
+      where: {
+        employeeId_date: {
+          employeeId,
+          date,
+        },
+      },
+      include: { shift: true },
+    });
+
+    if (rosterEntry) {
+      if (rosterEntry.isOffDay) {
+        return { isOffDay: true, shift: null, shiftId: null };
+      }
+      if (rosterEntry.shift) {
+        return { isOffDay: false, shift: rosterEntry.shift, shiftId: rosterEntry.shiftId };
+      }
+    }
+  } catch (err) {
+    console.error("Error resolving roster shift:", err);
+  }
+
+  return {
+    isOffDay: false,
+    shift: defaultShift,
+    shiftId: defaultShift?.id || null,
+  };
+}
+
+/**
  * Log raw biometric/manual attendance punch
  */
 export async function logAttendancePunch(employeeId: string, timestamp: Date, source: "BIOMETRIC" | "MANUAL" | "APP", deviceId?: string) {
@@ -121,18 +155,20 @@ export async function processManualAttendance(input: {
       if (input.breakCheckIn === undefined) breakCheckInDate = attendance.breakCheckIn;
     }
 
-    // Calculations
-    const shiftPolicy: ShiftPolicy | null = employee.shift ? {
-      startTime: employee.shift.startTime,
-      endTime: employee.shift.endTime,
-      graceMinutes: employee.shift.graceMinutes,
-      lateAfter: employee.shift.lateAfter,
-      halfDayAfter: employee.shift.halfDayAfter,
-      otStartAfter: employee.shift.otStartAfter,
-      breakStartTime: employee.shift.breakStartTime,
-      breakEndTime: employee.shift.breakEndTime,
-      breakGraceMinutes: employee.shift.breakGraceMinutes,
-      breakLateAfter: employee.shift.breakLateAfter
+    // Calculations using Roster Overlay Shift
+    const { isOffDay: rosterIsOff, shift: activeShift, shiftId: activeShiftId } = await resolveEffectiveShift(input.employeeId, targetDate, employee.shift);
+
+    const shiftPolicy: ShiftPolicy | null = activeShift ? {
+      startTime: activeShift.startTime,
+      endTime: activeShift.endTime,
+      graceMinutes: activeShift.graceMinutes,
+      lateAfter: activeShift.lateAfter,
+      halfDayAfter: activeShift.halfDayAfter,
+      otStartAfter: activeShift.otStartAfter,
+      breakStartTime: activeShift.breakStartTime,
+      breakEndTime: activeShift.breakEndTime,
+      breakGraceMinutes: activeShift.breakGraceMinutes,
+      breakLateAfter: activeShift.breakLateAfter
     } : null;
 
     let breakDurationMins = 0;
@@ -158,7 +194,10 @@ export async function processManualAttendance(input: {
       otHours = calculateOTHours(checkOutDate, targetDate, shiftPolicy as any, workHours);
     }
 
-    const status = determineAttendanceStatus(checkInDate as any, targetDate, shiftPolicy as any, breakCheckInDate);
+    let status = determineAttendanceStatus(checkInDate as any, targetDate, shiftPolicy as any, breakCheckInDate);
+    if (rosterIsOff && !checkInDate) {
+      status = "ABSENT";
+    }
 
     if (attendance) {
       // Update
@@ -174,7 +213,7 @@ export async function processManualAttendance(input: {
           otHours,
           status,
           notes: input.notes !== undefined ? input.notes : attendance.notes,
-          shiftId: employee.shiftId,
+          shiftId: activeShiftId || employee.shiftId,
           updatedBy: session.user.id,
           isManual: true,
         }
@@ -433,15 +472,26 @@ export async function processBulkAttendance(
       };
     }
 
-    const creates = [];
+    const creates: {
+      employeeId: string;
+      date: Date;
+      status: "PRESENT" | "ABSENT" | "LEAVE" | "LATE" | "HALF_DAY" | "HOLIDAY" | "WEEKEND";
+      shiftId: string | null;
+      isManual: boolean;
+      notes: string;
+      createdBy: string | null;
+    }[] = [];
     const now = new Date();
 
     for (const emp of missingEmployees) {
-      // If it's an overnight shift, we must wait until the shift has actually ended (plus grace) 
-      // before marking them ABSENT, to prevent falsely marking ongoing overnight shifts.
-      if (emp.shift) {
-        const { shiftEndDateTime } = getShiftWindow(targetDate, emp.shift as ShiftPolicy);
-        const safeAbsenceMarkTime = new Date(shiftEndDateTime.getTime() + (emp.shift.graceMinutes * 60000));
+      const { isOffDay: rosterIsOff, shift: activeShift, shiftId: activeShiftId } = await resolveEffectiveShift(emp.id, targetDate, emp.shift);
+
+      // If scheduled as an Off Day on roster, mark status as WEEKEND instead of ABSENT
+      const statusToMark = rosterIsOff ? "WEEKEND" : (targetStatus as any);
+
+      if (activeShift) {
+        const { shiftEndDateTime } = getShiftWindow(targetDate, activeShift as ShiftPolicy);
+        const safeAbsenceMarkTime = new Date(shiftEndDateTime.getTime() + (activeShift.graceMinutes * 60000));
         
         if (now < safeAbsenceMarkTime) {
           // It's too early to mark this person absent, their shift hasn't ended yet
@@ -452,10 +502,10 @@ export async function processBulkAttendance(
       creates.push({
         employeeId: emp.id,
         date: targetDate,
-        status: targetStatus,
-        shiftId: emp.shiftId,
+        status: statusToMark,
+        shiftId: activeShiftId || emp.shiftId,
         isManual: false,
-        notes: "Auto-marked by system",
+        notes: rosterIsOff ? "Scheduled Off Day (Roster)" : "Auto-marked by system",
         createdBy: (session?.user?.id && session.user.id !== "cli-user") ? session.user.id : null
       });
     }
@@ -747,27 +797,27 @@ export async function closeShiftBulk(attendanceIds: string[]) {
       }
 
       const employee = att.employee;
-      const shift = employee.shift;
+      const { shift: activeShift, shiftId: activeShiftId } = await resolveEffectiveShift(employee.id, att.date, employee.shift);
 
-      if (!shift) {
+      if (!activeShift) {
         errors.push(`Employee ${employee.name} has no shift assigned.`);
         continue;
       }
 
       const shiftPolicy: ShiftPolicy = {
-        startTime: shift.startTime,
-        endTime: shift.endTime,
-        graceMinutes: shift.graceMinutes,
-        lateAfter: shift.lateAfter,
-        halfDayAfter: shift.halfDayAfter,
-        otStartAfter: shift.otStartAfter,
-        breakStartTime: shift.breakStartTime,
-        breakEndTime: shift.breakEndTime,
-        breakGraceMinutes: shift.breakGraceMinutes,
-        breakLateAfter: shift.breakLateAfter
+        startTime: activeShift.startTime,
+        endTime: activeShift.endTime,
+        graceMinutes: activeShift.graceMinutes,
+        lateAfter: activeShift.lateAfter,
+        halfDayAfter: activeShift.halfDayAfter,
+        otStartAfter: activeShift.otStartAfter,
+        breakStartTime: activeShift.breakStartTime,
+        breakEndTime: activeShift.breakEndTime,
+        breakGraceMinutes: activeShift.breakGraceMinutes,
+        breakLateAfter: activeShift.breakLateAfter
       };
 
-      const checkOutDate = combineDateAndTime(att.date, shift.endTime);
+      const checkOutDate = combineDateAndTime(att.date, activeShift.endTime);
 
       let breakDurationMins = 0;
       if (shiftPolicy.breakStartTime && shiftPolicy.breakEndTime) {
@@ -799,7 +849,7 @@ export async function closeShiftBulk(attendanceIds: string[]) {
           workHours,
           otHours,
           status,
-          shiftId: shift.id,
+          shiftId: activeShiftId || activeShift.id,
           updatedBy: session.user.id,
           isManual: true
         }

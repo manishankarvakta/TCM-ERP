@@ -59,22 +59,77 @@ export async function processBiometricAttendance(startDate: Date, endDate: Date,
     });
     const employeeById = new Map<string, typeof employees[0]>(employees.map(e => [e.id, e]));
 
+    // Bulk prefetch roster entries for target date range
+    const rosterEntries = await prisma.employeeRoster.findMany({
+      where: {
+        employeeId: { in: empIdsFromLogs },
+        date: {
+          gte: startOfDay(startDate),
+          lte: endOfDay(endDate),
+        },
+      },
+      include: { shift: true },
+    });
+
+    const rosterMap = new Map<string, typeof rosterEntries[0]>();
+    for (const r of rosterEntries) {
+      rosterMap.set(`${r.employeeId}_${formatBusinessDateKey(r.date)}`, r);
+    }
+
+    const resolveShiftForDate = (employee: typeof employees[0], dateKey: string) => {
+      const roster = rosterMap.get(`${employee.id}_${dateKey}`);
+      if (roster) {
+        if (roster.isOffDay) {
+          return { isOffDay: true, shift: null, shiftId: null, shiftPolicy: null };
+        }
+        if (roster.shift) {
+          const s = roster.shift;
+          const policy: ShiftPolicy = {
+            startTime: s.startTime,
+            endTime: s.endTime,
+            graceMinutes: s.graceMinutes,
+            lateAfter: s.lateAfter,
+            halfDayAfter: s.halfDayAfter,
+            otStartAfter: s.otStartAfter,
+            breakStartTime: s.breakStartTime,
+            breakEndTime: s.breakEndTime,
+            breakGraceMinutes: s.breakGraceMinutes,
+            breakLateAfter: s.breakLateAfter,
+            breakType: s.breakType,
+            breakDuration: s.breakDuration,
+          };
+          return { isOffDay: false, shift: s, shiftId: s.id, shiftPolicy: policy };
+        }
+      }
+
+      if (employee.shift) {
+        const s = employee.shift;
+        const policy: ShiftPolicy = {
+          startTime: s.startTime,
+          endTime: s.endTime,
+          graceMinutes: s.graceMinutes,
+          lateAfter: s.lateAfter,
+          halfDayAfter: s.halfDayAfter,
+          otStartAfter: s.otStartAfter,
+          breakStartTime: s.breakStartTime,
+          breakEndTime: s.breakEndTime,
+          breakGraceMinutes: s.breakGraceMinutes,
+          breakLateAfter: s.breakLateAfter,
+          breakType: s.breakType,
+          breakDuration: s.breakDuration,
+        };
+        return { isOffDay: false, shift: s, shiftId: s.id, shiftPolicy: policy };
+      }
+
+      return { isOffDay: false, shift: null, shiftId: null, shiftPolicy: null };
+    };
+
     // We fetch potential candidate dates based on Business Bounds, correctly routing through shift logic first
     const resolvedDateSet = new Set<string>();
     logs.forEach(log => {
       const employee = employeeById.get(log.employeeId);
-      const shiftPolicy: ShiftPolicy | null = employee?.shift ? {
-        startTime: employee.shift.startTime,
-        endTime: employee.shift.endTime,
-        graceMinutes: employee.shift.graceMinutes,
-        lateAfter: employee.shift.lateAfter,
-        halfDayAfter: employee.shift.halfDayAfter,
-        otStartAfter: employee.shift.otStartAfter,
-        breakStartTime: employee.shift.breakStartTime,
-        breakEndTime: employee.shift.breakEndTime,
-        breakGraceMinutes: employee.shift.breakGraceMinutes,
-        breakLateAfter: employee.shift.breakLateAfter
-      } : null;
+      const approxDateKey = formatBusinessDateKey(log.timestamp);
+      const { shiftPolicy } = employee ? resolveShiftForDate(employee, approxDateKey) : { shiftPolicy: null };
       
       const attendanceDate = resolveAttendanceDateForPunch(log.timestamp, shiftPolicy);
       resolvedDateSet.add(formatBusinessDateKey(attendanceDate));
@@ -100,20 +155,9 @@ export async function processBiometricAttendance(startDate: Date, endDate: Date,
     const groupedLogs: Record<string, Record<string, Date[]>> = {};
     logs.forEach((log) => {
       const employee = employeeById.get(log.employeeId);
-      const shiftPolicy: ShiftPolicy | null = employee?.shift ? {
-        startTime: employee.shift.startTime,
-        endTime: employee.shift.endTime,
-        graceMinutes: employee.shift.graceMinutes,
-        lateAfter: employee.shift.lateAfter,
-        halfDayAfter: employee.shift.halfDayAfter,
-        otStartAfter: employee.shift.otStartAfter,
-        breakStartTime: employee.shift.breakStartTime,
-        breakEndTime: employee.shift.breakEndTime,
-        breakGraceMinutes: employee.shift.breakGraceMinutes,
-        breakLateAfter: employee.shift.breakLateAfter
-      } : null;
+      const approxDateKey = formatBusinessDateKey(log.timestamp);
+      const { shiftPolicy } = employee ? resolveShiftForDate(employee, approxDateKey) : { shiftPolicy: null };
 
-      // Import update: Need resolveAttendanceDateForPunch
       const attendanceDate = resolveAttendanceDateForPunch(log.timestamp, shiftPolicy);
       const dateKey = formatBusinessDateKey(attendanceDate);
       
@@ -139,23 +183,9 @@ export async function processBiometricAttendance(startDate: Date, endDate: Date,
 
       processedEmployees.add(empId);
 
-      const shiftPolicy: ShiftPolicy | null = employee.shift ? {
-        startTime: employee.shift.startTime,
-        endTime: employee.shift.endTime,
-        graceMinutes: employee.shift.graceMinutes,
-        lateAfter: employee.shift.lateAfter,
-        halfDayAfter: employee.shift.halfDayAfter,
-        otStartAfter: employee.shift.otStartAfter,
-        breakStartTime: employee.shift.breakStartTime,
-        breakEndTime: employee.shift.breakEndTime,
-        breakGraceMinutes: employee.shift.breakGraceMinutes,
-        breakLateAfter: employee.shift.breakLateAfter,
-        breakType: employee.shift.breakType,
-        breakDuration: employee.shift.breakDuration
-      } : null;
-
       for (const dateKey in groupedLogs[empId]) {
         processedDates.add(dateKey);
+        const { isOffDay, shiftId: activeShiftId, shiftPolicy } = resolveShiftForDate(employee, dateKey);
         const timestamps = groupedLogs[empId][dateKey];
         // Ensure timestamps are sorted
         timestamps.sort((a, b) => a.getTime() - b.getTime());
@@ -294,7 +324,7 @@ export async function processBiometricAttendance(startDate: Date, endDate: Date,
           workHours: new Prisma.Decimal(workHours),
           otHours: new Prisma.Decimal(otHours),
           status,
-          shiftId: employee.shiftId,
+          shiftId: activeShiftId || employee.shiftId,
           isManual: false,
         };
 

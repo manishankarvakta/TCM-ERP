@@ -16,6 +16,7 @@ import {
 } from "@/lib/hr/shift-utils";
 import { applyDailyAttendancePolicyValues } from "@/lib/hr-payroll/attendance-policy-service";
 import { logItemCreated, logItemUpdated } from "@/lib/user-log";
+import { resolveEffectiveShift } from "./attendance.action";
 
 export interface DirectAttendanceImportRow {
   employeeCode: string;
@@ -216,21 +217,23 @@ export async function importDirectAttendanceAction(rows: DirectAttendanceImportR
         continue;
       }
 
-      // Shift policy
-      const shiftPolicy: ShiftPolicy | null = emp.shift
+      // Shift policy from Roster Overlay
+      const { isOffDay: rosterIsOff, shift: activeShift, shiftId: activeShiftId } = await resolveEffectiveShift(emp.id, targetDate, emp.shift);
+
+      const shiftPolicy: ShiftPolicy | null = activeShift
         ? {
-            startTime: emp.shift.startTime,
-            endTime: emp.shift.endTime,
-            graceMinutes: emp.shift.graceMinutes,
-            lateAfter: emp.shift.lateAfter,
-            halfDayAfter: emp.shift.halfDayAfter,
-            otStartAfter: emp.shift.otStartAfter,
-            breakStartTime: emp.shift.breakStartTime,
-            breakEndTime: emp.shift.breakEndTime,
-            breakGraceMinutes: emp.shift.breakGraceMinutes,
-            breakLateAfter: emp.shift.breakLateAfter,
-            breakType: emp.shift.breakType,
-            breakDuration: emp.shift.breakDuration,
+            startTime: activeShift.startTime,
+            endTime: activeShift.endTime,
+            graceMinutes: activeShift.graceMinutes,
+            lateAfter: activeShift.lateAfter,
+            halfDayAfter: activeShift.halfDayAfter,
+            otStartAfter: activeShift.otStartAfter,
+            breakStartTime: activeShift.breakStartTime,
+            breakEndTime: activeShift.breakEndTime,
+            breakGraceMinutes: activeShift.breakGraceMinutes,
+            breakLateAfter: activeShift.breakLateAfter,
+            breakType: activeShift.breakType,
+            breakDuration: activeShift.breakDuration,
           }
         : null;
 
@@ -241,41 +244,34 @@ export async function importDirectAttendanceAction(rows: DirectAttendanceImportR
 
       if (userStatus && validStatuses.includes(userStatus)) {
         status = userStatus as AttendanceStatusType;
+      } else if (rosterIsOff && !checkInDate) {
+        status = "ABSENT";
       } else {
-        // Automatic calculation based on check-in and shift policy
         status = determineAttendanceStatus(checkInDate, targetDate, shiftPolicy);
       }
 
-      // Work hours & overtime calculation
-      let breakDurationMins = 0;
-      if (shiftPolicy) {
+      let workHours = 0;
+      let otHours = 0;
+
+      if (checkInDate && checkOutDate && shiftPolicy) {
+        let breakDurationMins = 0;
         if (shiftPolicy.breakType === "FIXED") {
           breakDurationMins = shiftPolicy.breakDuration ?? 0;
-        } else if (shiftPolicy.breakStartTime && shiftPolicy.breakEndTime) {
-          const { breakStartDateTime, breakEndDateTime } = getShiftWindow(targetDate, shiftPolicy);
-          if (breakStartDateTime && breakEndDateTime) {
-            breakDurationMins = Math.abs(breakEndDateTime.getTime() - breakStartDateTime.getTime()) / 60000;
-          } else {
-            breakDurationMins = shiftPolicy.breakDuration ?? 60;
+        } else if (shiftPolicy.breakType === "TRACKED" || !shiftPolicy.breakType) {
+          if (shiftPolicy.breakStartTime && shiftPolicy.breakEndTime) {
+            const { breakStartDateTime, breakEndDateTime } = getShiftWindow(targetDate, shiftPolicy);
+            if (breakStartDateTime && breakEndDateTime) {
+              breakDurationMins = Math.max(0, (breakEndDateTime.getTime() - breakStartDateTime.getTime()) / 60000);
+            } else {
+              breakDurationMins = shiftPolicy.breakDuration ?? 60;
+            }
           }
         }
-      }
-
-      const workHours = calculateWorkHoursWithBreak(
-        checkInDate,
-        checkOutDate,
-        null,
-        null,
-        breakDurationMins,
-        shiftPolicy?.breakType || "NONE"
-      );
-
-      let otHours = 0;
-      if (checkOutDate && shiftPolicy) {
+        workHours = calculateWorkHoursWithBreak(checkInDate, checkOutDate, null, null, breakDurationMins);
         otHours = calculateOTHours(checkOutDate, targetDate, shiftPolicy, workHours);
       }
 
-      let attendanceId = "";
+      let attendanceId: string;
 
       if (existing) {
         const updated = await prisma.attendance.update({
@@ -287,7 +283,7 @@ export async function importDirectAttendanceAction(rows: DirectAttendanceImportR
             otHours,
             status,
             notes: row.notes !== undefined ? row.notes : existing.notes,
-            shiftId: emp.shiftId,
+            shiftId: activeShiftId || emp.shiftId,
             updatedBy: session.user.id,
             isManual: true,
           },
@@ -309,7 +305,7 @@ export async function importDirectAttendanceAction(rows: DirectAttendanceImportR
             otHours,
             status,
             notes: row.notes || "Imported via CSV",
-            shiftId: emp.shiftId,
+            shiftId: activeShiftId || emp.shiftId,
             createdBy: session.user.id,
             isManual: true,
           },

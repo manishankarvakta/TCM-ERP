@@ -219,6 +219,7 @@ export const MODULES: Record<Module, ModuleMetadata> = {
     description: "Human resources, attendance, and payroll",
     subModules: [
       { id: "shifts", label: "Shifts", path: "/dashboard/hr/shifts", module: "hr", permissionKey: "hr.shifts" },
+      { id: "roster", label: "Duty Roster", path: "/dashboard/hr/roster", module: "hr", permissionKey: "hr.roster" },
       { id: "holidays", label: "Holidays", path: "/dashboard/hr/holidays", module: "hr", permissionKey: "hr.holidays" },
       { id: "attendance", label: "Attendance", path: "/dashboard/hr/attendance", module: "hr", permissionKey: "hr.attendance" },
       { id: "appointment_letters", label: "Appointment Letters", path: "/dashboard/hr/appointment-letters", module: "hr", permissionKey: "hr.appointment_letters" },
@@ -744,6 +745,12 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
         path: "/dashboard/hr/shifts",
         label: "Shifts",
         operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
+      },
+      {
+        permissionKey: "hr.roster",
+        path: "/dashboard/hr/roster",
+        label: "Duty Roster",
+        operations: ["view", "create", "edit"],
       },
       {
         permissionKey: "hr.holidays",

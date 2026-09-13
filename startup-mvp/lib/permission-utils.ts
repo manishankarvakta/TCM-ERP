@@ -37,6 +37,8 @@ export function getPathPermissionKey(pathname: string): string | null {
     "/dashboard/clients": "peoples.clients",
     "/dashboard/suppliers": "peoples.suppliers",
     "/dashboard/employees": "peoples.employees",
+    // HR
+    "/dashboard/hr/roster": "hr.roster",
     // Other modules
     "/dashboard/files": "files",
     "/dashboard/notifications": "notifications",

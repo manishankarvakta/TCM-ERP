@@ -105,6 +105,7 @@ model User {
   approvedFines                    EmployeeFine[]          @relation("FineApprover")
   createdBonuses                   EmployeeBonus[]         @relation("BonusCreator")
   approvedBonuses                  EmployeeBonus[]         @relation("BonusApprover")
+  createdRosters                   EmployeeRoster[]        @relation("RosterCreator")
 
   @@index([status])
   @@index([designationTemplateId])
@@ -169,6 +170,7 @@ model Employee {
   assistedSales          Sale[]              @relation("SaleSalesAssistant")
   fines                  EmployeeFine[]
   bonuses                EmployeeBonus[]
+  rosterEntries          EmployeeRoster[]
 
   @@index([userId])
   @@index([status])
@@ -1288,10 +1290,32 @@ model Shift {
   attendances  Attendance[]
   employees    Employee[]   @relation("EmployeeShift")
   creator      User         @relation("ShiftCreator", fields: [createdBy], references: [id])
+  rosterEntries EmployeeRoster[]
 
   @@index([status])
   @@index([isTrash])
   @@index([createdBy])
+}
+
+model EmployeeRoster {
+  id          String   @id @default(cuid())
+  employeeId  String
+  date        DateTime @db.Date
+  shiftId     String?
+  isOffDay    Boolean  @default(false)
+  notes       String?
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  employee  Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  shift     Shift?    @relation(fields: [shiftId], references: [id], onDelete: SetNull)
+  createdBy User?     @relation("RosterCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([employeeId, date])
+  @@index([employeeId])
+  @@index([date])
+  @@index([shiftId])
 }
 
 model Holiday {
