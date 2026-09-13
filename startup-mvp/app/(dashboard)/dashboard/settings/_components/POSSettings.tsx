@@ -873,31 +873,21 @@ export default function POSSettingsPanel() {
 
                   {/* Sub-options for Secure POS operations */}
                   {posForm.watch("securePos") && (
-                    <div className="pl-1 space-y-3 pt-3 border-t border-border animate-in fade-in duration-200">
-                      <Label className="font-bold text-xs uppercase text-muted-foreground tracking-wide block">
-                        Protected POS Operations (Require Permission)
-                      </Label>
-
-                      {/* Due Sale / Due Bill Permission Toggle */}
+                    <div className="pl-6 space-y-3 pt-3 border-t border-border animate-in fade-in duration-200">
+                      {/* Due Sale Permission Toggle */}
                       <Controller
                         name="securePosDueSale"
                         control={posForm.control}
                         render={({ field }) => (
-                          <div className="flex items-start space-x-3 rounded-xl border p-3.5 bg-muted/20 hover:bg-muted/40 transition-colors">
+                          <div className="flex items-center space-x-2.5">
                             <Checkbox
                               id="securePosDueSale"
                               checked={field.value}
                               onCheckedChange={field.onChange}
-                              className="mt-0.5"
                             />
-                            <div className="space-y-0.5 leading-none">
-                              <Label htmlFor="securePosDueSale" className="font-bold text-sm cursor-pointer">
-                                Require Permission for Due Sale (Due Bill)
-                              </Label>
-                              <p className="text-xs text-muted-foreground">
-                                Selecting "Due Bill" on POS screen will require password verification from an authorized POS user.
-                              </p>
-                            </div>
+                            <Label htmlFor="securePosDueSale" className="font-semibold text-sm cursor-pointer select-none">
+                              Due Sale
+                            </Label>
                           </div>
                         )}
                       />
