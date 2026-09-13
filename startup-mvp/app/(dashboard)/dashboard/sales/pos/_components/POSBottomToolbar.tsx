@@ -96,7 +96,7 @@ export default function POSBottomToolbar({
         className="flex items-center justify-center gap-2 h-10 px-4 bg-[#0f8c5a] text-white hover:bg-[#0f8c5a]/90 transition-colors border border-[#0f8c5a]/20 rounded-lg text-xs font-bold shadow-lg shrink-0"
         onClick={onRefreshClick}
       >
-        Refresh <FaSync className="w-3.5 h-3.5" />
+        Refresh (F7) <FaSync className="w-3.5 h-3.5" />
       </button>
 
       {/* Last Bill Button */}
@@ -106,7 +106,7 @@ export default function POSBottomToolbar({
         onClick={onLastBillClick}
         disabled={isLastBillDisabled}
       >
-        Last Bill <FaPrint className="w-3.5 h-3.5" />
+        Last Bill (F8) <FaPrint className="w-3.5 h-3.5" />
       </button>
     </div>
   );

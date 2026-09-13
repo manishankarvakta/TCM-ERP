@@ -570,6 +570,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
   };
 
   const getDiscountedPrice = (item: CartItem, basePrice: number, discounts: any[]) => {
+    if ((item as any).isDiscountable === false) return basePrice;
     const discount = getItemDiscount(item);
     if (!discount) return basePrice;
 

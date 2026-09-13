@@ -48,9 +48,15 @@ const itemFormSchema = z.object({
   name: z.string().min(1, "Name is required"),
   description: z.string().optional(),
   itemType: z.enum(["RAW_MATERIAL", "READY_PRODUCT", "RETAIL", "WHOLESALE"]),
-  categoryId: z.string().optional().nullable(),
-  subCategoryId: z.string().optional().nullable(),
-  brandId: z.string().optional().nullable(),
+  categoryId: z.string().nullable().refine((val) => val !== null && val !== undefined && val.trim().length > 0, {
+    message: "Category is required",
+  }),
+  subCategoryId: z.string().nullable().refine((val) => val !== null && val !== undefined && val.trim().length > 0, {
+    message: "Sub-category is required",
+  }),
+  brandId: z.string().nullable().refine((val) => val !== null && val !== undefined && val.trim().length > 0, {
+    message: "Brand is required",
+  }),
   unitId: z.string().min(1, "Unit is required"),
   costPrice: z.number().min(0, "Cost price must be >= 0"),
   salesPrice: z.number().min(0, "Sales price must be >= 0").optional().nullable(),
@@ -62,22 +68,36 @@ const itemFormSchema = z.object({
   featuredImage: z.string().optional().nullable(),
   sizes: z.array(z.string()).default([]),
   colors: z.array(z.string()).default([]),
-  supplierIds: z.array(z.string()).default([]),
+  supplierIds: z.array(z.string()).min(1, "At least one supplier is required"),
   isEnableEcom: z.boolean().default(false),
   status: z.enum(["active", "inactive"]),
   isVatEnabled: z.boolean().default(false),
   vatPercentage: z.number().min(0, "VAT percentage must be >= 0").default(0),
+  isDiscountDisabled: z.boolean().default(false),
+  isCustomerPointDisabled: z.boolean().default(false),
   barcode: z.string().optional().nullable(),
   isPromo: z.boolean().default(false),
   promoEndsAt: z.union([z.string(), z.date()]).optional().nullable(),
-}).refine((data) => {
-  if ((data.itemType === "READY_PRODUCT" || data.itemType === "RETAIL") && (!data.salesPrice || data.salesPrice <= 0)) {
-    return false;
+}).superRefine((data, ctx) => {
+  if (data.itemType === "READY_PRODUCT" || data.itemType === "RETAIL") {
+    if (!data.salesPrice || data.salesPrice <= 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Sales price is required for Ready Products and Retail items",
+        path: ["salesPrice"],
+      });
+    }
   }
-  return true;
-}, {
-  message: "Sales price is required for Ready Products and Retail items",
-  path: ["salesPrice"],
+
+  if (data.salesPrice !== undefined && data.salesPrice !== null && data.salesPrice > 0) {
+    if (data.salesPrice <= data.costPrice) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Sales price must be greater than cost price",
+        path: ["salesPrice"],
+      });
+    }
+  }
 });
 
 type ItemFormData = z.infer<typeof itemFormSchema>;
@@ -114,6 +134,8 @@ interface ItemFormProps {
     status: string;
     isVatEnabled?: boolean;
     vatPercentage?: number;
+    isDiscountable?: boolean;
+    isCustomerPointAvailable?: boolean;
     barcode?: string | null;
     isPromo?: boolean;
     promoEndsAt?: any;
@@ -235,6 +257,8 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
             : "active",
           isVatEnabled: initialData.isVatEnabled || false,
           vatPercentage: initialData.vatPercentage ? Number(initialData.vatPercentage) : 0,
+          isDiscountDisabled: (initialData as any).isDiscountable === false,
+          isCustomerPointDisabled: (initialData as any).isCustomerPointAvailable === false,
           barcode: initialData.barcode || "",
           isPromo: (initialData as any).isPromo || false,
           promoEndsAt: (initialData as any).promoEndsAt 
@@ -264,6 +288,8 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
           status: "active",
           isVatEnabled: false,
           vatPercentage: 0,
+          isDiscountDisabled: false,
+          isCustomerPointDisabled: false,
           barcode: "",
           isPromo: false,
           promoEndsAt: "",
@@ -408,6 +434,8 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
         status: data.status,
         isVatEnabled: data.isVatEnabled,
         vatPercentage: data.vatPercentage,
+        isDiscountable: !data.isDiscountDisabled,
+        isCustomerPointAvailable: !data.isCustomerPointDisabled,
         barcode: data.barcode || undefined,
         isPromo: data.isPromo,
         promoEndsAt: data.promoEndsAt ? (data.promoEndsAt instanceof Date ? data.promoEndsAt.toISOString() : new Date(data.promoEndsAt).toISOString()) : null,
@@ -611,7 +639,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="categoryId">Category (Optional)</Label>
+                      <Label htmlFor="categoryId">Category *</Label>
                       <Controller
                         name="categoryId"
                         control={control}
@@ -630,10 +658,13 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                           />
                         )}
                       />
+                      {errors.categoryId && (
+                        <p className="text-xs text-destructive mt-1">{(errors.categoryId as any).message}</p>
+                      )}
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="subCategoryId">Sub-category (Optional)</Label>
+                      <Label htmlFor="subCategoryId">Sub-category *</Label>
                       <Controller
                         name="subCategoryId"
                         control={control}
@@ -654,12 +685,15 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                           );
                         }}
                       />
+                      {errors.subCategoryId && (
+                        <p className="text-xs text-destructive mt-1">{(errors.subCategoryId as any).message}</p>
+                      )}
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="brandId">Brand (Optional)</Label>
+                      <Label htmlFor="brandId">Brand *</Label>
                       <Controller
                         name="brandId"
                         control={control}
@@ -675,6 +709,9 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                           />
                         )}
                       />
+                      {errors.brandId && (
+                        <p className="text-xs text-destructive mt-1">{(errors.brandId as any).message}</p>
+                      )}
                     </div>
 
                     <div className="space-y-2">
@@ -693,6 +730,9 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                           />
                         )}
                       />
+                      {errors.unitId && (
+                        <p className="text-xs text-destructive mt-1">{(errors.unitId as any).message}</p>
+                      )}
                     </div>
                   </div>
 
@@ -700,7 +740,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                   <div className="space-y-3 border-t pt-4 mt-2">
                     <div className="flex items-center gap-2 text-primary font-semibold">
                       <FiUsers className="h-4 w-4" />
-                      <h3>Associated Suppliers (Optional)</h3>
+                      <h3>Associated Suppliers *</h3>
                     </div>
                     <div className="bg-muted/30 p-4 rounded-xl border border-border/50 space-y-3">
                       <p className="text-xs text-muted-foreground">
@@ -750,6 +790,9 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                           <p className="text-xs text-muted-foreground italic">No suppliers assigned yet.</p>
                         )}
                       </div>
+                      {errors.supplierIds && (
+                        <p className="text-xs text-destructive mt-1">{(errors.supplierIds as any).message}</p>
+                      )}
                     </div>
                   </div>
 
@@ -770,6 +813,9 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                           {...register("costPrice", { valueAsNumber: true })}
                           disabled={loading}
                         />
+                        {errors.costPrice && (
+                          <p className="text-xs text-destructive mt-1">{(errors.costPrice as any).message}</p>
+                        )}
                       </div>
 
                       <div className="space-y-2">
@@ -781,6 +827,9 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                           {...register("salesPrice", { valueAsNumber: true })}
                           disabled={loading}
                         />
+                        {errors.salesPrice && (
+                          <p className="text-xs text-destructive mt-1">{(errors.salesPrice as any).message}</p>
+                        )}
                       </div>
 
                       <div className="space-y-2">
@@ -1223,6 +1272,28 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                     )}
                   />
                   <Label htmlFor="isEnableEcom">Enable E-commerce</Label>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Controller
+                    name="isDiscountDisabled"
+                    control={control}
+                    render={({ field }) => (
+                      <Checkbox id="isDiscountDisabled" checked={field.value} onCheckedChange={field.onChange} disabled={loading} />
+                    )}
+                  />
+                  <Label htmlFor="isDiscountDisabled" className="cursor-pointer font-medium text-amber-700 dark:text-amber-400">Disable Discount</Label>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Controller
+                    name="isCustomerPointDisabled"
+                    control={control}
+                    render={({ field }) => (
+                      <Checkbox id="isCustomerPointDisabled" checked={field.value} onCheckedChange={field.onChange} disabled={loading} />
+                    )}
+                  />
+                  <Label htmlFor="isCustomerPointDisabled" className="cursor-pointer font-medium text-amber-700 dark:text-amber-400">Disable Customer Points</Label>
                 </div>
 
                 <div className="flex items-center space-x-2">

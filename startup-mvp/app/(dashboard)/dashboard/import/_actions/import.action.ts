@@ -447,6 +447,22 @@ export async function parseAndValidateCsvAction(
         }
       });
 
+      // Item-specific price validation (Sales Price > Cost Price)
+      if (config.targetModel === "Item") {
+        const costPriceNum = typeof mappedData.costPrice === "number" ? mappedData.costPrice : safeParseNumber(mappedData.costPrice);
+        const salesPriceNum = typeof mappedData.salesPrice === "number" ? mappedData.salesPrice : safeParseNumber(mappedData.salesPrice);
+
+        if (costPriceNum !== null && salesPriceNum !== null && salesPriceNum <= costPriceNum) {
+          errors.push({
+            rowIndex: index + 1,
+            fieldKey: "salesPrice",
+            fieldLabel: "Sales Price",
+            message: `Sales Price (${salesPriceNum}) must be greater than Cost Price (${costPriceNum})`,
+            value: String(mappedData.salesPrice),
+          });
+        }
+      }
+
       const isValid = errors.length === 0;
       if (isValid) validCount++;
       else invalidCount++;
@@ -879,11 +895,44 @@ export async function executeImportAction(
             subCategoryId = subCat.id;
           }
 
-          if (row.brandName) {
-            const brand = await prisma.brand.findFirst({
-              where: { name: { equals: row.brandName, mode: "insensitive" } },
+          if (row.brandName && String(row.brandName).trim() !== "") {
+            const bName = String(row.brandName).trim();
+            let brand = await prisma.brand.findFirst({
+              where: { name: { equals: bName, mode: "insensitive" } },
             });
-            if (brand) brandId = brand.id;
+            if (!brand) {
+              brand = await prisma.brand.create({
+                data: {
+                  name: bName,
+                  status: "active",
+                },
+              });
+            }
+            brandId = brand.id;
+          }
+
+          const supplierConnects: { id: string }[] = [];
+          if (row.supplierName && String(row.supplierName).trim() !== "") {
+            const sName = String(row.supplierName).trim();
+            let supplier = await prisma.supplier.findFirst({
+              where: {
+                OR: [
+                  { name: { equals: sName, mode: "insensitive" } },
+                  { company: { equals: sName, mode: "insensitive" } },
+                  { supplierCode: { equals: sName, mode: "insensitive" } },
+                ],
+              },
+            });
+            if (!supplier) {
+              supplier = await prisma.supplier.create({
+                data: {
+                  name: sName,
+                  status: "active",
+                  createdBy: currentUserId,
+                },
+              });
+            }
+            supplierConnects.push({ id: supplier.id });
           }
 
           if (row.unitCode) {
@@ -968,8 +1017,12 @@ export async function executeImportAction(
                 trackInventory: row.trackInventory === "true" || row.trackInventory === true ? true : existing.trackInventory,
                 isVatEnabled: row.isVatEnabled === "true" || row.isVatEnabled === true ? true : existing.isVatEnabled,
                 vatPercentage: row.vatPercentage ? Number(row.vatPercentage) : existing.vatPercentage,
+                isDiscountable: (row.isDiscountDisabled === "true" || row.isDiscountDisabled === true || row.isDiscountable === "false" || row.isDiscountable === false) ? false : existing.isDiscountable,
+                isCustomerPointAvailable: (row.isCustomerPointDisabled === "true" || row.isCustomerPointDisabled === true || row.isCustomerPointAvailable === "false" || row.isCustomerPointAvailable === false) ? false : existing.isCustomerPointAvailable,
                 categoryId: categoryId || existing.categoryId,
                 subCategoryId: subCategoryId || existing.subCategoryId,
+                brandId: brandId || existing.brandId,
+                suppliers: supplierConnects.length > 0 ? { set: supplierConnects } : undefined,
                 status: row.status === "inactive" ? "inactive" : existing.status,
                 itemType: row.itemType ? parsedItemType : existing.itemType,
               },
@@ -998,12 +1051,15 @@ export async function executeImportAction(
               trackInventory: row.trackInventory === "true" || row.trackInventory === true,
               isVatEnabled: row.isVatEnabled === "true" || row.isVatEnabled === true,
               vatPercentage: row.vatPercentage ? Number(row.vatPercentage) : 0,
+              isDiscountable: (row.isDiscountDisabled === "true" || row.isDiscountDisabled === true || row.isDiscountable === "false" || row.isDiscountable === false) ? false : true,
+              isCustomerPointAvailable: (row.isCustomerPointDisabled === "true" || row.isCustomerPointDisabled === true || row.isCustomerPointAvailable === "false" || row.isCustomerPointAvailable === false) ? false : true,
               status: row.status === "inactive" ? "inactive" : "active",
               itemType: parsedItemType,
               categoryId,
               subCategoryId,
               brandId,
               unitId,
+              suppliers: supplierConnects.length > 0 ? { connect: supplierConnects } : undefined,
               createdBy: currentUserId,
             },
           });

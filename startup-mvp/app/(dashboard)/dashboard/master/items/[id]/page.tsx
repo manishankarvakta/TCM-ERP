@@ -135,6 +135,24 @@ export default async function ItemDetailsPage({ params }: ItemDetailsPageProps) 
                       VAT {vatPercentage}%
                     </Badge>
                   )}
+                  {item.isDiscountable !== false ? (
+                    <Badge className="text-xs bg-emerald-100 text-emerald-800 border border-emerald-200">
+                      Discountable
+                    </Badge>
+                  ) : (
+                    <Badge className="text-xs bg-gray-100 text-gray-800 border border-gray-200">
+                      Non-Discountable
+                    </Badge>
+                  )}
+                  {item.isCustomerPointAvailable !== false ? (
+                    <Badge className="text-xs bg-indigo-100 text-indigo-800 border border-indigo-200">
+                      Points Available
+                    </Badge>
+                  ) : (
+                    <Badge className="text-xs bg-gray-100 text-gray-800 border border-gray-200">
+                      Points Disabled
+                    </Badge>
+                  )}
                 </div>
               </div>
             </div>

@@ -523,6 +523,8 @@ export async function getItemsForSale() {
         images: true,
         isVatEnabled: true,
         vatPercentage: true,
+        isDiscountable: true,
+        isCustomerPointAvailable: true,
         trackInventory: true,
         barcode: true,
         stocks: {

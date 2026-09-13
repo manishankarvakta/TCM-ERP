@@ -866,6 +866,8 @@ export async function createItem(input: {
   status?: "active" | "inactive";
   isVatEnabled?: boolean;
   vatPercentage?: number;
+  isDiscountable?: boolean;
+  isCustomerPointAvailable?: boolean;
   barcode?: string | null;
   isPromo?: boolean;
   promoEndsAt?: Date | string | null;
@@ -913,10 +915,51 @@ export async function createItem(input: {
       };
     }
 
+    if (input.salesPrice != null && input.salesPrice > 0 && input.salesPrice <= input.costPrice) {
+      return {
+        success: false,
+        error: "Sales price must be greater than cost price",
+        item: null,
+      };
+    }
+
     if (input.itemType === "WHOLESALE" && (!input.wholesalePrice || input.wholesalePrice <= 0)) {
       return {
         success: false,
         error: "Wholesale price is required for Wholesale items",
+        item: null,
+      };
+    }
+
+    // Validate mandatory required fields
+    if (!input.categoryId) {
+      return {
+        success: false,
+        error: "Category is required",
+        item: null,
+      };
+    }
+
+    if (!input.subCategoryId) {
+      return {
+        success: false,
+        error: "Sub-category is required",
+        item: null,
+      };
+    }
+
+    if (!input.brandId) {
+      return {
+        success: false,
+        error: "Brand is required",
+        item: null,
+      };
+    }
+
+    if (!input.supplierIds || input.supplierIds.length === 0) {
+      return {
+        success: false,
+        error: "At least one supplier is required",
         item: null,
       };
     }
@@ -1040,6 +1083,8 @@ export async function createItem(input: {
         status: input.status || "active",
         isVatEnabled: input.isVatEnabled ?? false,
         vatPercentage: input.vatPercentage ?? 0,
+        isDiscountable: input.isDiscountable ?? true,
+        isCustomerPointAvailable: input.isCustomerPointAvailable ?? true,
         barcode: finalBarcode,
         isPromo: input.isPromo ?? false,
         promoEndsAt: input.promoEndsAt ? new Date(input.promoEndsAt) : null,
@@ -1217,6 +1262,8 @@ export async function updateItem(input: {
   status?: "active" | "inactive";
   isVatEnabled?: boolean;
   vatPercentage?: number;
+  isDiscountable?: boolean;
+  isCustomerPointAvailable?: boolean;
   barcode?: string | null;
   isPromo?: boolean;
   promoEndsAt?: Date | string | null;
@@ -1277,6 +1324,8 @@ export async function updateItem(input: {
         sizes: true,
         colors: true,
         isEnableEcom: true,
+        isDiscountable: true,
+        isCustomerPointAvailable: true,
         featuredImage: true,
         status: true,
         barcode: true,
@@ -1297,6 +1346,47 @@ export async function updateItem(input: {
       return {
         success: false,
         error: "Sales price is required for Ready Products and Retail items",
+        item: null,
+      };
+    }
+
+    if (input.salesPrice != null && input.salesPrice > 0 && input.salesPrice <= input.costPrice) {
+      return {
+        success: false,
+        error: "Sales price must be greater than cost price",
+        item: null,
+      };
+    }
+
+    // Validate mandatory required fields
+    if (!input.categoryId) {
+      return {
+        success: false,
+        error: "Category is required",
+        item: null,
+      };
+    }
+
+    if (!input.subCategoryId) {
+      return {
+        success: false,
+        error: "Sub-category is required",
+        item: null,
+      };
+    }
+
+    if (!input.brandId) {
+      return {
+        success: false,
+        error: "Brand is required",
+        item: null,
+      };
+    }
+
+    if (!input.supplierIds || input.supplierIds.length === 0) {
+      return {
+        success: false,
+        error: "At least one supplier is required",
         item: null,
       };
     }
@@ -1411,6 +1501,8 @@ export async function updateItem(input: {
       isEnableEcom: input.isEnableEcom ?? false,
       isVatEnabled: input.isVatEnabled ?? false,
       vatPercentage: input.vatPercentage ?? 0,
+      isDiscountable: input.isDiscountable ?? true,
+      isCustomerPointAvailable: input.isCustomerPointAvailable ?? true,
       barcode: finalBarcode,
       isPromo: input.isPromo ?? false,
       promoEndsAt: input.promoEndsAt ? new Date(input.promoEndsAt) : null,
@@ -2068,6 +2160,8 @@ export async function getAllItemsForExport(
         isEnableEcom: true,
         isVatEnabled: true,
         vatPercentage: true,
+        isDiscountable: true,
+        isCustomerPointAvailable: true,
         barcode: true,
         status: true,
         createdAt: true,
