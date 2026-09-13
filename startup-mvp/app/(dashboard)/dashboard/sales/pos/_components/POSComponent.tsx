@@ -315,6 +315,73 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     localStorage.setItem("pos_held_carts", JSON.stringify(heldCarts));
   }, [heldCarts]);
 
+  // Active POS Session Draft Auto-Hydration on Mount
+  useEffect(() => {
+    try {
+      const savedDraft = localStorage.getItem("pos_active_draft");
+      if (savedDraft) {
+        const draft = JSON.parse(savedDraft);
+        if (draft && Array.isArray(draft.cart) && draft.cart.length > 0) {
+          setCart(draft.cart);
+          if (draft.selectedClientId) setSelectedClientId(draft.selectedClientId);
+          if (draft.selectedWarehouseId) setSelectedWarehouseId(draft.selectedWarehouseId);
+          if (draft.orderType) setOrderType(draft.orderType);
+          if (draft.promoCode) setPromoCode(draft.promoCode);
+          if (draft.appliedPromo) setAppliedPromo(draft.appliedPromo);
+          if (typeof draft.discountAmount === "number") setDiscountAmount(draft.discountAmount);
+          if (draft.discountType) setDiscountType(draft.discountType);
+          if (typeof draft.discountValue === "number") setDiscountValue(draft.discountValue);
+          if (typeof draft.isExchangeMode === "boolean") setIsExchangeMode(draft.isExchangeMode);
+          toast({
+            title: "Draft Restored",
+            description: `Restored ${draft.cart.length} item(s) from your previous session.`,
+          });
+        }
+      }
+    } catch (e) {
+      console.error("Failed to restore active draft", e);
+    }
+  }, []);
+
+  // Active POS Session Draft Auto-Save on Change
+  useEffect(() => {
+    try {
+      if (cart.length > 0) {
+        localStorage.setItem(
+          "pos_active_draft",
+          JSON.stringify({
+            cart,
+            selectedClientId,
+            selectedWarehouseId,
+            orderType,
+            promoCode,
+            appliedPromo,
+            discountAmount,
+            discountType,
+            discountValue,
+            isExchangeMode,
+            timestamp: new Date().getTime(),
+          })
+        );
+      } else {
+        localStorage.removeItem("pos_active_draft");
+      }
+    } catch (e) {
+      console.error("Failed to auto-save active draft", e);
+    }
+  }, [
+    cart,
+    selectedClientId,
+    selectedWarehouseId,
+    orderType,
+    promoCode,
+    appliedPromo,
+    discountAmount,
+    discountType,
+    discountValue,
+    isExchangeMode,
+  ]);
+
   useEffect(() => {
     if (isConfirmModalOpen && filteredPaymentAccounts.length > 0) {
       const defaultCash = filteredPaymentAccounts.find(acc => acc.type === "CASH")?.id || "";
@@ -1751,6 +1818,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
   };
 
   const handleNewSale = () => {
+    try { localStorage.removeItem("pos_active_draft"); } catch (e) {}
     setIsChangeDialogOpen(false);
     setCart([]);
     setSearchQuery('');
