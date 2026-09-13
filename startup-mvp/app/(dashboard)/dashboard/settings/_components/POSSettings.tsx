@@ -1053,6 +1053,24 @@ export default function POSSettingsPanel() {
                           </div>
                         )}
                       />
+
+                      {/* Remove Product Permission Toggle */}
+                      <Controller
+                        name="securePosRemoveItem"
+                        control={posForm.control}
+                        render={({ field }) => (
+                          <div className="flex items-center space-x-2.5">
+                            <Checkbox
+                              id="securePosRemoveItem"
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                            <Label htmlFor="securePosRemoveItem" className="font-semibold text-sm cursor-pointer select-none">
+                              Remove Product
+                            </Label>
+                          </div>
+                        )}
+                      />
                     </div>
                   )}
                 </CardContent>

@@ -158,7 +158,8 @@ export default function POSScreenModern({
 
   // Inline Payment States for SS2 Direct Billing Sidebar
   const [isDueBill, setIsDueBill] = useState<boolean>(false);
-  const [securityAction, setSecurityAction] = useState<"DUE_SALE" | "DISCOUNT" | "COUPON" | "POINTS" | "EXCHANGE" | "RETURN" | "COLLECT_DUE" | "REFRESH" | "LAST_BILL" | null>(null);
+  const [securityAction, setSecurityAction] = useState<"DUE_SALE" | "DISCOUNT" | "COUPON" | "POINTS" | "EXCHANGE" | "RETURN" | "COLLECT_DUE" | "REFRESH" | "LAST_BILL" | "REMOVE_ITEM" | null>(null);
+  const [pendingRemoveCartKey, setPendingRemoveCartKey] = useState<string | null>(null);
   const [isSecurityModalOpen, setIsSecurityModalOpen] = useState<boolean>(false);
   const [permittedById, setPermittedById] = useState<string | null>(null);
   const [permittedUserName, setPermittedUserName] = useState<string>("");
@@ -380,6 +381,17 @@ export default function POSScreenModern({
       return;
     }
     onLastBillClick();
+  };
+
+  const onAttemptRemoveItem = (cartKey: string) => {
+    const isSecurePosRemoveItemRequired = posSettings?.securePos && (posSettings?.securePosRemoveItem ?? true);
+    if (isSecurePosRemoveItemRequired && !permittedById) {
+      setPendingRemoveCartKey(cartKey);
+      setSecurityAction("REMOVE_ITEM");
+      setIsSecurityModalOpen(true);
+      return;
+    }
+    handleRemoveItem(cartKey);
   };
 
   const handlePrintBillClick = () => {
@@ -950,7 +962,7 @@ export default function POSScreenModern({
                           <button
                             type="button"
                             className="text-muted-foreground hover:text-destructive p-1 transition-colors"
-                            onClick={() => handleRemoveItem(item.cartKey)}
+                            onClick={() => onAttemptRemoveItem(item.cartKey)}
                           >
                             <FaTimes className="w-3.5 h-3.5" />
                           </button>
@@ -1555,6 +1567,12 @@ export default function POSScreenModern({
           } else if (securityAction === "LAST_BILL") {
             onLastBillClick();
             toast.success(`Last Bill Print authorized by ${userName}`);
+          } else if (securityAction === "REMOVE_ITEM") {
+            if (pendingRemoveCartKey) {
+              handleRemoveItem(pendingRemoveCartKey);
+              setPendingRemoveCartKey(null);
+            }
+            toast.success(`Product removal authorized by ${userName}`);
           } else {
             setIsDueBill(true);
             setCashAmount(0);
@@ -1581,6 +1599,8 @@ export default function POSScreenModern({
             ? "Authorize POS Refresh"
             : securityAction === "LAST_BILL"
             ? "Authorize Last Bill Print"
+            : securityAction === "REMOVE_ITEM"
+            ? "Authorize Product Removal"
             : "Authorize Due Sale"
         }
         actionDescription={
@@ -1600,6 +1620,8 @@ export default function POSScreenModern({
             ? "Secure POS is enabled. Select an authorized user with POS permissions and enter password to refresh POS screen."
             : securityAction === "LAST_BILL"
             ? "Secure POS is enabled. Select an authorized user with POS permissions and enter password to print last bill."
+            : securityAction === "REMOVE_ITEM"
+            ? "Secure POS is enabled. Select an authorized user with POS permissions and enter password to remove product from cart."
             : "Secure POS is enabled. Select an authorized user with POS permissions and enter password to enable due sale."
         }
       />
