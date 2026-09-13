@@ -315,6 +315,11 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     localStorage.setItem("pos_held_carts", JSON.stringify(heldCarts));
   }, [heldCarts]);
 
+  // Promo Code / Coupon states
+  const [promoCode, setPromoCode] = useState("");
+  const [appliedPromo, setAppliedPromo] = useState<string | null>(null);
+  const [promoDiscountMsg, setPromoDiscountMsg] = useState("");
+
   // Active POS Session Draft Auto-Hydration on Mount
   useEffect(() => {
     try {
@@ -460,11 +465,6 @@ export default function POSComponent({ items, clients: initialClients, warehouse
       if (!dueMfsAccountId && defaultMfs) setDueMfsAccountId(defaultMfs);
     }
   }, [filteredPaymentAccounts, isPayDueModalOpen, dueCashAccountId, dueCardAccountId, dueMfsAccountId]);
-
-  // Promo Code / Coupon states
-  const [promoCode, setPromoCode] = useState("");
-  const [appliedPromo, setAppliedPromo] = useState<string | null>(null);
-  const [promoDiscountMsg, setPromoDiscountMsg] = useState("");
 
   // Sale completion flow
   const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false);
