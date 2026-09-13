@@ -864,12 +864,45 @@ export default function POSSettingsPanel() {
                             Secure POS
                           </Label>
                           <p className="text-xs text-muted-foreground">
-                            Require password verification from authorized users (with POS permissions) for sensitive POS operations like due sales.
+                            Require password verification from authorized users (with POS permissions) for sensitive POS operations.
                           </p>
                         </div>
                       </div>
                     )}
                   />
+
+                  {/* Sub-options for Secure POS operations */}
+                  {posForm.watch("securePos") && (
+                    <div className="pl-1 space-y-3 pt-3 border-t border-border animate-in fade-in duration-200">
+                      <Label className="font-bold text-xs uppercase text-muted-foreground tracking-wide block">
+                        Protected POS Operations (Require Permission)
+                      </Label>
+
+                      {/* Due Sale / Due Bill Permission Toggle */}
+                      <Controller
+                        name="securePosDueSale"
+                        control={posForm.control}
+                        render={({ field }) => (
+                          <div className="flex items-start space-x-3 rounded-xl border p-3.5 bg-muted/20 hover:bg-muted/40 transition-colors">
+                            <Checkbox
+                              id="securePosDueSale"
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                              className="mt-0.5"
+                            />
+                            <div className="space-y-0.5 leading-none">
+                              <Label htmlFor="securePosDueSale" className="font-bold text-sm cursor-pointer">
+                                Require Permission for Due Sale (Due Bill)
+                              </Label>
+                              <p className="text-xs text-muted-foreground">
+                                Selecting "Due Bill" on POS screen will require password verification from an authorized POS user.
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      />
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 

@@ -938,7 +938,8 @@ export default function POSScreenModern({
                           toast.error("Due sale is not allowed for Walkway Customer. Please select a registered customer.");
                           return;
                         }
-                        if (posSettings?.securePos && !permittedById) {
+                        const isSecurePosDueRequired = posSettings?.securePos && (posSettings?.securePosDueSale ?? true);
+                        if (isSecurePosDueRequired && !permittedById) {
                           setIsSecurityModalOpen(true);
                           return;
                         }
