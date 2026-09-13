@@ -26,6 +26,7 @@ export const posSettingsSchema = z.object({
   enableMaxDiscountPercent: z.boolean().default(false),
   discountRuleMode: z.enum(["below_cost", "max_percent"]).default("below_cost"),
   maxDiscountPercentage: z.coerce.number().min(0).max(100).default(0),
+  securePos: z.boolean().default(false),
 });
 
 export type POSSettings = z.infer<typeof posSettingsSchema>;
@@ -54,5 +55,6 @@ export const DEFAULT_POS_SETTINGS: POSSettings = {
   enableMaxDiscountPercent: false,
   discountRuleMode: "below_cost",
   maxDiscountPercentage: 0,
+  securePos: false,
 };
 

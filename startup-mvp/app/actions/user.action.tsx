@@ -732,6 +732,7 @@ export async function getUserById(userId: string) {
         image: true,
         status: true,
         isActive: true,
+        posPermissions: true,
         inchargeId: true,
         incharge: {
           select: {
@@ -848,6 +849,7 @@ export async function createUser(input: {
   inchargeId?: string;
   defaultWarehouseId?: string;
   status?: "active" | "inactive";
+  posPermissions?: boolean;
 }) {
   try {
     const session = await auth();
@@ -898,6 +900,7 @@ export async function createUser(input: {
         defaultWarehouseId: input.defaultWarehouseId || null,
         status: input.status || "active",
         isActive: (input as any).isActive || "enabled",
+        posPermissions: input.posPermissions ?? false,
       },
       select: {
         id: true,
@@ -907,6 +910,7 @@ export async function createUser(input: {
         image: true,
         status: true,
         isActive: true,
+        posPermissions: true,
         createdAt: true,
       },
     });
@@ -944,6 +948,7 @@ export async function updateUser(input: {
   inchargeId?: string;
   defaultWarehouseId?: string;
   status?: "active" | "inactive";
+  posPermissions?: boolean;
 }) {
   try {
     const session = await auth();
@@ -1005,6 +1010,7 @@ export async function updateUser(input: {
       inchargeId?: string | null;
       defaultWarehouseId?: string | null;
       status?: string;
+      posPermissions?: boolean;
     } = {
       name: input.name,
       email: input.email,
@@ -1020,6 +1026,11 @@ export async function updateUser(input: {
     // Handle status
     if ((input as any).status !== undefined) {
       updateData.status = (input as any).status;
+    }
+
+    // Handle posPermissions
+    if (input.posPermissions !== undefined) {
+      updateData.posPermissions = input.posPermissions;
     }
 
     // Handle inchargeId (can be undefined, null, or empty string)
@@ -1044,6 +1055,7 @@ export async function updateUser(input: {
         image: true,
         status: true,
         isActive: true,
+        posPermissions: true,
         createdAt: true,
         updatedAt: true,
       },

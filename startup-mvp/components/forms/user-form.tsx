@@ -21,8 +21,10 @@ import { FiAlertCircle, FiSearch } from "react-icons/fi";
 import { createUser, updateUser, getActiveUsers } from "@/app/actions/user.action";
 import { getActiveWarehouses } from "@/app/(dashboard)/dashboard/master/warehouses/_actions/warehouse.action";
 import MediaSelector from "@/components/MediaSelector";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const userFormSchema = z.object({
+  id: z.string().optional(),
   name: z.string().min(2, "Name must be at least 2 characters"),
   email: z.string().email("Invalid email address"),
   password: z
@@ -40,9 +42,10 @@ const userFormSchema = z.object({
   defaultWarehouseId: z.string().optional().or(z.literal("")),
   status: z.enum(["active", "inactive"]),
   isActive: z.enum(["enabled", "disabled"]),
+  posPermissions: z.boolean(),
 });
 
-type UserFormDataWithId = z.infer<typeof userFormSchema> & { id?: string };
+type UserFormDataWithId = z.infer<typeof userFormSchema>;
 
 interface UserFormProps {
   mode: "create" | "edit";
@@ -66,6 +69,7 @@ interface UserFormProps {
     } | null;
     status: string;
     isActive: string;
+    posPermissions?: boolean;
   };
 }
 
@@ -100,6 +104,7 @@ export default function UserForm({ mode, initialData }: UserFormProps) {
           defaultWarehouseId: initialData.defaultWarehouseId || "",
           status: (initialData.status as "active" | "inactive") || "active",
           isActive: (initialData.isActive as "enabled" | "disabled") || "enabled",
+          posPermissions: initialData.posPermissions ?? false,
         }
       : {
           name: "",
@@ -111,6 +116,7 @@ export default function UserForm({ mode, initialData }: UserFormProps) {
           defaultWarehouseId: "",
           status: "active",
           isActive: "enabled",
+          posPermissions: false,
         },
   });
 
@@ -172,6 +178,7 @@ export default function UserForm({ mode, initialData }: UserFormProps) {
           inchargeId: data.inchargeId && data.inchargeId.length > 0 ? data.inchargeId : undefined,
           defaultWarehouseId: data.defaultWarehouseId && data.defaultWarehouseId.length > 0 ? data.defaultWarehouseId : undefined,
           status: data.status,
+          posPermissions: data.posPermissions,
         });
 
         if (!result.success) {
@@ -190,6 +197,7 @@ export default function UserForm({ mode, initialData }: UserFormProps) {
           inchargeId: data.inchargeId && data.inchargeId.length > 0 ? data.inchargeId : undefined,
           defaultWarehouseId: data.defaultWarehouseId && data.defaultWarehouseId.length > 0 ? data.defaultWarehouseId : undefined,
           status: data.status,
+          posPermissions: data.posPermissions,
         });
 
         if (!result.success) {
@@ -419,6 +427,18 @@ export default function UserForm({ mode, initialData }: UserFormProps) {
                   {errors.isActive && (
                     <p className="text-sm text-destructive">{errors.isActive.message}</p>
                   )}
+                </div>
+
+                <div className="flex items-center space-x-2 pt-2 border-t mt-4">
+                  <Checkbox
+                    id="posPermissions"
+                    checked={watch("posPermissions")}
+                    onCheckedChange={(checked) => setValue("posPermissions", !!checked)}
+                    disabled={loading}
+                  />
+                  <Label htmlFor="posPermissions" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer">
+                    POS permissions
+                  </Label>
                 </div>
 
                 <div className="flex items-center gap-3 pt-4">

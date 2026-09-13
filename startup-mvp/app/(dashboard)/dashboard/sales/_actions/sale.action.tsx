@@ -38,6 +38,7 @@ const saleSchema = z.object({
   couponCode: z.string().optional().nullable(),
   paymentMethod: z.string().optional().nullable(),
   salesAssistantId: z.string().optional().nullable(),
+  permittedById: z.string().optional().nullable(),
   paymentDetails: z.object({
     cashAmount: z.number().optional().nullable(),
     cashAccountId: z.string().optional().nullable(),
@@ -2133,6 +2134,7 @@ export async function createSale(input: z.infer<typeof saleSchema>) {
           grandTotal: new Prisma.Decimal(grandTotal),
           createdBy: userId,
           salesAssistantId: validated.salesAssistantId || null,
+          permittedById: validated.permittedById || null,
           paymentDetails: paymentDetailsDb ? (paymentDetailsDb as any) : null,
           ...(resolvedCouponId ? { couponId: resolvedCouponId } : {}),
           items: {

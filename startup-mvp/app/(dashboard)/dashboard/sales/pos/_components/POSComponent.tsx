@@ -1887,6 +1887,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     isDueSale?: boolean;
     pointsRedeemed?: number;
     pointsDiscountAmount?: number;
+    permittedById?: string;
   }) => {
     const effectivePointsRedeemed = overrides?.pointsRedeemed || 0;
     const effectivePointsDiscountAmount = overrides?.pointsDiscountAmount || 0;
@@ -1897,6 +1898,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     const effectiveCardAccountId = overrides?.cardAccountId ?? cardAccountId;
     const effectiveMfsAccountId = overrides?.mfsAccountId ?? mfsAccountId;
     const effectiveIsDueSale = overrides?.isDueSale ?? isDueSale;
+    const effectivePermittedById = overrides?.permittedById || undefined;
 
     // Due sale customer checks
     const walkwayCustomer = clients.find(c => c.name?.toLowerCase() === "walkway customer");
@@ -2030,6 +2032,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
         couponCode: appliedPromo || undefined,
         paymentMethod: primaryPaymentMethod,
         salesAssistantId: salesAssistantId,
+        permittedById: effectivePermittedById,
         paymentDetails: {
           cashAmount: effectiveCashAmount,
           cashAccountId: effectiveCashAccountId || null,

@@ -701,6 +701,30 @@ export default function POSSettingsPanel() {
                         </div>
                       )}
                     />
+
+                    {/* 7. Secure POS */}
+                    <Controller
+                      name="securePos"
+                      control={posForm.control}
+                      render={({ field }) => (
+                        <div className="sm:col-span-2 flex items-start space-x-3 rounded-xl border p-3 bg-card hover:bg-accent/30 transition-colors">
+                          <Checkbox
+                            id="securePos"
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                            className="mt-0.5"
+                          />
+                          <div className="space-y-0.5 leading-none">
+                            <Label htmlFor="securePos" className="font-semibold text-sm cursor-pointer">
+                              Secure POS
+                            </Label>
+                            <p className="text-xs text-muted-foreground">
+                              Enable restrictions and permission enforcement on the POS screen
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    />
                   </div>
 
                   {/* Default Tax / VAT Rate % Input */}

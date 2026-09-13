@@ -23,7 +23,19 @@ export default async function UserDetailsPage({ params }: UserDetailsPageProps) 
   const logsResult = await getUserLogs(id, { limit: 20 });
 
   if (!userResult.success || !userResult.user) {
-    notFound();
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-semibold">User Details</h1>
+          <p className="text-sm text-muted-foreground">View user profile</p>
+        </div>
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
+          <p className="text-sm text-destructive">
+            {userResult.error || "User not found or access denied"}
+          </p>
+        </div>
+      </div>
+    );
   }
 
   const user = userResult.user;

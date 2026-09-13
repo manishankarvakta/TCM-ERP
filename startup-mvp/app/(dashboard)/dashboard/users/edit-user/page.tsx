@@ -13,13 +13,35 @@ export default async function EditUserPage({ searchParams }: EditUserPageProps) 
   const { id: userId } = await searchParams;
 
   if (!userId) {
-    notFound();
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-semibold">Edit User</h1>
+          <p className="text-sm text-muted-foreground">Update user information</p>
+        </div>
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
+          <p className="text-sm text-destructive">No user ID specified.</p>
+        </div>
+      </div>
+    );
   }
 
   const result = await getUserById(userId);
 
   if (!result.success || !result.user) {
-    notFound();
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-semibold">Edit User</h1>
+          <p className="text-sm text-muted-foreground">Update user information</p>
+        </div>
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 space-y-3">
+          <p className="text-sm text-destructive">
+            {result.error || "User not found or access denied"}
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -40,6 +62,7 @@ export default async function EditUserPage({ searchParams }: EditUserPageProps) 
           defaultWarehouseId: result.user.defaultWarehouseId,
           status: (result.user as any).status,
           isActive: (result.user as any).isActive,
+          posPermissions: (result.user as any).posPermissions,
         }}
       />
     </div>

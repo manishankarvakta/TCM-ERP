@@ -23,6 +23,7 @@ model User {
   inchargeId                       String?
   defaultWarehouseId               String?
   isActive                         String                 @default("")
+  posPermissions                   Boolean                @default(false)
   accounts                         Account[]
   createdAttendances               Attendance[]           @relation("AttendanceCreator")
   updatedAttendances               Attendance[]           @relation("AttendanceUpdater")
@@ -65,6 +66,7 @@ model User {
   updatedPurchases                 Purchase[]             @relation("PurchaseUpdatedBy")
   createdSales                     Sale[]                 @relation("SaleCreatedBy")
   updatedSales                     Sale[]                 @relation("SaleUpdatedBy")
+  permittedSales                   Sale[]                 @relation("SalePermittedBy")
   sessions                         Session[]
   createdShifts                    Shift[]                @relation("ShiftCreator")
   createdStockLedgers              StockLedger[]          @relation("StockLedgerCreator")
@@ -824,6 +826,8 @@ model Sale {
   trackingNumber  String?
   salesAssistantId String?
   salesAssistant   Employee?  @relation("SaleSalesAssistant", fields: [salesAssistantId], references: [id])
+  permittedById    String?
+  permittedByUser  User?      @relation("SalePermittedBy", fields: [permittedById], references: [id])
 
   @@index([clientId])
   @@index([warehouseId])
@@ -835,6 +839,7 @@ model Sale {
   @@index([createdBy])
   @@index([couponId])
   @@index([salesAssistantId])
+  @@index([permittedById])
 }
 
 model Coupon {

@@ -27,6 +27,7 @@ import {
 } from "react-icons/fa";
 import { FiAward } from "react-icons/fi";
 import POSBottomToolbar from "./POSBottomToolbar";
+import POSSecurityModal from "./POSSecurityModal";
 
 export interface POSScreenModernProps {
   // Config & Catalog Props
@@ -80,6 +81,7 @@ export interface POSScreenModernProps {
     isDueBill?: boolean;
     pointsRedeemed?: number;
     pointsDiscountAmount?: number;
+    permittedById?: string;
   }) => void;
 
   // Toolbar Props
@@ -155,7 +157,10 @@ export default function POSScreenModern({
   const pointValue = Number(membershipSettings?.pointValue) || 1.0;
 
   // Inline Payment States for SS2 Direct Billing Sidebar
-  const [isDueBill, setIsDueBill] = useState(false);
+  const [isDueBill, setIsDueBill] = useState<boolean>(false);
+  const [isSecurityModalOpen, setIsSecurityModalOpen] = useState<boolean>(false);
+  const [permittedById, setPermittedById] = useState<string | null>(null);
+  const [permittedUserName, setPermittedUserName] = useState<string>("");
   const [cashAmount, setCashAmount] = useState<number | "">(0);
   const [cardAmount, setCardAmount] = useState<number | "">(0);
   const [mfsAmount, setMfsAmount] = useState<number | "">(0);
@@ -220,7 +225,6 @@ export default function POSScreenModern({
       setEnableDiscountInput(false);
       setDiscountType("FLAT");
       setCustomDiscount(0);
-      setIsDueBill(false);
       setDiscountAmount(0);
     } else if (!isDueBill) {
       const otherPayments = (Number(cardAmount) || 0) + (Number(mfsAmount) || 0);
@@ -335,6 +339,7 @@ export default function POSScreenModern({
       isDueBill: isDueBill,
       pointsRedeemed: effectivePointsToRedeem,
       pointsDiscountAmount: pointsDiscountAmount,
+      permittedById: permittedById || undefined,
     });
   };
 
@@ -928,32 +933,45 @@ export default function POSScreenModern({
                     checked={isDueBill && !isWalkwayCustomer}
                     onCheckedChange={(c) => {
                       const isChecked = !!c;
-                      setIsDueBill(isChecked);
                       if (isChecked) {
+                        if (isWalkwayCustomer) {
+                          toast.error("Due sale is not allowed for Walkway Customer. Please select a registered customer.");
+                          return;
+                        }
+                        if (posSettings?.securePos && !permittedById) {
+                          setIsSecurityModalOpen(true);
+                          return;
+                        }
+                        setIsDueBill(true);
                         setCashAmount(0);
                         setCardAmount(0);
                         setMfsAmount(0);
                       } else {
+                        setIsDueBill(false);
+                        setPermittedById(null);
+                        setPermittedUserName("");
                         const otherPayments = (Number(cardAmount) || 0) + (Number(mfsAmount) || 0);
                         setCashAmount(Math.max(0, Math.round(grandTotal) - otherPayments));
                       }
                     }}
                   />
-                  <label
-                    htmlFor="dueBill"
-                    className={`text-xs font-semibold select-none ${
-                      isWalkwayCustomer
-                        ? "text-muted-foreground/40 cursor-not-allowed"
-                        : "text-muted-foreground cursor-pointer"
-                    }`}
-                    title={
-                      isWalkwayCustomer
-                        ? "Select registered customer to enable due sale"
-                        : "Toggle due sale mode"
-                    }
-                  >
-                    Due Bill
-                  </label>
+                  <div className="flex flex-col leading-none">
+                    <label
+                      htmlFor="dueBill"
+                      className={`text-xs font-semibold select-none ${
+                        isWalkwayCustomer
+                          ? "text-muted-foreground/40 cursor-not-allowed"
+                          : "text-muted-foreground cursor-pointer"
+                      }`}
+                      title={
+                        isWalkwayCustomer
+                          ? "Select registered customer to enable due sale"
+                          : "Toggle due sale mode"
+                      }
+                    >
+                      Due Bill
+                    </label>
+                  </div>
                 </div>
               )}
             </div>
@@ -1423,6 +1441,23 @@ export default function POSScreenModern({
           </div>
         </div>
       </div>
+
+      {/* POS Security Verification Modal */}
+      <POSSecurityModal
+        isOpen={isSecurityModalOpen}
+        onClose={() => setIsSecurityModalOpen(false)}
+        onSuccess={(userId, userName) => {
+          setPermittedById(userId);
+          setPermittedUserName(userName);
+          setIsDueBill(true);
+          setCashAmount(0);
+          setCardAmount(0);
+          setMfsAmount(0);
+          toast.success(`Due Sale authorized by ${userName}`);
+        }}
+        actionTitle="Authorize Due Sale"
+        actionDescription="Secure POS is enabled. Select an authorized user with POS permissions and enter password to enable due sale."
+      />
     </div>
   );
 }
