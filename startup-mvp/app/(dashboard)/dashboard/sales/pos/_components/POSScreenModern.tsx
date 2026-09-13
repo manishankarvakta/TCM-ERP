@@ -158,6 +158,7 @@ export default function POSScreenModern({
 
   // Inline Payment States for SS2 Direct Billing Sidebar
   const [isDueBill, setIsDueBill] = useState<boolean>(false);
+  const [securityAction, setSecurityAction] = useState<"DUE_SALE" | "DISCOUNT" | null>(null);
   const [isSecurityModalOpen, setIsSecurityModalOpen] = useState<boolean>(false);
   const [permittedById, setPermittedById] = useState<string | null>(null);
   const [permittedUserName, setPermittedUserName] = useState<string>("");
@@ -940,6 +941,7 @@ export default function POSScreenModern({
                         }
                         const isSecurePosDueRequired = posSettings?.securePos && (posSettings?.securePosDueSale ?? true);
                         if (isSecurePosDueRequired && !permittedById) {
+                          setSecurityAction("DUE_SALE");
                           setIsSecurityModalOpen(true);
                           return;
                         }
@@ -1127,12 +1129,19 @@ export default function POSScreenModern({
                         checked={enableDiscountInput}
                         onCheckedChange={(c) => {
                           const isChecked = !!c;
-                          setEnableDiscountInput(isChecked);
-                          if (!isChecked) {
+                          if (isChecked) {
+                            const isSecurePosDiscountRequired = posSettings?.securePos && (posSettings?.securePosDiscount ?? true);
+                            if (isSecurePosDiscountRequired && !permittedById) {
+                              setSecurityAction("DISCOUNT");
+                              setIsSecurityModalOpen(true);
+                              return;
+                            }
+                            setEnableDiscountInput(true);
+                            updateDiscountAmount(customDiscount, discountType, true, subTotal);
+                          } else {
+                            setEnableDiscountInput(false);
                             setCustomDiscount(0);
                             setDiscountAmount(0);
-                          } else {
-                            updateDiscountAmount(customDiscount, discountType, true, subTotal);
                           }
                         }}
                       />
@@ -1446,18 +1455,32 @@ export default function POSScreenModern({
       {/* POS Security Verification Modal */}
       <POSSecurityModal
         isOpen={isSecurityModalOpen}
-        onClose={() => setIsSecurityModalOpen(false)}
+        onClose={() => {
+          setIsSecurityModalOpen(false);
+          setSecurityAction(null);
+        }}
         onSuccess={(userId, userName) => {
           setPermittedById(userId);
           setPermittedUserName(userName);
-          setIsDueBill(true);
-          setCashAmount(0);
-          setCardAmount(0);
-          setMfsAmount(0);
-          toast.success(`Due Sale authorized by ${userName}`);
+          if (securityAction === "DISCOUNT") {
+            setEnableDiscountInput(true);
+            updateDiscountAmount(customDiscount, discountType, true, subTotal);
+            toast.success(`Discount authorized by ${userName}`);
+          } else {
+            setIsDueBill(true);
+            setCashAmount(0);
+            setCardAmount(0);
+            setMfsAmount(0);
+            toast.success(`Due Sale authorized by ${userName}`);
+          }
+          setSecurityAction(null);
         }}
-        actionTitle="Authorize Due Sale"
-        actionDescription="Secure POS is enabled. Select an authorized user with POS permissions and enter password to enable due sale."
+        actionTitle={securityAction === "DISCOUNT" ? "Authorize Discount" : "Authorize Due Sale"}
+        actionDescription={
+          securityAction === "DISCOUNT"
+            ? "Secure POS is enabled. Select an authorized user with POS permissions and enter password to enable discount."
+            : "Secure POS is enabled. Select an authorized user with POS permissions and enter password to enable due sale."
+        }
       />
     </div>
   );
