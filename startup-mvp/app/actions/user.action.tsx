@@ -229,6 +229,93 @@ export async function requestPasswordChange() {
 }
 
 /**
+ * Change current user's password directly using old and new password
+ */
+export async function changeCurrentUserPassword(input: {
+  oldPassword: string;
+  newPassword: string;
+}) {
+  try {
+    const session = await auth();
+    
+    if (!session?.user) {
+      return {
+        success: false,
+        error: "Unauthorized",
+      };
+    }
+
+    if (!input.oldPassword || !input.newPassword) {
+      return {
+        success: false,
+        error: "Both current password and new password are required",
+      };
+    }
+
+    if (input.newPassword.length < 6) {
+      return {
+        success: false,
+        error: "New password must be at least 6 characters long",
+      };
+    }
+
+    // Get current user with password from database
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { id: true, password: true },
+    });
+
+    if (!user || !user.password) {
+      return {
+        success: false,
+        error: "User not found or invalid account state",
+      };
+    }
+
+    // Verify old password
+    const isPasswordValid = await bcrypt.compare(input.oldPassword, user.password);
+
+    if (!isPasswordValid) {
+      return {
+        success: false,
+        error: "Incorrect current password",
+      };
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(input.newPassword, 12);
+
+    // Update password in database
+    await prisma.user.update({
+      where: { id: session.user.id },
+      data: { password: hashedPassword },
+    });
+
+    // Log update
+    await logUserUpdated(session.user.id, session.user.id, ["password"]);
+
+    // Create system notification
+    try {
+      await notifyPasswordChanged(session.user.id);
+    } catch (error) {
+      console.error("Failed to create password changed notification:", error);
+    }
+
+    return {
+      success: true,
+      message: "Password changed successfully",
+    };
+  } catch (error) {
+    console.error("changeCurrentUserPassword error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to change password",
+    };
+  }
+}
+
+
+/**
  * Delete current user's account
  */
 export async function deleteCurrentUserAccount() {
