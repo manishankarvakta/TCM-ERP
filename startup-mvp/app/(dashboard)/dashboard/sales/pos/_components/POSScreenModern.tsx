@@ -158,7 +158,7 @@ export default function POSScreenModern({
 
   // Inline Payment States for SS2 Direct Billing Sidebar
   const [isDueBill, setIsDueBill] = useState<boolean>(false);
-  const [securityAction, setSecurityAction] = useState<"DUE_SALE" | "DISCOUNT" | "COUPON" | null>(null);
+  const [securityAction, setSecurityAction] = useState<"DUE_SALE" | "DISCOUNT" | "COUPON" | "POINTS" | null>(null);
   const [isSecurityModalOpen, setIsSecurityModalOpen] = useState<boolean>(false);
   const [permittedById, setPermittedById] = useState<string | null>(null);
   const [permittedUserName, setPermittedUserName] = useState<string>("");
@@ -1225,11 +1225,18 @@ export default function POSScreenModern({
                         disabled={!selectedClientObj || clientPoints <= 0}
                         onCheckedChange={(c) => {
                           const isChecked = !!c;
-                          setEnablePointsRedeem(isChecked);
-                          if (!isChecked) {
-                            setPointsToRedeem(0);
-                          } else {
+                          if (isChecked) {
+                            const isSecurePosPointsRequired = posSettings?.securePos && (posSettings?.securePosPoints ?? true);
+                            if (isSecurePosPointsRequired && !permittedById) {
+                              setSecurityAction("POINTS");
+                              setIsSecurityModalOpen(true);
+                              return;
+                            }
+                            setEnablePointsRedeem(true);
                             setPointsToRedeem(maxRedeemablePoints > 0 ? maxRedeemablePoints : 0);
+                          } else {
+                            setEnablePointsRedeem(false);
+                            setPointsToRedeem(0);
                           }
                         }}
                       />
@@ -1480,6 +1487,10 @@ export default function POSScreenModern({
           } else if (securityAction === "COUPON") {
             handleApplyPromo();
             toast.success(`Coupon authorized by ${userName}`);
+          } else if (securityAction === "POINTS") {
+            setEnablePointsRedeem(true);
+            setPointsToRedeem(maxRedeemablePoints > 0 ? maxRedeemablePoints : 0);
+            toast.success(`Customer Points authorized by ${userName}`);
           } else {
             setIsDueBill(true);
             setCashAmount(0);
@@ -1494,6 +1505,8 @@ export default function POSScreenModern({
             ? "Authorize Discount"
             : securityAction === "COUPON"
             ? "Authorize Coupon"
+            : securityAction === "POINTS"
+            ? "Authorize Customer Points"
             : "Authorize Due Sale"
         }
         actionDescription={
@@ -1501,6 +1514,8 @@ export default function POSScreenModern({
             ? "Secure POS is enabled. Select an authorized user with POS permissions and enter password to enable discount."
             : securityAction === "COUPON"
             ? "Secure POS is enabled. Select an authorized user with POS permissions and enter password to apply coupon."
+            : securityAction === "POINTS"
+            ? "Secure POS is enabled. Select an authorized user with POS permissions and enter password to redeem customer points."
             : "Secure POS is enabled. Select an authorized user with POS permissions and enter password to enable due sale."
         }
       />

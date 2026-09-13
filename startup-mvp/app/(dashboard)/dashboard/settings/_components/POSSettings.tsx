@@ -927,6 +927,24 @@ export default function POSSettingsPanel() {
                           </div>
                         )}
                       />
+
+                      {/* Customer Points Permission Toggle */}
+                      <Controller
+                        name="securePosPoints"
+                        control={posForm.control}
+                        render={({ field }) => (
+                          <div className="flex items-center space-x-2.5">
+                            <Checkbox
+                              id="securePosPoints"
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                            <Label htmlFor="securePosPoints" className="font-semibold text-sm cursor-pointer select-none">
+                              Customer Points
+                            </Label>
+                          </div>
+                        )}
+                      />
                     </div>
                   )}
                 </CardContent>
