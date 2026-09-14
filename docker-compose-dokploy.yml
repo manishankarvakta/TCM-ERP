@@ -4,9 +4,9 @@
 
 services:
   # PostgreSQL Database
-  fferp-postgres:
+  tcm-postgres:
     image: postgres:16-alpine
-    container_name: fferp-postgres
+    container_name: tcm-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgresUser}
@@ -18,7 +18,7 @@ services:
     volumes:
       # IMPORTANT: Data persists across deployments via named volumes
       # Docker manages this volume independently of the project folder
-      - fferp-postgres-data:/var/lib/postgresql/data
+      - tcm-postgres-data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgresUser}"]
       interval: 10s
@@ -28,18 +28,18 @@ services:
       - docker-network
 
   # Next.js Application
-  fferp-app:
+  tcm-app:
     build:
       context: ./startup-mvp
       dockerfile: Dockerfile
-    container_name: fferp-app
+    container_name: tcm-app
     restart: unless-stopped
     expose:
       - "3000"
     environment:
       TZ: Asia/Dhaka
       # Database
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgresUser}:${POSTGRES_PASSWORD:-postgresPass}@fferp-postgres:5432/${POSTGRES_DB:-startup_mvp}?schema=public
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgresUser}:${POSTGRES_PASSWORD:-postgresPass}@tcm-postgres:5432/${POSTGRES_DB:-startup_mvp}?schema=public
       
       # NextAuth
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-I5p97Jpv0Xr7Zz7Ay8W6+O2eLmBR6N2gllGrZO01Szo=}
@@ -50,7 +50,7 @@ services:
       AUTH_TRUST_HOST: ${AUTH_TRUST_HOST:-true}
       
       # Redis (optional)
-      REDIS_URL: ${REDIS_URL:-redis://fferp-redis:6379}
+      REDIS_URL: ${REDIS_URL:-redis://tcm-redis:6379}
       
       # Email Configuration
       SMTP_HOST: ${SMTP_HOST:-}
@@ -70,23 +70,23 @@ services:
       # Node Environment
       NODE_ENV: production
     volumes:
-      - fferp-uploads-data:/app/uploads
+      - tcm-uploads-data:/app/uploads
     depends_on:
-      fferp-postgres:
+      tcm-postgres:
         condition: service_healthy
     networks:
       - docker-network
       - dokploy-network
     
   # Redis (optional, if you're using it)
-  fferp-redis:
+  tcm-redis:
     image: redis:7-alpine
-    container_name: fferp-redis
+    container_name: tcm-redis
     restart: unless-stopped
     expose:
       - "6379"
     volumes:
-      - fferp-redis-data:/data
+      - tcm-redis-data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -105,10 +105,10 @@ networks:
 # These volumes are managed by Docker and safely survive Dokploy redeployments.
 # They will NEVER be deleted during normal deployments unless explicitly destroyed.
 volumes:
-  fferp-postgres-data:
+  tcm-postgres-data:
     driver: local
-  fferp-uploads-data:
+  tcm-uploads-data:
     driver: local
-  fferp-redis-data:
+  tcm-redis-data:
     driver: local
 
