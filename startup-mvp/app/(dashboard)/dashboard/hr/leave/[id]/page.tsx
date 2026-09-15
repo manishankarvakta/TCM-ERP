@@ -28,7 +28,9 @@ export default async function LeaveDetailsPage({ params }: LeaveDetailsPageProps
   }
 
   const userId = session?.user?.id;
+  const canApprove = userId ? await hasPermission(userId, "hr.leave", "approve") : false;
   const canEdit = userId ? await hasPermission(userId, "hr.leave", "edit") : false;
+  const canApproveOrEdit = canApprove || canEdit;
 
   return (
     <PageGuard permissionKey="hr.leave" requiredOperation="view">
@@ -47,7 +49,7 @@ export default async function LeaveDetailsPage({ params }: LeaveDetailsPageProps
 
         <LeaveDetailsClient 
           leaveApplication={result.leaveApplication} 
-          permissions={{ edit: canEdit }} 
+          permissions={{ edit: canApproveOrEdit }} 
         />
       </div>
     </PageGuard>

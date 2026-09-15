@@ -183,8 +183,9 @@ export async function updateLeaveAttachment(id: string, attachmentUrl: string | 
       return { success: false, error: "Unauthorized" };
     }
 
+    const canApprove = await hasPermission(session.user.id, "hr.leave", "approve");
     const canEdit = await hasPermission(session.user.id, "hr.leave", "edit");
-    if (!canEdit) {
+    if (!canApprove && !canEdit) {
       return { success: false, error: "You don't have permission to update leave attachments" };
     }
 
@@ -218,9 +219,10 @@ export async function updateLeaveStatus(id: string, newStatus: LeaveStatus) {
       return { success: false, error: "Unauthorized" };
     }
 
-    // Require hr.leave edit permission to approve/reject
+    // Require hr.leave approve or edit permission to approve/reject
+    const canApprove = await hasPermission(session.user.id, "hr.leave", "approve");
     const canEdit = await hasPermission(session.user.id, "hr.leave", "edit");
-    if (!canEdit) {
+    if (!canApprove && !canEdit) {
       return { success: false, error: "You don't have permission to update leave status" };
     }
 

@@ -30,11 +30,13 @@ export default async function LeavePage({ searchParams }: LeavePageProps) {
   const session = await auth();
   const userId = session?.user?.id;
 
-  const [result, canView, canEdit] = await Promise.all([
+  const [result, canView, canApprove, canEdit] = await Promise.all([
     getLeaveApplications(page, limit, search, statusParam as any),
     userId ? hasPermission(userId, "hr.leave", "view") : false,
+    userId ? hasPermission(userId, "hr.leave", "approve") : false,
     userId ? hasPermission(userId, "hr.leave", "edit") : false,
   ]);
+  const canApproveOrEdit = canApprove || canEdit;
 
   if (!result.success) {
     return (
@@ -104,7 +106,7 @@ export default async function LeavePage({ searchParams }: LeavePageProps) {
             userId={userId}
             permissions={{
               view: canView,
-              edit: canEdit,
+              edit: canApproveOrEdit,
             }}
           />
         </TabsContent>
