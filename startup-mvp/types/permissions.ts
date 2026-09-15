@@ -55,7 +55,10 @@ export type CustomOperation =
   | "finish"
   | "reopen"
   | "post"
-  | "photo-upload";
+  | "photo-upload"
+  | "approve_manager"
+  | "approve_hr"
+  | "reject";
 
 // Standard operations for pages (as per requirements)
 export type StandardOperation = "create" | "view" | "edit" | "move-to-trash" | "delete-permanently";
@@ -457,6 +460,9 @@ export const OPERATIONS: Record<Operation, OperationMetadata> = {
   reopen: { id: "reopen", label: "Reopen Closing", description: "Reopen locked cashier POS closing for edits", category: "custom" },
   post: { id: "post", label: "Post Voucher", description: "Directly post vouchers to General Ledger upon creation or approve draft vouchers", category: "custom" },
   "photo-upload": { id: "photo-upload", label: "Upload Photos", description: "Upload item gallery photos", category: "custom" },
+  approve_manager: { id: "approve_manager", label: "Approve as Manager", description: "Approve leave requests as Manager", category: "custom" },
+  approve_hr: { id: "approve_hr", label: "Approve as HR", description: "Final approval for leave requests as HR", category: "custom" },
+  reject: { id: "reject", label: "Reject Request", description: "Reject leave requests", category: "custom" },
 };
 
 // Helper function to get all modules
@@ -780,7 +786,7 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
         permissionKey: "hr.leave",
         path: "/dashboard/hr/leave",
         label: "Leave",
-        operations: ["create", "view", "edit", "approve", "move-to-trash", "delete-permanently"],
+        operations: ["create", "view", "edit", "approve", "approve_manager", "approve_hr", "reject", "move-to-trash", "delete-permanently"],
       },
       {
         permissionKey: "hr.resignation",

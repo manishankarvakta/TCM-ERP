@@ -20,6 +20,9 @@ interface LeaveDetailsClientProps {
   organization?: any;
   permissions: {
     edit: boolean;
+    approveManager?: boolean;
+    approveHR?: boolean;
+    reject?: boolean;
   };
 }
 
@@ -30,6 +33,11 @@ export default function LeaveDetailsClient({ leaveApplication, organization, per
   const [isUploading, setIsUploading] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const componentRef = useRef<HTMLDivElement>(null);
+
+  const canApproveManager = permissions.approveManager ?? permissions.edit;
+  const canApproveHR = permissions.approveHR ?? permissions.edit;
+  const canReject = permissions.reject ?? permissions.edit;
+  const hasAnyApprovalAction = canApproveManager || canApproveHR || canReject;
 
   const app = leaveApplication;
   const attachmentUrl = app.attachmentUrl;
@@ -323,7 +331,7 @@ export default function LeaveDetailsClient({ leaveApplication, organization, per
             </CardContent>
           </Card>
 
-          {permissions.edit && app.status !== "HR_APPROVED" && app.status !== "REJECTED" && app.status !== "CANCELLED" && (
+          {hasAnyApprovalAction && app.status !== "HR_APPROVED" && app.status !== "REJECTED" && app.status !== "CANCELLED" && (
             <Card className="border-primary/20 bg-primary/5">
               <CardHeader>
                 <CardTitle className="text-lg">Approval Actions</CardTitle>
@@ -331,7 +339,7 @@ export default function LeaveDetailsClient({ leaveApplication, organization, per
               </CardHeader>
               <CardContent>
                 <div className="flex flex-wrap gap-3">
-                  {app.status === "PENDING" && (
+                  {canApproveManager && app.status === "PENDING" && (
                     <Button 
                       onClick={() => handleStatusUpdate("MANAGER_APPROVED")} 
                       disabled={isPending}
@@ -342,7 +350,7 @@ export default function LeaveDetailsClient({ leaveApplication, organization, per
                     </Button>
                   )}
                   
-                  {(app.status === "PENDING" || app.status === "MANAGER_APPROVED") && (
+                  {canApproveHR && (app.status === "PENDING" || app.status === "MANAGER_APPROVED") && (
                     <Button 
                       onClick={() => handleStatusUpdate("HR_APPROVED")} 
                       disabled={isPending}
@@ -353,14 +361,16 @@ export default function LeaveDetailsClient({ leaveApplication, organization, per
                     </Button>
                   )}
 
-                  <Button 
-                    variant="destructive" 
-                    onClick={() => handleStatusUpdate("REJECTED")} 
-                    disabled={isPending}
-                  >
-                    <FiXCircle className="mr-2 h-4 w-4" />
-                    Reject Request
-                  </Button>
+                  {canReject && (
+                    <Button 
+                      variant="destructive" 
+                      onClick={() => handleStatusUpdate("REJECTED")} 
+                      disabled={isPending}
+                    >
+                      <FiXCircle className="mr-2 h-4 w-4" />
+                      Reject Request
+                    </Button>
+                  )}
                 </div>
               </CardContent>
             </Card>
