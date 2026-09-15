@@ -75,6 +75,19 @@ const purchaseFormSchema = z.object({
   items: z.array(purchaseItemSchema).min(1, "At least one item is required"),
 });
 
+const isDiscreteUnit = (unit?: string | null): boolean => {
+  if (!unit) return false;
+  const norm = unit.trim().toLowerCase();
+  const discreteUnits = [
+    "pcs", "pc", "pcs.", "pc.", "piece", "pieces",
+    "box", "boxes", "ctn", "carton", "cartons",
+    "pack", "packs", "packet", "packets", "pkt",
+    "bag", "bags", "set", "sets", "doz", "dozen",
+    "pair", "pairs", "roll", "rolls", "can", "cans", "bottle", "bottles"
+  ];
+  return discreteUnits.includes(norm);
+};
+
 type PurchaseFormData = z.infer<typeof purchaseFormSchema>;
 
 interface PurchaseFormProps {
@@ -773,7 +786,10 @@ export default function PurchaseForm({
                       
                       // Get selected item details for display
                       const selectedItem = items.find(item => item.id === watch(`items.${index}.itemId`));
-                      
+                      const isIntegerOnlyUnit = isDiscreteUnit(selectedItem?.unit);
+                      const currentQty = watch(`items.${index}.quantity`);
+                      const isFractionalQtyError = isIntegerOnlyUnit && currentQty != null && !isNaN(currentQty) && currentQty % 1 !== 0;
+
                       return (
                         <tr key={field.id} className="border-t">
                         <td className="px-3 py-2 align-top min-w-[220px]">
@@ -952,6 +968,8 @@ export default function PurchaseForm({
                         </td>
                         <td className="px-3 py-2 align-top">
                           <Input
+                            type="text"
+                            className="w-full"
                             {...register(`items.${index}.description`)}
                             disabled={loading}
                           />
@@ -961,12 +979,12 @@ export default function PurchaseForm({
                             </p>
                           )}
                         </td>
-                        <td className="px-3 py-2 align-top text-right flex items-center gap-1">
+                        <td className="px-3 py-2 align-top text-right">
                           <div className="text-sm font-medium">
                             {selectedItem 
-                              ? (watch(`items.${index}.variantId`) 
-                                  ? (stockMap[watch(`items.${index}.variantId`) as string] ?? 0) 
-                                  : (stockMap[selectedItem.id] ?? 0)) 
+                              ? (selectedItem.itemType === "RETAIL" || selectedItem.itemType === "READY_PRODUCT")
+                                ? (stockMap[watch(`items.${index}.variantId`) || ""] ?? 0)
+                                : (stockMap[selectedItem.id] ?? 0) 
                               : 0}
                           </div> 
                           {selectedItem && (
@@ -979,25 +997,35 @@ export default function PurchaseForm({
                           <div className="flex items-center justify-end gap-1">
                             <Input
                               type="number"
-                              step="1"
-                              className="text-center w-40"
+                              step={isIntegerOnlyUnit ? "1" : "any"}
+                              min={isIntegerOnlyUnit ? "1" : "0.000001"}
+                              className={cn(
+                                "text-center w-40",
+                                isFractionalQtyError && "border-destructive focus-visible:ring-destructive text-destructive font-semibold"
+                              )}
                               {...register(`items.${index}.quantity`, {
                                 valueAsNumber: true,
+                                validate: (val) => {
+                                  if (isIntegerOnlyUnit && val != null && !isNaN(val) && val % 1 !== 0) {
+                                    return `Quantity for ${selectedItem?.unit || "Pcs"} must be a whole number`;
+                                  }
+                                  return true;
+                                }
                               })}
                               disabled={loading}
                             />
                            
                           </div>
-                          {errors.items?.[index]?.quantity && (
-                            <p className="text-xs text-destructive mt-1">
-                              {errors.items[index]?.quantity?.message}
+                          {(errors.items?.[index]?.quantity || isFractionalQtyError) && (
+                            <p className="text-xs text-destructive mt-1 font-medium">
+                              {errors.items?.[index]?.quantity?.message || `Quantity for ${selectedItem?.unit || "Pcs"} must be a whole number`}
                             </p>
                           )}
                         </td>
                         <td className="px-3 py-2 align-top text-right">
                           <Input
                             type="number"
-                            step="1"
+                            step="any"
                             className="text-right"
                             {...register(`items.${index}.unitPrice`, {
                               valueAsNumber: true,
@@ -1013,7 +1041,7 @@ export default function PurchaseForm({
                         <td className="px-3 py-2 align-top text-right">
                           <Input
                             type="number"
-                            step="1"
+                            step="any"
                             className="text-right"
                             {...register(`items.${index}.amount`, { valueAsNumber: true })}
                             readOnly
@@ -1051,7 +1079,7 @@ export default function PurchaseForm({
                 <Input
                   id="discount"
                   type="number"
-                  step="1"
+                  step="any"
                   {...register("discount", { valueAsNumber: true })}
                   disabled={loading}
                 />
@@ -1061,7 +1089,7 @@ export default function PurchaseForm({
                 <Input
                   id="tax"
                   type="number"
-                  step="1"
+                  step="any"
                   {...register("tax", { valueAsNumber: true })}
                   disabled={loading}
                 />

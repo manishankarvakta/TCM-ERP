@@ -503,8 +503,8 @@ export default function TpnForm({ warehouses, items, user }: TpnFormProps) {
                         <TableCell>
                           <Input 
                             type="number" 
-                            step="1" 
-                            min="1"
+                            step="any" 
+                            min="0.000001"
                             className="text-center"
                             {...form.register(`items.${index}.quantity`, { valueAsNumber: true })} 
                           />
