@@ -31,6 +31,20 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
+import { cn } from "@/lib/utils";
+
+const isDiscreteUnit = (unit?: string | null): boolean => {
+  if (!unit) return false;
+  const norm = unit.trim().toLowerCase();
+  const discreteUnits = [
+    "pcs", "pc", "pcs.", "pc.", "piece", "pieces",
+    "box", "boxes", "ctn", "carton", "cartons",
+    "pack", "packs", "packet", "packets", "pkt",
+    "bag", "bags", "set", "sets", "doz", "dozen",
+    "pair", "pairs", "roll", "rolls", "can", "cans", "bottle", "bottles"
+  ];
+  return discreteUnits.includes(norm);
+};
 import { 
   Table, 
   TableBody, 
@@ -423,107 +437,128 @@ export default function DamageForm({ warehouses, items, userContext, initialData
                    </TableRow>
                  </TableHeader>
                  <TableBody>
-                   {fields.map((field, index) => {
-                     const selectedItem = items.find(i => i.id === form.getValues(`items.${index}.itemId`));
-                     
-                     return (
-                     <TableRow key={field.id}>
-                       <TableCell>
-                         <Select
-                           onValueChange={(val) => handleItemSelect(index, val)}
-                           defaultValue={form.getValues(`items.${index}.itemId`)}
-                           onOpenChange={(open) => {
-                              if (open) {
-                                setTimeout(() => {
-                                  searchInputRef.current?.focus();
-                                }, 0);
-                              } else {
-                                setItemSearch("");
-                              }
-                           }}
-                         >
-                            <SelectTrigger>
-                               <SelectValue placeholder="Select item">
-                                  {selectedItem ? `${selectedItem.name} (${selectedItem.code})` : "Select item"}
-                               </SelectValue>
-                            </SelectTrigger>
-                            <SelectContent>
-                               <div className="p-2 sticky top-0 bg-popover z-10">
-                                  <div className="relative">
-                                    <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4 z-10 pointer-events-none" />
-                                    <Input 
-                                      ref={searchInputRef}
-                                      placeholder="Search items..."
-                                      value={itemSearch}
-                                      onChange={(e) => setItemSearch(e.target.value)}
-                                      onKeyDown={(e) => {
-                                        if (['ArrowUp', 'ArrowDown', 'Enter', 'Escape'].includes(e.key)) {
-                                          return;
-                                        }
-                                        e.stopPropagation();
-                                      }}
-                                      onClick={(e) => e.stopPropagation()}
-                                      onMouseDown={(e) => e.stopPropagation()}
-                                      className="pl-8 h-8 text-xs"
-                                    />
-                                  </div>
-                               </div>
-                               <div className="max-h-[200px] overflow-y-auto">
-                                 {filteredItems.length > 0 ? (
-                                    filteredItems.map((item) => (
-                                      <SelectItem key={item.id} value={item.id} className="text-left w-full">
-                                          <div className="flex justify-between items-center w-full gap-4">
-                                            <span>{item.name} ({item.code})</span>
-                                            <span className="text-xs text-muted-foreground whitespace-nowrap">
-                                                Stock: {item.variants && item.variants.length > 0 ? item.variants.reduce((sum: number, v: any) => sum + (stockMap[v.id] || 0), 0) : (stockMap[item.id] || 0)}
-                                            </span>
-                                          </div>
-                                      </SelectItem>
-                                    ))
-                                 ) : (
-                                    <div className="px-2 py-4 text-sm text-muted-foreground text-center">
-                                      No items found
-                                    </div>
-                                 )}
-                               </div>
-                            </SelectContent>
-                         </Select>
-                         {form.formState.errors.items?.[index]?.itemId && 
-                           <p className="text-xs text-red-500">{form.formState.errors.items[index]?.itemId?.message}</p>
-                         }
-                       </TableCell>
-                       <TableCell>
+                    {fields.map((field, index) => {
+                      const selectedItem = items.find(i => i.id === form.getValues(`items.${index}.itemId`));
+                      const watchedItems = form.watch("items") || [];
+                      const itemUnit = (selectedItem as any)?.unit?.symbol || (selectedItem as any)?.unit;
+                      const isIntegerOnlyUnit = isDiscreteUnit(itemUnit);
+                      const currentQtyVal = Number(watchedItems[index]?.quantity);
+                      const isFractionalQtyError = isIntegerOnlyUnit && !isNaN(currentQtyVal) && currentQtyVal % 1 !== 0;
+
+                      return (
+                      <TableRow key={field.id}>
+                        <TableCell>
+                          <Select
+                            onValueChange={(val) => handleItemSelect(index, val)}
+                            defaultValue={form.getValues(`items.${index}.itemId`)}
+                            onOpenChange={(open) => {
+                               if (open) {
+                                 setTimeout(() => {
+                                   searchInputRef.current?.focus();
+                                 }, 0);
+                               } else {
+                                 setItemSearch("");
+                               }
+                            }}
+                          >
+                             <SelectTrigger>
+                                <SelectValue placeholder="Select item">
+                                   {selectedItem ? `${selectedItem.name} (${selectedItem.code})` : "Select item"}
+                                </SelectValue>
+                             </SelectTrigger>
+                             <SelectContent>
+                                <div className="p-2 sticky top-0 bg-popover z-10">
+                                   <div className="relative">
+                                     <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4 z-10 pointer-events-none" />
+                                     <Input 
+                                       ref={searchInputRef}
+                                       placeholder="Search items..."
+                                       value={itemSearch}
+                                       onChange={(e) => setItemSearch(e.target.value)}
+                                       onKeyDown={(e) => {
+                                         if (['ArrowUp', 'ArrowDown', 'Enter', 'Escape'].includes(e.key)) {
+                                           return;
+                                         }
+                                         e.stopPropagation();
+                                       }}
+                                       onClick={(e) => e.stopPropagation()}
+                                       onMouseDown={(e) => e.stopPropagation()}
+                                       className="pl-8 h-8 text-xs"
+                                     />
+                                   </div>
+                                </div>
+                                <div className="max-h-[200px] overflow-y-auto">
+                                  {filteredItems.length > 0 ? (
+                                     filteredItems.map((item) => (
+                                       <SelectItem key={item.id} value={item.id} className="text-left w-full">
+                                           <div className="flex justify-between items-center w-full gap-4">
+                                             <span>{item.name} ({item.code})</span>
+                                             <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                                 Stock: {item.variants && item.variants.length > 0 ? item.variants.reduce((sum: number, v: any) => sum + (stockMap[v.id] || 0), 0) : (stockMap[item.id] || 0)}
+                                             </span>
+                                           </div>
+                                       </SelectItem>
+                                     ))
+                                  ) : (
+                                     <div className="px-2 py-4 text-sm text-muted-foreground text-center">
+                                       No items found
+                                     </div>
+                                  )}
+                                </div>
+                             </SelectContent>
+                          </Select>
+                          {form.formState.errors.items?.[index]?.itemId && 
+                            <p className="text-xs text-red-500">{form.formState.errors.items[index]?.itemId?.message}</p>
+                          }
+                        </TableCell>
+                        <TableCell>
+                           <Input 
+                              readOnly
+                              className="bg-muted"
+                              {...form.register(`items.${index}.description`)}
+                           />
+                        </TableCell>
+                        <TableCell>
+                           <div className="text-sm font-medium text-blue-600">
+                              {stockMap[form.getValues(`items.${index}.variantId`) || form.getValues(`items.${index}.itemId`)] || 0}
+                           </div>
+                        </TableCell>
+                        <TableCell>
                           <Input 
-                             readOnly
-                             className="bg-muted"
-                             {...form.register(`items.${index}.description`)}
-                          />
-                       </TableCell>
-                       <TableCell>
-                          <div className="text-sm font-medium text-blue-600">
-                             {stockMap[form.getValues(`items.${index}.variantId`) || form.getValues(`items.${index}.itemId`)] || 0}
-                          </div>
-                       </TableCell>
-                       <TableCell>
-                         <Input 
-                           type="number" 
-                           step="0.01" 
-                           min="0"
-                           className="text-center"
-                           placeholder="Qty"
-                           {...form.register(`items.${index}.quantity`, { valueAsNumber: true })} 
-                         />
-                       </TableCell>
-                       <TableCell>
-                          <Input 
-                            readOnly
                             type="number" 
-                            step="0.01" 
-                            min="0"
-                             className="text-right bg-muted"
-                            {...form.register(`items.${index}.unitRate`, { valueAsNumber: true })} 
+                            step={isIntegerOnlyUnit ? "1" : "any"} 
+                            min={isIntegerOnlyUnit ? "1" : "0.000001"}
+                            className={cn(
+                              "text-center",
+                              isFractionalQtyError && "border-destructive focus-visible:ring-destructive text-destructive font-semibold"
+                            )}
+                            placeholder="Qty"
+                            {...form.register(`items.${index}.quantity`, {
+                              valueAsNumber: true,
+                              validate: (val) => {
+                                if (isIntegerOnlyUnit && val != null && !isNaN(val) && val % 1 !== 0) {
+                                  return `Damage quantity for ${itemUnit || "Pcs"} must be a whole number`;
+                                }
+                                return true;
+                              }
+                            })} 
                           />
-                       </TableCell>
+                          {(form.formState.errors.items?.[index]?.quantity || isFractionalQtyError) && (
+                            <p className="text-xs text-destructive mt-1 text-center font-medium">
+                              {form.formState.errors.items?.[index]?.quantity?.message || `Must be a whole number (${itemUnit || "Pcs"})`}
+                            </p>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                           <Input 
+                             readOnly
+                             type="number" 
+                             step="any" 
+                             min="0"
+                              className="text-right bg-muted"
+                             {...form.register(`items.${index}.unitRate`, { valueAsNumber: true })} 
+                           />
+                        </TableCell>
                        <TableCell>
                           <Input 
                               readOnly
