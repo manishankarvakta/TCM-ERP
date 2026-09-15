@@ -940,7 +940,7 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
         permissionKey: "inventory.stock",
         path: "/dashboard/inventory/stock",
         label: "Stock",
-        operations: ["view", "adjust"],
+        operations: ["view"],
       },
       {
         permissionKey: "inventory.stock",
