@@ -28,8 +28,21 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { getItemVariants } from "@/app/(dashboard)/dashboard/master/items/_actions/item.action";
-import { getWarehouseStocks } from "@/app/(dashboard)/dashboard/inventory/stock/_actions/stock.action";
 import { cn } from "@/lib/utils";
+
+const isDiscreteUnit = (unit?: string | null): boolean => {
+  if (!unit) return false;
+  const norm = unit.trim().toLowerCase();
+  const discreteUnits = [
+    "pcs", "pc", "pcs.", "pc.", "piece", "pieces",
+    "box", "boxes", "ctn", "carton", "cartons",
+    "pack", "packs", "packet", "packets", "pkt",
+    "bag", "bags", "set", "sets", "doz", "dozen",
+    "pair", "pairs", "roll", "rolls", "can", "cans", "bottle", "bottles"
+  ];
+  return discreteUnits.includes(norm);
+};
+import { getWarehouseStocks } from "@/app/(dashboard)/dashboard/inventory/stock/_actions/stock.action";
 import { Badge } from "@/components/ui/badge";
 
 const rtvItemSchema = z.object({
@@ -531,6 +544,12 @@ export default function RTVForm({ suppliers, warehouses, items, purchase }: any)
                       return unselectedVariants.length > 0;
                     });
 
+                    const selectedItem = items?.find((item: any) => item.id === watch(`items.${index}.itemId`));
+                    const itemUnit = selectedItem?.unit?.symbol || selectedItem?.unit;
+                    const isIntegerOnlyUnit = isDiscreteUnit(itemUnit);
+                    const rtvQty = Number(watchedItems[index]?.quantity);
+                    const isFractionalQtyError = isIntegerOnlyUnit && !isNaN(rtvQty) && rtvQty % 1 !== 0;
+
                     return (
                       <TableRow key={field.id}>
                         <TableCell className="align-top">
@@ -686,14 +705,30 @@ export default function RTVForm({ suppliers, warehouses, items, purchase }: any)
                         <TableCell className="align-top">
                           <Input
                             type="number"
+                            step={isIntegerOnlyUnit ? "1" : "any"}
                             min="0"
                             max={purchase ? watch(`items.${index}.availableQuantity`) : undefined}
-                            className="h-10 text-center"
-                            {...register(`items.${index}.quantity`)}
+                            className={cn(
+                              "h-10 text-center",
+                              isFractionalQtyError && "border-destructive focus-visible:ring-destructive text-destructive font-semibold"
+                            )}
+                            {...register(`items.${index}.quantity`, {
+                              valueAsNumber: true,
+                              validate: (val) => {
+                                if (isIntegerOnlyUnit && val != null && !isNaN(val) && val % 1 !== 0) {
+                                  return `Quantity for ${itemUnit || "Pcs"} must be a whole number`;
+                                }
+                                return true;
+                              }
+                            })}
                             disabled={loading}
                             aria-label={`Return Quantity for item ${index + 1}`}
                           />
-                          {errors.items?.[index]?.quantity && <p className="text-xs text-destructive mt-1">{errors.items[index].quantity?.message}</p>}
+                          {(errors.items?.[index]?.quantity || isFractionalQtyError) && (
+                            <p className="text-xs text-destructive mt-1 text-center font-medium">
+                              {errors.items?.[index]?.quantity?.message || `Must be a whole number (${itemUnit || "Pcs"})`}
+                            </p>
+                          )}
                         </TableCell>
                         <TableCell className="align-top">
                           <Input

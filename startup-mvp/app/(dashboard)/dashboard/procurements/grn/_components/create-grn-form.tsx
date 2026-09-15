@@ -16,6 +16,20 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { FiAlertCircle, FiSave, FiCheckCircle } from "react-icons/fi";
 import { createGRN, confirmGRN, getPendingPurchasesForWarehouse, getPendingTPNsForWarehouse } from "../_actions/grn.action";
 import { createGRNSchema, type GRNFormData } from "../_actions/grn.schema";
+import { cn } from "@/lib/utils";
+
+const isDiscreteUnit = (unit?: string | null): boolean => {
+  if (!unit) return false;
+  const norm = unit.trim().toLowerCase();
+  const discreteUnits = [
+    "pcs", "pc", "pcs.", "pc.", "piece", "pieces",
+    "box", "boxes", "ctn", "carton", "cartons",
+    "pack", "packs", "packet", "packets", "pkt",
+    "bag", "bags", "set", "sets", "doz", "dozen",
+    "pair", "pairs", "roll", "rolls", "can", "cans", "bottle", "bottles"
+  ];
+  return discreteUnits.includes(norm);
+};
 
 interface Warehouse {
   id: string;
@@ -325,6 +339,10 @@ export default function CreateGRNForm({ warehouses, allowPurchaseSelect, initial
                       const receiveQty = Number(watchedItems[index]?.receivedQuantity) || 0;
                       const itemTotalAmount = receiveQty * unitPrice;
                       
+                      const itemUnit = item.unit || item.item?.unit?.symbol || item.item?.unit;
+                      const isIntegerOnlyUnit = isDiscreteUnit(itemUnit);
+                      const isFractionalQtyError = isIntegerOnlyUnit && !isNaN(receiveQty) && receiveQty % 1 !== 0;
+
                       return (
                         <tr key={field.id} className="border-t">
                           <td className="px-3 py-2 align-middle">
@@ -343,13 +361,29 @@ export default function CreateGRNForm({ warehouses, allowPurchaseSelect, initial
                           <td className="px-3 py-2 text-right">
                             <Input
                               type="number"
-                              step="any"
-                              {...register(`items.${index}.receivedQuantity` as const, { valueAsNumber: true })}
-                              disabled={loading}
+                              step={isIntegerOnlyUnit ? "1" : "any"}
                               max={remaining}
                               min={0}
-                              className="text-center h-8"
+                              className={cn(
+                                "text-center h-8",
+                                isFractionalQtyError && "border-destructive focus-visible:ring-destructive text-destructive font-semibold"
+                              )}
+                              {...register(`items.${index}.receivedQuantity` as const, {
+                                valueAsNumber: true,
+                                validate: (val) => {
+                                  if (isIntegerOnlyUnit && val != null && !isNaN(val) && val % 1 !== 0) {
+                                    return `Receive quantity for ${itemUnit || "Pcs"} must be a whole number`;
+                                  }
+                                  return true;
+                                }
+                              })}
+                              disabled={loading}
                             />
+                            {(errors.items?.[index]?.receivedQuantity || isFractionalQtyError) && (
+                              <p className="text-xs text-destructive mt-1 text-right font-medium">
+                                {errors.items?.[index]?.receivedQuantity?.message || `Must be a whole number (${itemUnit || "Pcs"})`}
+                              </p>
+                            )}
                           </td>
                           <td className="px-3 py-2 text-right align-middle font-mono">
                             {formatCurrency(unitPrice)}
