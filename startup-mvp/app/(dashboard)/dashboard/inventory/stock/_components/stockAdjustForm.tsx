@@ -19,6 +19,20 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { FiAlertCircle, FiPackage, FiBox } from "react-icons/fi";
 import { adjustStock, getStock, getActiveItems, getActiveWarehouses } from "../_actions/stock.action";
+import { cn } from "@/lib/utils";
+
+const isDiscreteUnit = (unit?: string | null): boolean => {
+  if (!unit) return false;
+  const norm = unit.trim().toLowerCase();
+  const discreteUnits = [
+    "pcs", "pc", "pcs.", "pc.", "piece", "pieces",
+    "box", "boxes", "ctn", "carton", "cartons",
+    "pack", "packs", "packet", "packets", "pkt",
+    "bag", "bags", "set", "sets", "doz", "dozen",
+    "pair", "pairs", "roll", "rolls", "can", "cans", "bottle", "bottles"
+  ];
+  return discreteUnits.includes(norm);
+};
 
 const stockAdjustSchema = z.object({
   itemId: z.string().min(1, "Item is required"),
@@ -284,34 +298,53 @@ export default function StockAdjustForm() {
                 </div>
               )}
 
-              <div className="space-y-2">
-                <Label htmlFor="quantity">Adjustment Quantity *</Label>
-                <Input
-                  id="quantity"
-                  type="number"
-                  step="1"
-                  placeholder="e.g., 10 (increase) or -5 (decrease)"
-                  {...register("quantity", { valueAsNumber: true })}
-                  disabled={loading || loadingStock}
-                />
-                {errors.quantity && (
-                  <p className="text-sm text-destructive">{errors.quantity.message}</p>
-                )}
-                <p className="text-xs text-muted-foreground">
-                  Enter positive value to increase stock, negative value to decrease stock
-                </p>
-                {currentStock !== null && watchedItemId && (
-                  <p className="text-xs text-muted-foreground">
-                    New quantity after adjustment:{" "}
-                    <span className="font-semibold">
-                      {(currentStock.quantity + (watch("quantity") || 0)).toLocaleString("en-BD", {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
+              {(() => {
+                const selectedItem = items.find((item: any) => item.id === watchedItemId);
+                const itemUnit = (selectedItem as any)?.unit?.symbol || (selectedItem as any)?.unit;
+                const isIntegerOnlyUnit = isDiscreteUnit(itemUnit);
+                const watchedQty = watch("quantity");
+                const isFractionalQtyError = isIntegerOnlyUnit && watchedQty != null && !isNaN(watchedQty) && watchedQty % 1 !== 0;
+
+                return (
+                  <div className="space-y-2">
+                    <Label htmlFor="quantity">Adjustment Quantity *</Label>
+                    <Input
+                      id="quantity"
+                      type="number"
+                      step={isIntegerOnlyUnit ? "1" : "any"}
+                      placeholder="e.g., 10 (increase) or -5 (decrease)"
+                      className={cn(isFractionalQtyError && "border-destructive focus-visible:ring-destructive text-destructive font-semibold")}
+                      {...register("quantity", {
+                        valueAsNumber: true,
+                        validate: (val) => {
+                          if (isIntegerOnlyUnit && val != null && !isNaN(val) && val % 1 !== 0) {
+                            return `Adjustment quantity for ${itemUnit || "Pcs"} must be a whole number`;
+                          }
+                          return true;
+                        }
                       })}
-                    </span>
-                  </p>
-                )}
-              </div>
+                      disabled={loading || loadingStock}
+                    />
+                    {(errors.quantity || isFractionalQtyError) && (
+                      <p className="text-sm text-destructive">{errors.quantity?.message || `Must be a whole number (${itemUnit || "Pcs"})`}</p>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      Enter positive value to increase stock, negative value to decrease stock
+                    </p>
+                    {currentStock !== null && watchedItemId && (
+                      <p className="text-xs text-muted-foreground">
+                        New quantity after adjustment:{" "}
+                        <span className="font-semibold">
+                          {(currentStock.quantity + (watch("quantity") || 0)).toLocaleString("en-BD", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                        </span>
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
 
               <div className="space-y-2">
                 <Label htmlFor="notes">Notes (Optional)</Label>
