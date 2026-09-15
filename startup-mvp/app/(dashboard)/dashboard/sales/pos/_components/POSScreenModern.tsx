@@ -33,6 +33,7 @@ export interface POSScreenModernProps {
   // Config & Catalog Props
   items: any[];
   filteredItems: any[];
+  tryWeighingScaleScan?: (rawCode: string) => boolean;
   warehouses: any[];
   selectedWarehouseId: string;
   setSelectedWarehouseId: (id: string) => void;
@@ -100,7 +101,9 @@ export interface POSScreenModernProps {
 }
 
 export default function POSScreenModern({
+  items,
   filteredItems,
+  tryWeighingScaleScan,
   warehouses,
   selectedWarehouseId,
   setSelectedWarehouseId,
@@ -632,9 +635,22 @@ export default function POSScreenModern({
     if (e.key === "Enter") {
       e.preventDefault();
       e.stopPropagation();
-      if (searchQuery.trim().length > 0 && searchResults.length > 0) {
+
+      const q = searchQuery.trim();
+      if (q.length >= 12 && tryWeighingScaleScan?.(q)) {
+        setSearchQuery("");
+        setHighlightedSearchIndex(0);
+        return;
+      }
+
+      if (q.length > 0 && searchResults.length > 0) {
         const selectedItem = searchResults[highlightedSearchIndex];
         if (selectedItem) {
+          if (selectedItem.isWeighingScale && q.length >= 12 && tryWeighingScaleScan?.(q)) {
+            setSearchQuery("");
+            setHighlightedSearchIndex(0);
+            return;
+          }
           handleAddToCart(selectedItem);
           setSearchQuery("");
           setHighlightedSearchIndex(0);
@@ -796,6 +812,12 @@ export default function POSScreenModern({
                         key={item.id}
                         onMouseEnter={() => setHighlightedSearchIndex(index)}
                         onClick={() => {
+                          const q = searchQuery.trim();
+                          if (q.length >= 12 && tryWeighingScaleScan?.(q)) {
+                            setSearchQuery("");
+                            setHighlightedSearchIndex(0);
+                            return;
+                          }
                           handleAddToCart(item);
                           setSearchQuery("");
                           setHighlightedSearchIndex(0);
@@ -925,10 +947,11 @@ export default function POSScreenModern({
                                 qtyInputRefs.current[index] = el;
                               }}
                               type="number"
-                              min="1"
+                              step="any"
+                              min="0.0001"
                               value={itemQty === 0 ? "" : itemQty}
                               onChange={(e) => {
-                                const val = parseInt(e.target.value, 10);
+                                const val = parseFloat(e.target.value);
                                 handleCustomQuantitySet(item.cartKey, isNaN(val) ? 1 : val);
                               }}
                               onKeyDown={(e) => {

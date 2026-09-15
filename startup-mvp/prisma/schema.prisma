@@ -421,6 +421,7 @@ model Item {
   vatPercentage                  Decimal                         @default(0) @db.Decimal(5, 2)
   isDiscountable                 Boolean                         @default(true)
   isCustomerPointAvailable       Boolean                         @default(true)
+  isWeighingScale                Boolean                         @default(false)
   barcode                        String?                         @unique
   variants                       ProductVariant[]
   clientDiscounts                ClientItemDiscount[]

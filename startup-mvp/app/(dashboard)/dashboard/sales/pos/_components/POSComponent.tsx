@@ -65,6 +65,7 @@ interface Item {
   discount?: number;
   isPromo?: boolean;
   promoEndsAt?: string | null;
+  isWeighingScale?: boolean;
 }
 
 interface Client {
@@ -801,6 +802,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
       let matchesSearch = true;
       if (q) {
         const matchesCode = item.code?.toLowerCase().includes(q);
+        const matchesBarcode = item.barcode?.toLowerCase().includes(q);
         const matchesDescription = item.description?.toLowerCase().includes(q);
         const matchesDbDescription = item.itemDescription?.toLowerCase().includes(q);
         const matchesName = item.name?.toLowerCase().includes(q);
@@ -809,7 +811,21 @@ export default function POSComponent({ items, clients: initialClients, warehouse
           (v.barcode && v.barcode.toLowerCase().includes(q))
         ) || false;
 
-        matchesSearch = matchesCode || matchesDescription || matchesDbDescription || matchesName || matchesVariant;
+        const prefix7 = q.length >= 7 ? q.slice(0, 7) : q;
+        const matchesScaleBarcode = Boolean(
+          item.isWeighingScale && (
+            (item.code && (item.code.toLowerCase() === prefix7 || q.startsWith(item.code.toLowerCase()))) ||
+            (item.barcode && (item.barcode.toLowerCase() === prefix7 || q.startsWith(item.barcode.toLowerCase()))) ||
+            (item.description && (item.description.toLowerCase() === prefix7 || q.startsWith(item.description.toLowerCase()))) ||
+            (item.name && (item.name.toLowerCase() === prefix7 || q.startsWith(item.name.toLowerCase()))) ||
+            item.variants?.some(v => 
+              (v.sku && (v.sku.toLowerCase() === prefix7 || q.startsWith(v.sku.toLowerCase()))) ||
+              (v.barcode && (v.barcode.toLowerCase() === prefix7 || q.startsWith(v.barcode.toLowerCase())))
+            )
+          )
+        );
+
+        matchesSearch = Boolean(matchesCode || matchesBarcode || matchesDescription || matchesDbDescription || matchesName || matchesVariant || matchesScaleBarcode);
       }
 
       const matchesCategory = filterType === "ALL" || item.category === filterType;
@@ -986,7 +1002,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     return null;
   }, [posSettings, discountAmount, discountValue, manualDiscountAmount, discountType, effectiveDiscountAmount, subTotal, cart]);
 
-  const handleAddToCart = (item: Item) => {
+  const handleAddToCart = (item: Item, quantity: number = 1) => {
     if (item.variants && item.variants.length > 0) {
       setSelectedItemForVariants(item);
       return;
@@ -1003,7 +1019,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
       }
     }
 
-    const delta = isReturnMode ? -1 : 1;
+    const delta = isReturnMode ? -quantity : quantity;
     const cartKey = item.id;
 
     // Stock check for simple item addition
@@ -1012,7 +1028,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
       const availableStock = item.stocks?.find(s => s.warehouseId === selectedWarehouseId)?.quantity || 0;
       const existing = cart.find((i) => i.cartKey === cartKey);
       const currentQty = existing ? existing.cartQuantity : 0;
-      if (currentQty + 1 > availableStock) {
+      if (currentQty + quantity > availableStock) {
         toast({
           title: "Stock Alert",
           description: `Cannot add more of: ${item.description || item.name || "item"}. Available stock: ${availableStock}.`,
@@ -1196,6 +1212,107 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     setCart((prev) => prev.filter((i) => i.cartKey !== cartKey));
   };
 
+  const tryWeighingScaleScan = (rawCode: string): boolean => {
+    const codeStr = rawCode.trim().toLowerCase();
+    if (codeStr.length < 11) return false;
+
+    // Check if there is an exact match for the FULL rawCode first!
+    const exactMatch = items.find((item) => {
+      const matchesOrderType = orderType === "RETAIL"
+        ? (item.itemType === "RETAIL" || item.itemType === "READY_PRODUCT")
+        : item.itemType === "WHOLESALE";
+      if (!matchesOrderType) return false;
+
+      return (
+        item.code?.toLowerCase() === codeStr ||
+        item.barcode?.toLowerCase() === codeStr ||
+        item.variants?.some((v) => v.sku?.toLowerCase() === codeStr || v.barcode?.toLowerCase() === codeStr)
+      );
+    });
+
+    // If exact match exists and it's NOT a scale item, let normal barcode scanner handle it
+    if (exactMatch && !exactMatch.isWeighingScale) {
+      return false;
+    }
+
+    // Split barcode: first 7 digits as barcode/code, remainder as quantity
+    const prefix7 = codeStr.slice(0, 7);
+    const qtyDigits = codeStr.slice(7);
+
+    if (!/^\d{4,6}$/.test(qtyDigits)) return false;
+
+    // Find all matching items for this orderType
+    const matchingItems = items.filter((item) => {
+      const matchesOrderType = orderType === "RETAIL"
+        ? (item.itemType === "RETAIL" || item.itemType === "READY_PRODUCT")
+        : item.itemType === "WHOLESALE";
+
+      if (!matchesOrderType) return false;
+
+      const matchesCode = item.code?.toLowerCase() === prefix7 || (item.code && (prefix7 === item.code.toLowerCase() || codeStr.startsWith(item.code.toLowerCase())));
+      const matchesBarcode = item.barcode?.toLowerCase() === prefix7 || (item.barcode && (prefix7 === item.barcode.toLowerCase() || codeStr.startsWith(item.barcode.toLowerCase())));
+      const matchesDesc = item.description?.toLowerCase() === prefix7 || (item.description && (prefix7 === item.description.toLowerCase() || codeStr.startsWith(item.description.toLowerCase())));
+      const matchesName = item.name?.toLowerCase() === prefix7 || (item.name && (prefix7 === item.name.toLowerCase() || codeStr.startsWith(item.name.toLowerCase())));
+      const matchesVariant = item.variants?.some(
+        (v) => v.sku?.toLowerCase() === prefix7 || v.barcode?.toLowerCase() === prefix7 || (v.sku && (prefix7 === v.sku.toLowerCase() || codeStr.startsWith(v.sku.toLowerCase()))) || (v.barcode && (prefix7 === v.barcode.toLowerCase() || codeStr.startsWith(v.barcode.toLowerCase())))
+      );
+
+      return matchesCode || matchesBarcode || matchesDesc || matchesName || matchesVariant;
+    });
+
+    // Prioritize item that has isWeighingScale enabled
+    const targetItem = matchingItems.find(i => i.isWeighingScale) || matchingItems[0];
+
+    if (targetItem) {
+      if (!targetItem.isWeighingScale) {
+        toast({
+          title: "Scale Mode Disabled",
+          description: `Product "${targetItem.description || targetItem.name}" was found for code ${prefix7}, but Weighing Scale is not enabled.`,
+          variant: "destructive"
+        });
+        return true;
+      }
+
+      const divisor = qtyDigits.length === 6 ? 10000 : (qtyDigits.length === 5 ? 1000 : 100);
+      const parsedQty = parseFloat(qtyDigits) / divisor;
+
+      if (isNaN(parsedQty) || parsedQty <= 0) return false;
+
+      const isNegativeSaleAllowed = posSettings?.allowNegativeSale ?? false;
+      if (!isNegativeSaleAllowed && targetItem.trackInventory) {
+        const itemStock = targetItem.variants && targetItem.variants.length > 0
+          ? targetItem.variants.reduce((acc, v) => acc + (v.stocks?.find(s => s.warehouseId === selectedWarehouseId)?.quantity || 0), 0)
+          : (targetItem.stocks?.find(s => s.warehouseId === selectedWarehouseId)?.quantity || 0);
+
+        if (itemStock <= 0) {
+          toast({
+            title: "Stock Alert",
+            description: `Cannot add: ${targetItem.description || targetItem.name || "Item"} is out of stock.`,
+            variant: "destructive"
+          });
+          return true;
+        }
+      }
+
+      toast({
+        title: "Scale Barcode Scanned",
+        description: `Added: ${targetItem.description || targetItem.name || "Item"} (${parsedQty} kg)`,
+        duration: 1500,
+      });
+
+      if (targetItem.variants && targetItem.variants.length > 0) {
+        const matchedVariant = targetItem.variants.find(v => (v.sku && prefix7 === v.sku.toLowerCase()) || (v.barcode && prefix7 === v.barcode.toLowerCase())) || targetItem.variants[0];
+        handleVariantAddToCart(targetItem, matchedVariant, parsedQty);
+      } else {
+        handleAddToCart(targetItem, parsedQty);
+      }
+
+      return true;
+    }
+
+    return false;
+  };
+
   const handleBarcodeScan = (barcode: string) => {
     for (const item of items) {
       if (item.variants) {
@@ -1256,6 +1373,10 @@ export default function POSComponent({ items, clients: initialClients, warehouse
       return;
     }
 
+    if (tryWeighingScaleScan(barcode)) {
+      return;
+    }
+
     toast({
       title: "Barcode Not Found",
       description: `Could not find product matching: ${barcode}`,
@@ -1267,6 +1388,12 @@ export default function POSComponent({ items, clients: initialClients, warehouse
   useEffect(() => {
     const query = searchQuery.trim();
     if (!query) return;
+
+    // Check scale scan first
+    if (tryWeighingScaleScan(query)) {
+      setSearchQuery("");
+      return;
+    }
 
     // Check variants first (SKU, Barcode)
     for (const item of items) {
@@ -1343,6 +1470,11 @@ export default function POSComponent({ items, clients: initialClients, warehouse
         setSearchQuery("");
         return;
       }
+    }
+
+    if (tryWeighingScaleScan(query)) {
+      setSearchQuery("");
+      return;
     }
   }, [searchQuery, items, orderType]);
 
@@ -2546,6 +2678,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
         <POSScreenModern
           items={items}
           filteredItems={filteredItems}
+          tryWeighingScaleScan={tryWeighingScaleScan}
           warehouses={warehouses}
           selectedWarehouseId={selectedWarehouseId}
           setSelectedWarehouseId={setSelectedWarehouseId}

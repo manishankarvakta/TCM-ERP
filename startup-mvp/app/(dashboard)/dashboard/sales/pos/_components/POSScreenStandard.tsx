@@ -481,17 +481,18 @@ export default function POSScreenStandard({
                       </button>
                       <input
                         type="number"
+                        step="any"
                         min="0"
                         value={item.cartQuantity === 0 ? "" : item.cartQuantity}
                         onChange={(e) => {
-                          const val = parseInt(e.target.value, 10);
+                          const val = parseFloat(e.target.value);
                           handleCustomQuantitySet(
                             item.cartKey,
                             isNaN(val) ? 0 : val
                           );
                         }}
                         onBlur={(e) => {
-                          const val = parseInt(e.target.value, 10);
+                          const val = parseFloat(e.target.value);
                           if (isNaN(val) || val <= 0) {
                             handleRemoveItem(item.cartKey);
                           }

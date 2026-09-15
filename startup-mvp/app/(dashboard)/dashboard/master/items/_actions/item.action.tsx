@@ -502,6 +502,7 @@ export async function getItemById(itemId: string) {
         sizes: true,
         colors: true,
         isEnableEcom: true,
+        isWeighingScale: true,
         barcode: true,
         isPromo: true,
         promoStartsAt: true,
@@ -918,6 +919,7 @@ export async function createItem(input: {
   vatPercentage?: number;
   isDiscountable?: boolean;
   isCustomerPointAvailable?: boolean;
+  isWeighingScale?: boolean;
   barcode?: string | null;
   isPromo?: boolean;
   promoStartsAt?: Date | string | null;
@@ -1136,6 +1138,7 @@ export async function createItem(input: {
         vatPercentage: input.vatPercentage ?? 0,
         isDiscountable: input.isDiscountable ?? true,
         isCustomerPointAvailable: input.isCustomerPointAvailable ?? true,
+        isWeighingScale: input.isWeighingScale ?? false,
         barcode: finalBarcode,
         isPromo: input.isPromo ?? false,
         promoStartsAt: input.promoStartsAt ? new Date(input.promoStartsAt) : null,
@@ -1274,6 +1277,7 @@ export async function createItem(input: {
 
     // Revalidate items page
     revalidateBothPaths("master/items");
+    revalidateBothPaths("sales/pos");
 
     return {
       success: true,
@@ -1317,6 +1321,7 @@ export async function updateItem(input: {
   vatPercentage?: number;
   isDiscountable?: boolean;
   isCustomerPointAvailable?: boolean;
+  isWeighingScale?: boolean;
   barcode?: string | null;
   isPromo?: boolean;
   promoStartsAt?: Date | string | null;
@@ -1557,6 +1562,7 @@ export async function updateItem(input: {
       vatPercentage: input.vatPercentage ?? 0,
       isDiscountable: input.isDiscountable ?? true,
       isCustomerPointAvailable: input.isCustomerPointAvailable ?? true,
+      isWeighingScale: input.isWeighingScale ?? false,
       barcode: finalBarcode,
       isPromo: input.isPromo ?? false,
       promoStartsAt: input.promoStartsAt ? new Date(input.promoStartsAt) : null,
@@ -1737,6 +1743,7 @@ export async function updateItem(input: {
     revalidateBothPaths("master/items");
     revalidateBothPaths(`master/items/${item.id}`);
     revalidateBothPaths(`master/items/${item.id}/edit`);
+    revalidateBothPaths("sales/pos");
 
     return {
       success: true,

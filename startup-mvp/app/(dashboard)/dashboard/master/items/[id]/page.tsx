@@ -364,6 +364,21 @@ export default async function ItemDetailsPage({ params }: ItemDetailsPageProps) 
                       )}
                     </div>
                   </div>
+
+                  <div className="bg-muted/10 border border-border/60 rounded-xl p-3 flex flex-col justify-between gap-2 shadow-sm">
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Weighing Scale</span>
+                    <div>
+                      {(item as any).isWeighingScale ? (
+                        <Badge className="gap-1 bg-indigo-100 text-indigo-800 border border-indigo-200 text-xs">
+                          <FiCheckCircle className="h-3 w-3" /> Enabled
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary" className="gap-1 text-xs">
+                          <FiXCircle className="h-3 w-3" /> Disabled
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>

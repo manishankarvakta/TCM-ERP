@@ -6,6 +6,9 @@ import { hasPermission } from "@/lib/permissions";
 import { getPOSSettingsAction } from "@/app/(dashboard)/dashboard/settings/_actions/pos-settings.action";
 import POSComponent from "./_components/POSComponent";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function POSPage() {
   const [clientsResult, itemsResult, warehousesResult, paymentAccountsResult, currentUser, posSettingsResult, activeSalesmenResult] = await Promise.all([
     getClientsForSale(),

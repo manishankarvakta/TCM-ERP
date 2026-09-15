@@ -526,6 +526,7 @@ export async function getItemsForSale() {
         vatPercentage: true,
         isDiscountable: true,
         isCustomerPointAvailable: true,
+        isWeighingScale: true,
         trackInventory: true,
         barcode: true,
         stocks: {
@@ -582,6 +583,7 @@ export async function getItemsForSale() {
         imageUrl: item.featuredImage || (Array.isArray(item.images) && item.images.length > 0 ? (item.images[0] as string) : null) || null,
         isVatEnabled: item.isVatEnabled || false,
         vatPercentage: item.vatPercentage ? Number(item.vatPercentage) : 0,
+        isWeighingScale: item.isWeighingScale || false,
         trackInventory: item.trackInventory,
         stocks: item.stocks.map(s => ({
             warehouseId: s.warehouseId,

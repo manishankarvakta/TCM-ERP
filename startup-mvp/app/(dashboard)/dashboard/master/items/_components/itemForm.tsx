@@ -75,6 +75,7 @@ const itemFormSchema = z.object({
   vatPercentage: z.number().min(0, "VAT percentage must be >= 0").default(0),
   isDiscountDisabled: z.boolean().default(false),
   isCustomerPointDisabled: z.boolean().default(false),
+  isWeighingScale: z.boolean().default(false),
   barcode: z.string().optional().nullable(),
   isPromo: z.boolean().default(false),
   promoStartsAt: z.union([z.string(), z.date()]).optional().nullable(),
@@ -137,6 +138,7 @@ interface ItemFormProps {
     vatPercentage?: number;
     isDiscountable?: boolean;
     isCustomerPointAvailable?: boolean;
+    isWeighingScale?: boolean;
     barcode?: string | null;
     isPromo?: boolean;
     promoEndsAt?: any;
@@ -260,6 +262,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
           vatPercentage: initialData.vatPercentage ? Number(initialData.vatPercentage) : 0,
           isDiscountDisabled: (initialData as any).isDiscountable === false,
           isCustomerPointDisabled: (initialData as any).isCustomerPointAvailable === false,
+          isWeighingScale: (initialData as any).isWeighingScale || false,
           barcode: initialData.barcode || "",
           isPromo: (initialData as any).isPromo || false,
           promoStartsAt: (initialData as any).promoStartsAt 
@@ -294,6 +297,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
           vatPercentage: 0,
           isDiscountDisabled: false,
           isCustomerPointDisabled: false,
+          isWeighingScale: false,
           barcode: "",
           isPromo: false,
           promoStartsAt: "",
@@ -441,6 +445,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
         vatPercentage: data.vatPercentage,
         isDiscountable: !data.isDiscountDisabled,
         isCustomerPointAvailable: !data.isCustomerPointDisabled,
+        isWeighingScale: data.isWeighingScale,
         barcode: data.barcode || undefined,
         isPromo: data.isPromo,
         promoStartsAt: data.promoStartsAt ? (data.promoStartsAt instanceof Date ? data.promoStartsAt.toISOString() : new Date(data.promoStartsAt).toISOString()) : null,
@@ -1311,6 +1316,17 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                     )}
                   />
                   <Label htmlFor="isCustomerPointDisabled" className="cursor-pointer font-medium text-amber-700 dark:text-amber-400">Disable Customer Points</Label>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Controller
+                    name="isWeighingScale"
+                    control={control}
+                    render={({ field }) => (
+                      <Checkbox id="isWeighingScale" checked={field.value} onCheckedChange={field.onChange} disabled={loading} />
+                    )}
+                  />
+                  <Label htmlFor="isWeighingScale" className="cursor-pointer font-medium text-blue-700 dark:text-blue-400">Enable Weighing Scale Barcode</Label>
                 </div>
 
                 <div className="flex items-center space-x-2">
