@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { FiAlertCircle, FiCalendar } from "react-icons/fi";
+import { FiAlertCircle, FiCalendar, FiUploadCloud, FiFileText, FiCheckCircle, FiTrash2, FiEye, FiPaperclip, FiLoader } from "react-icons/fi";
 import { applyForLeave, getEmployeeLeaveBalances } from "../_actions/leave-application.action";
 import { getEmployees } from "../../../employees/_actions/employee.action";
 import { getLeaveTypes } from "../types/_actions/leave-type.action";
@@ -55,6 +55,7 @@ interface LeaveBalance {
 export default function LeaveApplicationForm() {
   const router = useRouter();
   const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(false);
@@ -323,41 +324,112 @@ export default function LeaveApplicationForm() {
                   </div>
 
                   <div className="col-span-1 md:col-span-2 space-y-2">
-                    <Label htmlFor="attachment">Supporting Document / Photo (Optional)</Label>
-                    <div className="flex flex-col gap-2">
-                      <Input
-                        id="attachment"
-                        type="file"
-                        accept="image/*,.pdf,.doc,.docx"
-                        disabled={loading || uploadingFile}
-                        onChange={handleFileChange}
-                      />
-                      {uploadingFile && (
-                        <p className="text-xs text-muted-foreground animate-pulse">Uploading file...</p>
-                      )}
-                      {attachmentUrl && (
-                        <div className="flex items-center justify-between p-2 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-md text-xs">
-                          <span className="font-medium text-emerald-700 dark:text-emerald-300 truncate max-w-[280px]">
-                            Attachment Uploaded: {attachmentName || attachmentUrl.split('/').pop()}
-                          </span>
+                    <Label htmlFor="attachment" className="text-sm font-semibold flex items-center gap-2">
+                      <FiPaperclip className="h-4 w-4 text-primary" />
+                      Supporting Document / Photo (Optional)
+                    </Label>
+                    
+                    <input
+                      ref={fileInputRef}
+                      id="attachment"
+                      type="file"
+                      accept="image/*,.pdf,.doc,.docx"
+                      className="hidden"
+                      disabled={loading || uploadingFile}
+                      onChange={handleFileChange}
+                    />
+
+                    {!attachmentUrl ? (
+                      <div
+                        onClick={() => !uploadingFile && fileInputRef.current?.click()}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          if (uploadingFile) return;
+                          const droppedFile = e.dataTransfer.files?.[0];
+                          if (droppedFile) {
+                            const syntheticEvent = { target: { files: [droppedFile] } } as any;
+                            handleFileChange(syntheticEvent);
+                          }
+                        }}
+                        className={`group relative border-2 border-dashed rounded-xl p-6 text-center transition-all duration-200 cursor-pointer flex flex-col items-center justify-center gap-2 ${
+                          uploadingFile
+                            ? "border-primary/40 bg-primary/5 pointer-events-none"
+                            : "border-muted-foreground/25 hover:border-primary/60 hover:bg-primary/5 dark:hover:bg-primary/10"
+                        }`}
+                      >
+                        {uploadingFile ? (
+                          <>
+                            <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary animate-spin">
+                              <FiLoader className="h-6 w-6" />
+                            </div>
+                            <p className="text-sm font-medium text-primary animate-pulse">Uploading file to server...</p>
+                          </>
+                        ) : (
+                          <>
+                            <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:scale-110 group-hover:bg-primary group-hover:text-primary-foreground transition-all duration-200">
+                              <FiUploadCloud className="h-6 w-6" />
+                            </div>
+                            <div className="space-y-1">
+                              <p className="text-sm font-semibold text-foreground">
+                                <span className="text-primary underline underline-offset-2">Click to upload</span> or drag and drop
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                Medical certificates, prescription photos, or official documents (PNG, JPG, PDF, DOC up to 10MB)
+                              </p>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl transition-all">
+                        <div className="flex items-center gap-3 overflow-hidden">
+                          <div className="h-12 w-12 rounded-lg border bg-background flex items-center justify-center overflow-hidden flex-shrink-0 shadow-sm">
+                            {/\.(jpg|jpeg|png|webp|gif)($|\?)/i.test(attachmentUrl) ? (
+                              <img src={attachmentUrl} alt="Thumbnail" className="h-full w-full object-cover" />
+                            ) : (
+                              <FiFileText className="h-6 w-6 text-primary" />
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+                              <FiCheckCircle className="h-3.5 w-3.5" />
+                              <span>File Uploaded Successfully</span>
+                            </div>
+                            <p className="text-xs text-muted-foreground truncate font-medium max-w-[280px] sm:max-w-[380px]">
+                              {attachmentName || attachmentUrl.split('/').pop()}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1">
                           <Button
                             type="button"
                             variant="ghost"
-                            size="sm"
-                            className="h-6 px-2 text-destructive hover:bg-destructive/10"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                            onClick={() => window.open(attachmentUrl, "_blank")}
+                            title="Preview File"
+                          >
+                            <FiEye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
                             onClick={() => {
                               setAttachmentUrl("");
                               setAttachmentName("");
+                              if (fileInputRef.current) fileInputRef.current.value = "";
                             }}
+                            title="Remove File"
                           >
-                            Remove
+                            <FiTrash2 className="h-4 w-4" />
                           </Button>
                         </div>
-                      )}
-                      <p className="text-[11px] text-muted-foreground">
-                        Attach medical certificates, prescription photos, or official documents (Max 10MB).
-                      </p>
-                    </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
