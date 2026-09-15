@@ -974,6 +974,8 @@ export async function getWarehouseStocks(warehouseId: string) {
 export async function getStockSummaryMetrics(filters: {
   itemId?: string;
   warehouseId?: string;
+  categoryId?: string;
+  supplierId?: string;
   search?: string;
 } = {}) {
   try {
@@ -1044,6 +1046,24 @@ export async function getStockSummaryMetrics(filters: {
       },
     ];
 
+    if (filters.categoryId) {
+      (where.AND as any[]).push({
+        OR: [
+          { item: { categoryId: filters.categoryId } },
+          { variant: { item: { categoryId: filters.categoryId } } },
+        ],
+      });
+    }
+
+    if (filters.supplierId) {
+      (where.AND as any[]).push({
+        OR: [
+          { item: { suppliers: { some: { id: filters.supplierId } } } },
+          { variant: { item: { suppliers: { some: { id: filters.supplierId } } } } },
+        ],
+      });
+    }
+
     const stocks = await prisma.stock.findMany({
       where,
       select: {
@@ -1098,6 +1118,8 @@ export async function getStocks(
   filters: {
     itemId?: string;
     warehouseId?: string;
+    categoryId?: string;
+    supplierId?: string;
     search?: string;
   } = {}
 ) {
@@ -1203,6 +1225,24 @@ export async function getStocks(
         ],
       },
     ];
+
+    if (filters.categoryId) {
+      (where.AND as any[]).push({
+        OR: [
+          { item: { categoryId: filters.categoryId } },
+          { variant: { item: { categoryId: filters.categoryId } } },
+        ],
+      });
+    }
+
+    if (filters.supplierId) {
+      (where.AND as any[]).push({
+        OR: [
+          { item: { suppliers: { some: { id: filters.supplierId } } } },
+          { variant: { item: { suppliers: { some: { id: filters.supplierId } } } } },
+        ],
+      });
+    }
 
     // Get total count
     const total = await prisma.stock.count({ where });
@@ -1788,6 +1828,88 @@ export async function getActiveWarehouses() {
 }
 
 /**
+ * Get active categories (for dropdowns)
+ */
+export async function getActiveCategories() {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized", categories: [] };
+    }
+
+    const categories = await prisma.category.findMany({
+      where: {
+        status: "active",
+      },
+      select: {
+        id: true,
+        name: true,
+      },
+      orderBy: {
+        name: "asc",
+      },
+    });
+
+    return {
+      success: true,
+      categories,
+    };
+  } catch (error) {
+    console.error("getActiveCategories error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to fetch categories",
+      categories: [],
+    };
+  }
+}
+
+/**
+ * Get active suppliers (for dropdowns)
+ */
+export async function getActiveSuppliers() {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized", suppliers: [] };
+    }
+
+    const suppliers = await prisma.supplier.findMany({
+      where: {
+        status: "active",
+      },
+      select: {
+        id: true,
+        name: true,
+        company: true,
+        supplierCode: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    const formattedSuppliers = suppliers.map((s) => ({
+      id: s.id,
+      name: s.name || s.company || s.supplierCode || "Unnamed Supplier",
+      code: s.supplierCode || undefined,
+    }));
+
+    return {
+      success: true,
+      suppliers: formattedSuppliers,
+    };
+  } catch (error) {
+    console.error("getActiveSuppliers error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to fetch suppliers",
+      suppliers: [],
+    };
+  }
+}
+
+/**
  * Update stock on TPN (Transfer Purchase Note)
  */
 export async function updateStockOnTPN(
@@ -1954,6 +2076,8 @@ export async function getItemsWithStockMovements(warehouseId?: string | null) {
 export async function getAllStocksForExport(filters: {
   itemId?: string;
   warehouseId?: string;
+  categoryId?: string;
+  supplierId?: string;
   search?: string;
 } = {}) {
   try {
@@ -2027,6 +2151,24 @@ export async function getAllStocksForExport(filters: {
         ],
       },
     ];
+
+    if (filters.categoryId) {
+      (where.AND as any[]).push({
+        OR: [
+          { item: { categoryId: filters.categoryId } },
+          { variant: { item: { categoryId: filters.categoryId } } },
+        ],
+      });
+    }
+
+    if (filters.supplierId) {
+      (where.AND as any[]).push({
+        OR: [
+          { item: { suppliers: { some: { id: filters.supplierId } } } },
+          { variant: { item: { suppliers: { some: { id: filters.supplierId } } } } },
+        ],
+      });
+    }
 
     const stocks = await prisma.stock.findMany({
       where,

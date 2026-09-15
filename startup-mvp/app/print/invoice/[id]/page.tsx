@@ -166,7 +166,7 @@ export default async function InvoicePrintPage({ params }: { params: Promise<{ i
       : "max-w-[380px]"; // 80mm
 
   return (
-    <div className={`bg-white text-black min-h-screen p-6 text-xs mx-auto font-sans relative ${widthClass}`}>
+    <div className={`bg-white text-black print-light-schema min-h-screen p-6 text-xs mx-auto font-sans relative ${widthClass}`} data-print-light="true">
       <style dangerouslySetInnerHTML={{ __html: `
         @media print {
           html, body {

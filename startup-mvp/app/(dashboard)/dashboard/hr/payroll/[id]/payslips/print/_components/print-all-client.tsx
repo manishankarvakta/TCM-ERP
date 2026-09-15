@@ -37,7 +37,7 @@ export default function PrintAllClient({ payroll, orgInfo }: PrintAllClientProps
   const periodStr = `${getMonthName(payroll.month)} ${payroll.year}`;
 
   return (
-    <div className="print-root-wrapper space-y-6 max-w-5xl mx-auto my-4">
+    <div className="print-root-wrapper print-light-schema space-y-6 max-w-5xl mx-auto my-4" data-print-light="true">
       {/* Control panel - hidden during print */}
       <div className="flex justify-between items-center print:hidden bg-muted/40 p-4 rounded-lg border border-slate-200">
         <Link

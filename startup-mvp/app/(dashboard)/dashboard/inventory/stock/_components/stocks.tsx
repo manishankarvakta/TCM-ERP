@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
   Table,
   TableBody,
@@ -73,8 +74,12 @@ interface StocksListClientProps {
   initialSearch: string;
   initialItemId?: string;
   initialWarehouseId?: string;
+  initialCategoryId?: string;
+  initialSupplierId?: string;
   items: { id: string; name: string; code: string }[];
   warehouses: { id: string; name: string; code: string }[];
+  categories?: { id: string; name: string }[];
+  suppliers?: { id: string; name: string; code?: string }[];
   isNormalUser?: boolean;
 }
 
@@ -84,8 +89,12 @@ export default function StocksListClient({
   initialSearch,
   initialItemId,
   initialWarehouseId,
+  initialCategoryId,
+  initialSupplierId,
   items,
   warehouses,
+  categories = [],
+  suppliers = [],
   isNormalUser = false,
 }: StocksListClientProps) {
   const router = useRouter();
@@ -93,6 +102,8 @@ export default function StocksListClient({
   const [search, setSearch] = useState(initialSearch);
   const [itemFilter, setItemFilter] = useState(initialItemId || "all");
   const [warehouseFilter, setWarehouseFilter] = useState(initialWarehouseId || "all");
+  const [categoryFilter, setCategoryFilter] = useState(initialCategoryId || "all");
+  const [supplierFilter, setSupplierFilter] = useState(initialSupplierId || "all");
   const [isPending, startTransition] = useTransition();
   const [previewImage, setPreviewImage] = useState<{
     images: string[];
@@ -128,62 +139,63 @@ export default function StocksListClient({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [previewImage]);
 
+  const updateFilters = (newFilters: {
+    search?: string;
+    itemId?: string;
+    warehouseId?: string;
+    categoryId?: string;
+    supplierId?: string;
+  }) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("page", "1");
+
+    const searchVal = newFilters.search !== undefined ? newFilters.search : search;
+    const itemVal = newFilters.itemId !== undefined ? newFilters.itemId : itemFilter;
+    const warehouseVal = newFilters.warehouseId !== undefined ? newFilters.warehouseId : warehouseFilter;
+    const categoryVal = newFilters.categoryId !== undefined ? newFilters.categoryId : categoryFilter;
+    const supplierVal = newFilters.supplierId !== undefined ? newFilters.supplierId : supplierFilter;
+
+    if (searchVal) params.set("search", searchVal);
+    else params.delete("search");
+
+    if (itemVal && itemVal !== "all") params.set("itemId", itemVal);
+    else params.delete("itemId");
+
+    if (warehouseVal && warehouseVal !== "all") params.set("warehouseId", warehouseVal);
+    else params.delete("warehouseId");
+
+    if (categoryVal && categoryVal !== "all") params.set("categoryId", categoryVal);
+    else params.delete("categoryId");
+
+    if (supplierVal && supplierVal !== "all") params.set("supplierId", supplierVal);
+    else params.delete("supplierId");
+
+    router.push(`/dashboard/inventory/stock?${params.toString()}`);
+  };
+
   const handleSearch = (value: string) => {
     setSearch(value);
-    const params = new URLSearchParams(searchParams.toString());
-    if (value) {
-      params.set("search", value);
-    } else {
-      params.delete("search");
-    }
-    params.set("page", "1");
-    if (itemFilter !== "all") {
-      params.set("itemId", itemFilter);
-    } else {
-      params.delete("itemId");
-    }
-    if (warehouseFilter !== "all") {
-      params.set("warehouseId", warehouseFilter);
-    } else {
-      params.delete("warehouseId");
-    }
-    router.push(`/dashboard/inventory/stock?${params.toString()}`);
+    updateFilters({ search: value });
   };
 
   const handleItemFilter = (value: string) => {
     setItemFilter(value);
-    const params = new URLSearchParams(searchParams.toString());
-    if (value !== "all") {
-      params.set("itemId", value);
-    } else {
-      params.delete("itemId");
-    }
-    params.set("page", "1");
-    if (search) {
-      params.set("search", search);
-    }
-    if (warehouseFilter !== "all") {
-      params.set("warehouseId", warehouseFilter);
-    }
-    router.push(`/dashboard/inventory/stock?${params.toString()}`);
+    updateFilters({ itemId: value });
   };
 
   const handleWarehouseFilter = (value: string) => {
     setWarehouseFilter(value);
-    const params = new URLSearchParams(searchParams.toString());
-    if (value !== "all") {
-      params.set("warehouseId", value);
-    } else {
-      params.delete("warehouseId");
-    }
-    params.set("page", "1");
-    if (search) {
-      params.set("search", search);
-    }
-    if (itemFilter !== "all") {
-      params.set("itemId", itemFilter);
-    }
-    router.push(`/dashboard/inventory/stock?${params.toString()}`);
+    updateFilters({ warehouseId: value });
+  };
+
+  const handleCategoryFilter = (value: string) => {
+    setCategoryFilter(value);
+    updateFilters({ categoryId: value });
+  };
+
+  const handleSupplierFilter = (value: string) => {
+    setSupplierFilter(value);
+    updateFilters({ supplierId: value });
   };
 
   const getPageNumbers = (currentPage: number, totalPages: number) => {
@@ -308,6 +320,41 @@ export default function StocksListClient({
     return qty - reserved;
   };
 
+  const warehouseOptions = useMemo(
+    () => [
+      { label: "All Warehouses", value: "all" },
+      ...warehouses.map((w) => ({
+        label: w.name,
+        value: w.id,
+        description: w.code,
+      })),
+    ],
+    [warehouses]
+  );
+
+  const categoryOptions = useMemo(
+    () => [
+      { label: "All Categories", value: "all" },
+      ...categories.map((c) => ({
+        label: c.name,
+        value: c.id,
+      })),
+    ],
+    [categories]
+  );
+
+  const supplierOptions = useMemo(
+    () => [
+      { label: "All Suppliers", value: "all" },
+      ...suppliers.map((s) => ({
+        label: s.name,
+        value: s.id,
+        description: s.code,
+      })),
+    ],
+    [suppliers]
+  );
+
   return (
     <div className="space-y-4">
       {/* Search and Filters */}
@@ -333,19 +380,33 @@ export default function StocksListClient({
             )}
           </div>
 
-          <Select value={warehouseFilter} onValueChange={handleWarehouseFilter} disabled={isNormalUser}>
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="Filter by warehouse" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Warehouses</SelectItem>
-              {warehouses.map((warehouse) => (
-                <SelectItem key={warehouse.id} value={warehouse.id}>
-                  {warehouse.name} ({warehouse.code})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SearchableSelect
+            options={warehouseOptions}
+            value={warehouseFilter}
+            onValueChange={(val) => handleWarehouseFilter(val || "all")}
+            placeholder="Filter by warehouse"
+            searchPlaceholder="Search warehouse..."
+            disabled={isNormalUser}
+            className="w-[200px]"
+          />
+
+          <SearchableSelect
+            options={categoryOptions}
+            value={categoryFilter}
+            onValueChange={(val) => handleCategoryFilter(val || "all")}
+            placeholder="Filter by category"
+            searchPlaceholder="Search category..."
+            className="w-[200px]"
+          />
+
+          <SearchableSelect
+            options={supplierOptions}
+            value={supplierFilter}
+            onValueChange={(val) => handleSupplierFilter(val || "all")}
+            placeholder="Filter by supplier"
+            searchPlaceholder="Search supplier..."
+            className="w-[220px]"
+          />
         </div>
 
         <div className="flex items-center gap-4">

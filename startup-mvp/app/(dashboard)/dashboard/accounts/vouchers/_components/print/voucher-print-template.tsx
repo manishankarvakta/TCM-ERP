@@ -78,7 +78,7 @@ const VoucherPrintTemplate = forwardRef<HTMLDivElement, VoucherPrintTemplateProp
     const formattedAmountInWords = numberToWords(totalDebit > 0 ? totalDebit : totalCredit);
 
     return (
-      <div ref={ref} className="p-8 bg-white text-black font-sans print:p-8 w-full max-w-[210mm] mx-auto min-h-[297mm]">
+      <div ref={ref} className="p-8 bg-white text-black print-light-schema font-sans print:p-8 w-full max-w-[210mm] mx-auto min-h-[297mm]" data-print-light="true">
          {/* -- Header -- */}
         <div className="border-b-2 border-slate-800 pb-4 mb-6">
           <div className="flex justify-between items-start">

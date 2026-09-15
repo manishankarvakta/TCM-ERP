@@ -15,12 +15,16 @@ interface ExportStockButtonProps {
   search?: string;
   itemId?: string;
   warehouseId?: string;
+  categoryId?: string;
+  supplierId?: string;
 }
 
 export default function ExportStockButton({
   search = "",
   itemId,
   warehouseId,
+  categoryId,
+  supplierId,
 }: ExportStockButtonProps) {
   const [isExporting, setIsExporting] = useState(false);
   const { toast } = useToast();
@@ -33,6 +37,8 @@ export default function ExportStockButton({
       if (search) params.set("search", search);
       if (itemId) params.set("itemId", itemId);
       if (warehouseId) params.set("warehouseId", warehouseId);
+      if (categoryId) params.set("categoryId", categoryId);
+      if (supplierId) params.set("supplierId", supplierId);
 
       const url = `/api/export/stock?${params.toString()}`;
 

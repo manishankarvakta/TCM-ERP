@@ -159,7 +159,7 @@ export default function PrintIdCardDialog({ employee, orgInfo }: PrintIdCardDial
         {/* Dialog Body - Scrollable visual area */}
         <div className="flex flex-col items-center justify-center py-6 gap-6 md:gap-10 overflow-y-auto max-h-[60vh] px-2">
           
-          <div className="id-card-print-capture flex flex-col sm:flex-row items-center justify-center gap-8 md:gap-12 p-6 bg-white border border-slate-200 rounded-2xl shadow-sm">
+          <div className="id-card-print-capture print-light-schema flex flex-col sm:flex-row items-center justify-center gap-8 md:gap-12 p-6 bg-white border border-slate-200 rounded-2xl shadow-sm" data-print-light="true">
             
             {/* ============================================================== */}
             {/* CARD FRONT                                                     */}

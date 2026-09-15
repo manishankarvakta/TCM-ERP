@@ -84,7 +84,7 @@ export function AppointmentLetterPrintModal({
         ) : !letterData ? (
           <div className="p-12 text-center text-red-500">Letter data unavailable.</div>
         ) : (
-          <div className="p-6 md:p-10 bg-white text-slate-900 mx-auto max-w-3xl my-4 rounded-lg shadow-lg print:shadow-none print:m-0 print:p-8 print:w-full print:max-w-none font-sans leading-relaxed">
+          <div className="p-6 md:p-10 bg-white text-slate-900 print-light-schema mx-auto max-w-3xl my-4 rounded-lg shadow-lg print:shadow-none print:m-0 print:p-8 print:w-full print:max-w-none font-sans leading-relaxed" data-print-light="true">
             {/* Header / Letterhead */}
             <div className="flex justify-between items-start border-b-2 border-slate-900 pb-6 mb-8">
               <div>

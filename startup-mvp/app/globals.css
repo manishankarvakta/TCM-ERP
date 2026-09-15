@@ -152,3 +152,91 @@
     pointer-events: none !important;
   }
 }
+
+/* ==========================================================================
+   GLOBAL PRINT & PRINT PREVIEW LIGHT MODE COLOR SCHEMA
+   Forces light mode styling for both print output (@media print) and on-screen
+   print previews/modals regardless of whether dark mode or light mode is active.
+   ========================================================================== */
+
+.dark .print-light-schema,
+.dark .print-light-schema *,
+.dark [data-print-light="true"],
+.dark [data-print-light="true"] * {
+  color-scheme: light !important;
+}
+
+.dark .print-light-schema,
+.dark [data-print-light="true"] {
+  background-color: #ffffff !important;
+  color: #000000 !important;
+  border-color: #e2e8f0 !important;
+}
+
+@media print {
+  :root,
+  html,
+  body,
+  .dark,
+  [data-theme='dark'] {
+    color-scheme: light !important;
+    --background: 0 0% 100% !important;
+    --foreground: 240 10% 3.9% !important;
+    --card: 0 0% 100% !important;
+    --card-foreground: 240 10% 3.9% !important;
+    --popover: 0 0% 100% !important;
+    --popover-foreground: 240 10% 3.9% !important;
+    --primary: 240 5.9% 10% !important;
+    --primary-foreground: 0 0% 98% !important;
+    --secondary: 240 4.8% 95.9% !important;
+    --secondary-foreground: 240 5.9% 10% !important;
+    --muted: 240 4.8% 95.9% !important;
+    --muted-foreground: 240 3.8% 46.1% !important;
+    --accent: 240 4.8% 95.9% !important;
+    --accent-foreground: 240 5.9% 10% !important;
+    --border: 240 5.9% 90% !important;
+    --input: 240 5.9% 90% !important;
+    --ring: 240 10% 3.9% !important;
+    background-color: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  *,
+  *::before,
+  *::after {
+    color: #000000 !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  html,
+  body {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  .bg-white,
+  .bg-slate-50,
+  .bg-slate-100,
+  .bg-gray-50,
+  .bg-gray-100,
+  .print-light-bg {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  .bg-gray-100,
+  .bg-slate-100,
+  th {
+    background-color: #f3f4f6 !important;
+    color: #000000 !important;
+  }
+
+  .bg-gray-200,
+  .bg-slate-200 {
+    background-color: #e5e7eb !important;
+    color: #000000 !important;
+  }
+}

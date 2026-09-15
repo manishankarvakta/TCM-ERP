@@ -221,7 +221,8 @@ const BarcodePrintTemplate = forwardRef<HTMLDivElement, BarcodePrintTemplateProp
     return (
       <div
         ref={ref}
-        className="barcode-print-wrapper w-full bg-transparent print:bg-white p-2 print:p-0 print:m-0"
+        className="barcode-print-wrapper print-light-schema w-full bg-transparent print:bg-white p-2 print:p-0 print:m-0"
+        data-print-light="true"
         style={{ color: "black", fontFamily: "system-ui, sans-serif" }}
       >
         <style dangerouslySetInnerHTML={{ __html: `

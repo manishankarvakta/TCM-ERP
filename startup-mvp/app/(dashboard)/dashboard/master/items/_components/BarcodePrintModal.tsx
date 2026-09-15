@@ -514,7 +514,7 @@ export default function BarcodePrintModal({ item, isOpen, onClose }: BarcodePrin
                   {printableItems.length} labels queued
                 </span>
               </div>
-              <div className="p-4 bg-slate-100/50 dark:bg-slate-900/50 overflow-y-auto max-h-[40vh] border-b border-border flex flex-col items-center justify-start">
+              <div className="p-4 bg-slate-100/50 print-light-schema dark:bg-slate-900/50 overflow-y-auto max-h-[40vh] border-b border-border flex flex-col items-center justify-start" data-print-light="true">
                 {printableItems.length > 0 ? (
                   <div className="origin-top my-2">
                     <BarcodePrintTemplate

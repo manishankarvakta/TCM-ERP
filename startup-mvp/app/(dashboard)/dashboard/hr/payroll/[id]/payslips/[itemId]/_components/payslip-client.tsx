@@ -39,7 +39,7 @@ export default function PayslipClient({ payrollItem, attendanceSummary, orgInfo 
       </div>
 
       {/* Printable Area */}
-      <Card className="print:border-0 print:shadow-none bg-white text-black p-8">
+      <Card className="print:border-0 print:shadow-none bg-white text-black print-light-schema p-8" data-print-light="true">
         {/* Header Section */}
         <div className="text-center border-b pb-6 mb-6">
           <h1 className="text-2xl font-bold uppercase tracking-wider">{orgInfo?.name || "Company Name"}</h1>

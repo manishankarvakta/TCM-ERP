@@ -52,7 +52,8 @@ const LeaveApplicationPrintTemplate = forwardRef<HTMLDivElement, LeaveApplicatio
     return (
       <div
         ref={ref}
-        className="p-[20mm] bg-white text-black font-sans print:p-0 w-full max-w-[210mm] print:max-w-[170mm] mx-auto min-h-[297mm] print:min-h-[247mm] flex flex-col justify-between box-border"
+        className="p-[20mm] bg-white text-black print-light-schema font-sans print:p-0 w-full max-w-[210mm] print:max-w-[170mm] mx-auto min-h-[297mm] print:min-h-[247mm] flex flex-col justify-between box-border"
+        data-print-light="true"
         style={{
           fontFamily: "'SolaimanLipi', 'SutonnyMJ', 'Vrinda', 'Arial', 'system-ui', sans-serif",
         }}

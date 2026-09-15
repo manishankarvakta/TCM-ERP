@@ -18,7 +18,8 @@ const ResignationPrintTemplate = forwardRef<HTMLDivElement, ResignationPrintTemp
     return (
       <div
         ref={ref}
-        className="px-[25mm] py-[25mm] bg-white text-black font-serif print:p-0 w-full max-w-[210mm] print:max-w-[180mm] mx-auto min-h-[297mm] print:min-h-[247mm] print:h-[247mm] flex flex-col justify-between box-border"
+        className="px-[25mm] py-[25mm] bg-white text-black print-light-schema font-serif print:p-0 w-full max-w-[210mm] print:max-w-[180mm] mx-auto min-h-[297mm] print:min-h-[247mm] print:h-[247mm] flex flex-col justify-between box-border"
+        data-print-light="true"
         style={{
           fontFamily: "'SolaimanLipi', 'SutonnyMJ', 'Vrinda', 'Arial', sans-serif",
           pageBreakInside: "avoid",

@@ -1,4 +1,4 @@
-import { getStocks, getActiveItems, getActiveWarehouses, getStockSummaryMetrics } from "./_actions/stock.action";
+import { getStocks, getActiveItems, getActiveWarehouses, getActiveCategories, getActiveSuppliers, getStockSummaryMetrics } from "./_actions/stock.action";
 import { prisma } from "@/lib/prisma";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -15,6 +15,8 @@ interface StockPageProps {
     search?: string;
     itemId?: string;
     warehouseId?: string;
+    categoryId?: string;
+    supplierId?: string;
     limit?: string;
   }>;
 }
@@ -26,6 +28,8 @@ export default async function StockPage({ searchParams }: StockPageProps) {
   const search = params.search || "";
   const itemId = params.itemId;
   const warehouseId = params.warehouseId;
+  const categoryId = params.categoryId;
+  const supplierId = params.supplierId;
 
   const session = await auth();
   const userId = session?.user?.id;
@@ -52,19 +56,25 @@ export default async function StockPage({ searchParams }: StockPageProps) {
   }
 
   // Check permissions and fetch data
-  const [result, itemsResult, warehousesResult, canView, canAdjust, metricsResult] = await Promise.all([
+  const [result, itemsResult, warehousesResult, categoriesResult, suppliersResult, canView, canAdjust, metricsResult] = await Promise.all([
     getStocks(page, limit, {
       itemId,
       warehouseId: finalWarehouseId,
+      categoryId,
+      supplierId,
       search,
     }),
     getActiveItems(),
     getActiveWarehouses(),
+    getActiveCategories(),
+    getActiveSuppliers(),
     userId ? hasPermission(userId, "inventory.stock", "view") : false,
     userId ? hasPermission(userId, "inventory.stock", "adjust") : false,
     getStockSummaryMetrics({
       itemId,
       warehouseId: finalWarehouseId,
+      categoryId,
+      supplierId,
       search,
     }),
   ]);
@@ -129,7 +139,7 @@ export default async function StockPage({ searchParams }: StockPageProps) {
               </div>
             </div>
 
-            <ExportStockButton search={search} itemId={itemId} warehouseId={finalWarehouseId} />
+            <ExportStockButton search={search} itemId={itemId} warehouseId={finalWarehouseId} categoryId={categoryId} supplierId={supplierId} />
             {canAdjust && (
               <Button asChild>
                 <Link href="/dashboard/inventory/stock/adjust">
@@ -152,8 +162,12 @@ export default async function StockPage({ searchParams }: StockPageProps) {
           initialSearch={search}
           initialItemId={itemId}
           initialWarehouseId={finalWarehouseId}
+          initialCategoryId={categoryId}
+          initialSupplierId={supplierId}
           items={itemsResult.success ? itemsResult.items || [] : []}
           warehouses={warehousesResult.success ? warehousesResult.warehouses || [] : []}
+          categories={categoriesResult.success ? categoriesResult.categories || [] : []}
+          suppliers={suppliersResult.success ? suppliersResult.suppliers || [] : []}
           isNormalUser={isNormalUser}
         />
       </div>

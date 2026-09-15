@@ -38,13 +38,16 @@ export function PrintStyle() {
   return (
     <style dangerouslySetInnerHTML={{ __html: `
       @media print {
-        html, body {
-          overflow: visible !important;
-          height: auto !important;
+        :root, html, body, .dark, [data-theme='dark'] {
+          color-scheme: light !important;
           background-color: white !important;
           color: black !important;
           -webkit-print-color-adjust: exact !important;
           print-color-adjust: exact !important;
+        }
+
+        .dark table, .dark tr, .dark td, .dark th, .dark div, .dark span, .dark p {
+          color: #000000 !important;
         }
 
         /* Override Next.js dashboard layout containers that clip content to viewport height */

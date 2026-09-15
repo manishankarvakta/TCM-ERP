@@ -22,6 +22,8 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get("search") || "";
     const itemId = searchParams.get("itemId") || undefined;
     const warehouseId = searchParams.get("warehouseId") || undefined;
+    const categoryId = searchParams.get("categoryId") || undefined;
+    const supplierId = searchParams.get("supplierId") || undefined;
 
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
@@ -83,6 +85,24 @@ export async function GET(req: NextRequest) {
         ],
       },
     ];
+
+    if (categoryId) {
+      where.AND.push({
+        OR: [
+          { item: { categoryId } },
+          { variant: { item: { categoryId } } },
+        ],
+      });
+    }
+
+    if (supplierId) {
+      where.AND.push({
+        OR: [
+          { item: { suppliers: { some: { id: supplierId } } } },
+          { variant: { item: { suppliers: { some: { id: supplierId } } } } },
+        ],
+      });
+    }
 
     const stocks = await prisma.stock.findMany({
       where,
