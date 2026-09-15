@@ -31,16 +31,15 @@ export default async function LeaveDetailsPage({ params }: LeaveDetailsPageProps
 
   const userId = session?.user?.id;
   const canEdit = userId ? await hasPermission(userId, "hr.leave", "edit") : false;
-  const canApproveGeneric = userId ? await hasPermission(userId, "hr.leave", "approve") : false;
   const canApproveManager = userId ? await hasPermission(userId, "hr.leave", "approve_manager") : false;
   const canApproveHR = userId ? await hasPermission(userId, "hr.leave", "approve_hr") : false;
   const canReject = userId ? await hasPermission(userId, "hr.leave", "reject") : false;
 
   const permissions = {
     edit: canEdit,
-    approveManager: canApproveManager || canApproveGeneric,
-    approveHR: canApproveHR || canApproveGeneric,
-    reject: canReject || canApproveGeneric,
+    approveManager: canApproveManager,
+    approveHR: canApproveHR,
+    reject: canReject,
   };
 
   return (

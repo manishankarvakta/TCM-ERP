@@ -786,7 +786,7 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
         permissionKey: "hr.leave",
         path: "/dashboard/hr/leave",
         label: "Leave",
-        operations: ["create", "view", "edit", "approve", "approve_manager", "approve_hr", "reject", "move-to-trash", "delete-permanently"],
+        operations: ["create", "view", "edit", "approve_manager", "approve_hr", "reject", "move-to-trash", "delete-permanently"],
       },
       {
         permissionKey: "hr.resignation",
