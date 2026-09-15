@@ -627,6 +627,12 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
         operations: ["view", "create", "edit", "delete"],
       },
       {
+        permissionKey: "sales.campaigns",
+        path: "/dashboard/sales/campaigns",
+        label: "Campaigns",
+        operations: ["view", "create", "edit", "delete"],
+      },
+      {
         permissionKey: "sales.daybook",
         path: "/dashboard/sales/daybook",
         label: "Daybook / closing",

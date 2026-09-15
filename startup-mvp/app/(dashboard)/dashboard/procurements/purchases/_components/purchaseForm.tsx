@@ -55,7 +55,7 @@ import { Toaster } from "@/components/ui/toast";
 import { toast as sonnerToast } from "sonner";
 
 const purchaseItemSchema = z.object({
-  itemId: z.string().optional().nullable(),
+  itemId: z.string().min(1, "Item is required"),
   variantId: z.string().optional().nullable(),
   description: z.string().min(1, "Description is required"),
   quantity: z.coerce.number().positive("Quantity must be greater than 0"),
@@ -944,6 +944,11 @@ export default function PurchaseForm({
                               );
                             }}
                           />
+                          {errors.items?.[index]?.itemId && (
+                            <p className="text-xs text-destructive mt-1">
+                              {errors.items[index]?.itemId?.message}
+                            </p>
+                          )}
                         </td>
                         <td className="px-3 py-2 align-top">
                           <Input

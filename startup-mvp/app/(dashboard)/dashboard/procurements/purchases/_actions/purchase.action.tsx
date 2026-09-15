@@ -11,7 +11,7 @@ import { findControlAccount } from "@/app/(dashboard)/dashboard/accounts/voucher
 import { createUserLog, LogAction } from "@/lib/user-log";
 
 const purchaseItemSchema = z.object({
-  itemId: z.string().optional().nullable(),
+  itemId: z.string().min(1, "Item is required"),
   variantId: z.string().optional().nullable(),
   description: z.string().min(1, "Description is required"),
   quantity: z.coerce.number().positive("Quantity must be greater than 0"),

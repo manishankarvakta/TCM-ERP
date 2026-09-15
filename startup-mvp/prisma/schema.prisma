@@ -392,6 +392,7 @@ model Item {
   wholesaleDiscountAmount Decimal?                  @db.Decimal(12, 2)
   featuredImage           String?
   isPromo                 Boolean                   @default(false)
+  promoStartsAt           DateTime?
   promoEndsAt             DateTime?
   bomAsFinishedGood       BOM[]                     @relation("BOMFinishedGood")
   bomAsRawMaterial        BOMItem[]                 @relation("BOMRawMaterial")

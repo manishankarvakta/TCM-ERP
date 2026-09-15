@@ -622,8 +622,10 @@ export default function POSComponent({ items, clients: initialClients, warehouse
 
   const isPromoActive = (item: any) => {
     if (!item.isPromo) return true;
-    if (!item.promoEndsAt) return false;
-    return new Date() <= new Date(item.promoEndsAt);
+    const now = new Date();
+    if (item.promoStartsAt && now < new Date(item.promoStartsAt)) return false;
+    if (item.promoEndsAt && now > new Date(item.promoEndsAt)) return false;
+    return true;
   };
 
   const getBasePrice = (item: CartItem | Item, currentOrderType: "RETAIL" | "WHOLESALE") => {

@@ -370,6 +370,7 @@ export async function getItems(
         isEnableEcom: true,
         barcode: true,
         isPromo: true,
+        promoStartsAt: true,
         promoEndsAt: true,
         status: true,
         isTrash: true,
@@ -503,6 +504,7 @@ export async function getItemById(itemId: string) {
         isEnableEcom: true,
         barcode: true,
         isPromo: true,
+        promoStartsAt: true,
         promoEndsAt: true,
         status: true,
         isTrash: true,
@@ -918,6 +920,7 @@ export async function createItem(input: {
   isCustomerPointAvailable?: boolean;
   barcode?: string | null;
   isPromo?: boolean;
+  promoStartsAt?: Date | string | null;
   promoEndsAt?: Date | string | null;
   supplierIds?: string[];
   variants?: Array<{
@@ -1135,6 +1138,7 @@ export async function createItem(input: {
         isCustomerPointAvailable: input.isCustomerPointAvailable ?? true,
         barcode: finalBarcode,
         isPromo: input.isPromo ?? false,
+        promoStartsAt: input.promoStartsAt ? new Date(input.promoStartsAt) : null,
         promoEndsAt: input.promoEndsAt ? new Date(input.promoEndsAt) : null,
         isTrash: false,
         createdBy: session.user.id,
@@ -1178,6 +1182,7 @@ export async function createItem(input: {
         isEnableEcom: true,
         barcode: true,
         isPromo: true,
+        promoStartsAt: true,
         promoEndsAt: true,
         featuredImage: true,
         status: true,
@@ -1314,6 +1319,7 @@ export async function updateItem(input: {
   isCustomerPointAvailable?: boolean;
   barcode?: string | null;
   isPromo?: boolean;
+  promoStartsAt?: Date | string | null;
   promoEndsAt?: Date | string | null;
   supplierIds?: string[];
   variants?: Array<{
@@ -1553,6 +1559,7 @@ export async function updateItem(input: {
       isCustomerPointAvailable: input.isCustomerPointAvailable ?? true,
       barcode: finalBarcode,
       isPromo: input.isPromo ?? false,
+      promoStartsAt: input.promoStartsAt ? new Date(input.promoStartsAt) : null,
       promoEndsAt: input.promoEndsAt ? new Date(input.promoEndsAt) : null,
       suppliers: input.supplierIds ? { set: input.supplierIds.map((id) => ({ id })) } : undefined,
     };

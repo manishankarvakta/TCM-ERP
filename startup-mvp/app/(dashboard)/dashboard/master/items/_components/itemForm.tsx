@@ -77,6 +77,7 @@ const itemFormSchema = z.object({
   isCustomerPointDisabled: z.boolean().default(false),
   barcode: z.string().optional().nullable(),
   isPromo: z.boolean().default(false),
+  promoStartsAt: z.union([z.string(), z.date()]).optional().nullable(),
   promoEndsAt: z.union([z.string(), z.date()]).optional().nullable(),
 }).superRefine((data, ctx) => {
   if (data.itemType === "READY_PRODUCT" || data.itemType === "RETAIL") {
@@ -261,6 +262,9 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
           isCustomerPointDisabled: (initialData as any).isCustomerPointAvailable === false,
           barcode: initialData.barcode || "",
           isPromo: (initialData as any).isPromo || false,
+          promoStartsAt: (initialData as any).promoStartsAt 
+            ? new Date((initialData as any).promoStartsAt).toISOString().split('T')[0] 
+            : "",
           promoEndsAt: (initialData as any).promoEndsAt 
             ? new Date((initialData as any).promoEndsAt).toISOString().split('T')[0] 
             : "",
@@ -292,6 +296,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
           isCustomerPointDisabled: false,
           barcode: "",
           isPromo: false,
+          promoStartsAt: "",
           promoEndsAt: "",
         },
   });
@@ -438,6 +443,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
         isCustomerPointAvailable: !data.isCustomerPointDisabled,
         barcode: data.barcode || undefined,
         isPromo: data.isPromo,
+        promoStartsAt: data.promoStartsAt ? (data.promoStartsAt instanceof Date ? data.promoStartsAt.toISOString() : new Date(data.promoStartsAt).toISOString()) : null,
         promoEndsAt: data.promoEndsAt ? (data.promoEndsAt instanceof Date ? data.promoEndsAt.toISOString() : new Date(data.promoEndsAt).toISOString()) : null,
         variants: (data.itemType === "RETAIL" || data.itemType === "READY_PRODUCT") ? variants.filter(v => v.enabled).map((v) => ({
           id: v.id,
@@ -879,15 +885,26 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                       </div>
 
                       {watch("isPromo") && (
-                        <div className="space-y-2 flex-1 max-w-sm">
-                          <Label htmlFor="promoEndsAt" className="text-xs">Promotion Expiration Date *</Label>
-                          <Input
-                            id="promoEndsAt"
-                            type="date"
-                            {...register("promoEndsAt")}
-                            disabled={loading}
-                            required={watch("isPromo")}
-                          />
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-1 max-w-xl">
+                          <div className="space-y-2">
+                            <Label htmlFor="promoStartsAt" className="text-xs">Promotion Start Date (Optional)</Label>
+                            <Input
+                              id="promoStartsAt"
+                              type="date"
+                              {...register("promoStartsAt")}
+                              disabled={loading}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="promoEndsAt" className="text-xs">Promotion Expiration Date *</Label>
+                            <Input
+                              id="promoEndsAt"
+                              type="date"
+                              {...register("promoEndsAt")}
+                              disabled={loading}
+                              required={watch("isPromo")}
+                            />
+                          </div>
                         </div>
                       )}
                     </div>

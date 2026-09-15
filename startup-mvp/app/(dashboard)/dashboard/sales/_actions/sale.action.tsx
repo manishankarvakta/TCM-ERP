@@ -2001,7 +2001,7 @@ export async function createSale(input: z.infer<typeof saleSchema>) {
 
         const dbItems = await tx.item.findMany({
           where: { id: { in: itemIds } },
-          select: { id: true, wholesalePrice: true, wholesaleDiscountAmount: true, salesPrice: true, isPromo: true, promoEndsAt: true }
+          select: { id: true, wholesalePrice: true, wholesaleDiscountAmount: true, salesPrice: true, isPromo: true, promoStartsAt: true, promoEndsAt: true }
         });
 
         const dbVariants = variantIds.length > 0 ? await tx.productVariant.findMany({
@@ -2014,11 +2014,14 @@ export async function createSale(input: z.infer<typeof saleSchema>) {
           const variantDb = item.variantId ? dbVariants.find(v => v.id === item.variantId) : null;
           
           let basePrice = item.unitPrice;
+          const isPromoActive = !itemDb?.isPromo || (
+            (!itemDb?.promoStartsAt || new Date() >= new Date(itemDb.promoStartsAt)) &&
+            (!itemDb?.promoEndsAt || new Date() <= new Date(itemDb.promoEndsAt))
+          );
           if (variantDb) {
             if (variantDb.wholesalePrice !== null) {
               basePrice = Number(variantDb.wholesalePrice);
             } else if (variantDb.wholesaleDiscountAmount !== null) {
-              const isPromoActive = !itemDb?.isPromo || (itemDb?.promoEndsAt && new Date() <= new Date(itemDb.promoEndsAt));
               const wsDiscount = isPromoActive ? Number(variantDb.wholesaleDiscountAmount) : 0;
               basePrice = Number(variantDb.salesPrice || itemDb?.salesPrice || 0) - wsDiscount;
             } else if (variantDb.salesPrice !== null) {
@@ -2028,7 +2031,6 @@ export async function createSale(input: z.infer<typeof saleSchema>) {
             if (itemDb.wholesalePrice !== null) {
               basePrice = Number(itemDb.wholesalePrice);
             } else if (itemDb.wholesaleDiscountAmount !== null) {
-              const isPromoActive = !itemDb.isPromo || (itemDb.promoEndsAt && new Date() <= new Date(itemDb.promoEndsAt));
               const wsDiscount = isPromoActive ? Number(itemDb.wholesaleDiscountAmount) : 0;
               basePrice = Number(itemDb.salesPrice || 0) - wsDiscount;
             } else if (itemDb.salesPrice !== null) {
@@ -2341,7 +2343,7 @@ export async function updateSale(input: z.infer<typeof updateSaleSchema>) {
 
         const dbItems = await tx.item.findMany({
           where: { id: { in: itemIds } },
-          select: { id: true, wholesalePrice: true, wholesaleDiscountAmount: true, salesPrice: true, isPromo: true, promoEndsAt: true }
+          select: { id: true, wholesalePrice: true, wholesaleDiscountAmount: true, salesPrice: true, isPromo: true, promoStartsAt: true, promoEndsAt: true }
         });
 
         const dbVariants = variantIds.length > 0 ? await tx.productVariant.findMany({
@@ -2354,11 +2356,14 @@ export async function updateSale(input: z.infer<typeof updateSaleSchema>) {
           const variantDb = item.variantId ? dbVariants.find(v => v.id === item.variantId) : null;
           
           let basePrice = item.unitPrice;
+          const isPromoActive = !itemDb?.isPromo || (
+            (!itemDb?.promoStartsAt || new Date() >= new Date(itemDb.promoStartsAt)) &&
+            (!itemDb?.promoEndsAt || new Date() <= new Date(itemDb.promoEndsAt))
+          );
           if (variantDb) {
             if (variantDb.wholesalePrice !== null) {
               basePrice = Number(variantDb.wholesalePrice);
             } else if (variantDb.wholesaleDiscountAmount !== null) {
-              const isPromoActive = !itemDb?.isPromo || (itemDb?.promoEndsAt && new Date() <= new Date(itemDb.promoEndsAt));
               const wsDiscount = isPromoActive ? Number(variantDb.wholesaleDiscountAmount) : 0;
               basePrice = Number(variantDb.salesPrice || itemDb?.salesPrice || 0) - wsDiscount;
             } else if (variantDb.salesPrice !== null) {
@@ -2368,7 +2373,6 @@ export async function updateSale(input: z.infer<typeof updateSaleSchema>) {
             if (itemDb.wholesalePrice !== null) {
               basePrice = Number(itemDb.wholesalePrice);
             } else if (itemDb.wholesaleDiscountAmount !== null) {
-              const isPromoActive = !itemDb.isPromo || (itemDb.promoEndsAt && new Date() <= new Date(itemDb.promoEndsAt));
               const wsDiscount = isPromoActive ? Number(itemDb.wholesaleDiscountAmount) : 0;
               basePrice = Number(itemDb.salesPrice || 0) - wsDiscount;
             } else if (itemDb.salesPrice !== null) {
