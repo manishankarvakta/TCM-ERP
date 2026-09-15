@@ -55,6 +55,11 @@ export default async function RosterPage({ searchParams }: RosterPageProps) {
     );
   }
 
+  const canCreate = await hasPermission(userId, "hr.roster", "create");
+  const canEdit = await hasPermission(userId, "hr.roster", "edit");
+  const canBulkGenerate = await hasPermission(userId, "hr.roster", "bulk_generate");
+  const canClearMonth = await hasPermission(userId, "hr.roster", "clear_month");
+
   return (
     <div className="p-6 space-y-6 max-w-[1600px] mx-auto">
       {/* Page Header */}
@@ -71,7 +76,15 @@ export default async function RosterPage({ searchParams }: RosterPageProps) {
       </div>
 
       {/* Roster Matrix Board Client */}
-      <RosterMatrixClient initialData={matrixRes.data} />
+      <RosterMatrixClient
+        initialData={matrixRes.data}
+        permissions={{
+          create: canCreate,
+          edit: canEdit,
+          bulkGenerate: canBulkGenerate,
+          clearMonth: canClearMonth,
+        }}
+      />
     </div>
   );
 }

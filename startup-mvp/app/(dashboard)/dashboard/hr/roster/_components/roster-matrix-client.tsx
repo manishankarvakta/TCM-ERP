@@ -79,9 +79,18 @@ interface RosterMatrixClientProps {
     shifts: ShiftData[];
     departments: DepartmentData[];
   };
+  permissions?: {
+    create?: boolean;
+    edit?: boolean;
+    bulkGenerate?: boolean;
+    clearMonth?: boolean;
+  };
 }
 
-export function RosterMatrixClient({ initialData }: RosterMatrixClientProps) {
+export function RosterMatrixClient({
+  initialData,
+  permissions = { create: true, edit: true, bulkGenerate: true, clearMonth: true },
+}: RosterMatrixClientProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -274,22 +283,26 @@ export function RosterMatrixClient({ initialData }: RosterMatrixClientProps) {
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleClearRange}
-            className="gap-1.5 text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200"
-          >
-            <FiTrash2 className="w-4 h-4" />
-            Clear Month
-          </Button>
+          {permissions.clearMonth && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleClearRange}
+              className="gap-1.5 text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200"
+            >
+              <FiTrash2 className="w-4 h-4" />
+              Clear Month
+            </Button>
+          )}
 
-          <RosterGeneratorDialog
-            shifts={shifts}
-            departments={departments}
-            currentMonthStr={monthStr}
-            onSuccess={() => router.refresh()}
-          />
+          {permissions.bulkGenerate && (
+            <RosterGeneratorDialog
+              shifts={shifts}
+              departments={departments}
+              currentMonthStr={monthStr}
+              onSuccess={() => router.refresh()}
+            />
+          )}
         </div>
       </div>
 

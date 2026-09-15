@@ -58,7 +58,9 @@ export type CustomOperation =
   | "photo-upload"
   | "approve_manager"
   | "approve_hr"
-  | "reject";
+  | "reject"
+  | "bulk_generate"
+  | "clear_month";
 
 // Standard operations for pages (as per requirements)
 export type StandardOperation = "create" | "view" | "edit" | "move-to-trash" | "delete-permanently";
@@ -463,6 +465,8 @@ export const OPERATIONS: Record<Operation, OperationMetadata> = {
   approve_manager: { id: "approve_manager", label: "Approve as Manager", description: "Approve leave requests as Manager", category: "custom" },
   approve_hr: { id: "approve_hr", label: "Approve as HR", description: "Final approval for leave requests as HR", category: "custom" },
   reject: { id: "reject", label: "Reject Request", description: "Reject leave requests", category: "custom" },
+  bulk_generate: { id: "bulk_generate", label: "Bulk Roster Generator", description: "Generate bulk duty roster schedules", category: "custom" },
+  clear_month: { id: "clear_month", label: "Clear Month", description: "Clear month duty roster schedules", category: "custom" },
 };
 
 // Helper function to get all modules
@@ -762,7 +766,7 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
         permissionKey: "hr.roster",
         path: "/dashboard/hr/roster",
         label: "Duty Roster",
-        operations: ["view", "create", "edit"],
+        operations: ["view", "create", "edit", "bulk_generate", "clear_month"],
       },
       {
         permissionKey: "hr.holidays",

@@ -260,11 +260,12 @@ export async function bulkGenerateRoster(input: {
     }
 
     const userId = session.user.id;
-    const canCreate =
+    const canBulkGenerate =
+      (await hasPermission(userId, "hr.roster", "bulk_generate")) ||
       (await hasPermission(userId, "hr.roster", "create")) ||
       (await hasPermission(userId, "hr.attendance", "create"));
 
-    if (!canCreate) {
+    if (!canBulkGenerate) {
       return { success: false, error: "Permission denied" };
     }
 
@@ -385,11 +386,12 @@ export async function clearRosterRange(input: {
     }
 
     const userId = session.user.id;
-    const canEdit =
+    const canClearMonth =
+      (await hasPermission(userId, "hr.roster", "clear_month")) ||
       (await hasPermission(userId, "hr.roster", "edit")) ||
       (await hasPermission(userId, "hr.attendance", "edit"));
 
-    if (!canEdit) {
+    if (!canClearMonth) {
       return { success: false, error: "Permission denied" };
     }
 
