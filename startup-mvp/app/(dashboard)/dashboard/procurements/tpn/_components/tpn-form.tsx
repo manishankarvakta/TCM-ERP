@@ -37,6 +37,19 @@ import { getItemVariants } from "../../../master/items/_actions/item.action";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 
+const isDiscreteUnit = (unit?: string | null): boolean => {
+  if (!unit) return false;
+  const norm = unit.trim().toLowerCase();
+  const discreteUnits = [
+    "pcs", "pc", "pcs.", "pc.", "piece", "pieces",
+    "box", "boxes", "ctn", "carton", "cartons",
+    "pack", "packs", "packet", "packets", "pkt",
+    "bag", "bags", "set", "sets", "doz", "dozen",
+    "pair", "pairs", "roll", "rolls", "can", "cans", "bottle", "bottles"
+  ];
+  return discreteUnits.includes(norm);
+};
+
 
 // Schema
 const tpnSchema = z.object({
@@ -408,8 +421,12 @@ export default function TpnForm({ warehouses, items, user }: TpnFormProps) {
                   <TableBody>
                     {fields.map((field, index) => {
                       const selectedItem = items.find(i => i.id === form.getValues(`items.${index}.itemId`));
-                      
                       const itemVal = watchedItems[index];
+                      const itemUnit = selectedItem?.unit?.symbol || selectedItem?.unit;
+                      const isIntegerOnlyUnit = isDiscreteUnit(itemUnit);
+                      const tpnQtyVal = Number(itemVal?.quantity);
+                      const isFractionalQtyError = isIntegerOnlyUnit && !isNaN(tpnQtyVal) && tpnQtyVal % 1 !== 0;
+                      
                       let rate = 0;
                       if (selectedItem) {
                         if (itemVal?.variantId) {
@@ -503,11 +520,27 @@ export default function TpnForm({ warehouses, items, user }: TpnFormProps) {
                         <TableCell>
                           <Input 
                             type="number" 
-                            step="any" 
-                            min="0.000001"
-                            className="text-center"
-                            {...form.register(`items.${index}.quantity`, { valueAsNumber: true })} 
+                            step={isIntegerOnlyUnit ? "1" : "any"} 
+                            min={isIntegerOnlyUnit ? "1" : "0.000001"}
+                            className={cn(
+                              "text-center",
+                              isFractionalQtyError && "border-destructive focus-visible:ring-destructive text-destructive font-semibold"
+                            )}
+                            {...form.register(`items.${index}.quantity`, {
+                              valueAsNumber: true,
+                              validate: (val) => {
+                                if (isIntegerOnlyUnit && val != null && !isNaN(val) && val % 1 !== 0) {
+                                  return `Transfer quantity for ${itemUnit || "Pcs"} must be a whole number`;
+                                }
+                                return true;
+                              }
+                            })} 
                           />
+                          {(form.formState.errors.items?.[index]?.quantity || isFractionalQtyError) && (
+                            <p className="text-xs text-destructive mt-1 text-center font-medium">
+                              {form.formState.errors.items?.[index]?.quantity?.message || `Must be a whole number (${itemUnit || "Pcs"})`}
+                            </p>
+                          )}
                         </TableCell>
                         <TableCell className="text-right font-mono text-sm pr-4 align-middle">
                           {formatCurrency(rate)}
