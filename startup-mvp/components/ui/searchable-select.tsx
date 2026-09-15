@@ -59,7 +59,7 @@ export function SearchableSelect({
   };
 
   const filteredOptions = React.useMemo(() => {
-    if (!searchQuery) return options.slice(0, 50);
+    if (!searchQuery) return options.slice(0, 200);
     
     const query = searchQuery.toLowerCase();
     return options
@@ -69,7 +69,7 @@ export function SearchableSelect({
           option.description?.toLowerCase().includes(query) ||
           option.value.toLowerCase().includes(query)
       )
-      .slice(0, 50);
+      .slice(0, 200);
   }, [options, searchQuery]);
 
   const handleSelect = (selectedValue: string) => {

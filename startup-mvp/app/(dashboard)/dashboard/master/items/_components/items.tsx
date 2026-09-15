@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
   Table,
   TableBody,
@@ -100,11 +101,20 @@ interface Pagination {
   totalPages: number;
 }
 
+interface SupplierItem {
+  id: string;
+  name: string | null;
+  company: string | null;
+  supplierCode: string | null;
+}
+
 interface ItemsListClientProps {
   initialItems: Item[];
   initialPagination: Pagination;
   initialSearch: string;
   initialItemType?: ItemType | "all";
+  initialSupplierId?: string;
+  suppliers?: SupplierItem[];
   isTrash?: boolean;
 }
 
@@ -113,12 +123,25 @@ export default function ItemsListClient({
   initialPagination,
   initialSearch,
   initialItemType = "all",
+  initialSupplierId = "all",
+  suppliers = [],
   isTrash = false,
 }: ItemsListClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [search, setSearch] = useState(initialSearch);
   const [itemTypeFilter, setItemTypeFilter] = useState<ItemType | "all">(initialItemType);
+  const [supplierIdFilter, setSupplierIdFilter] = useState<string>(initialSupplierId);
+  const supplierOptions = useMemo(() => {
+    return [
+      { label: "All Suppliers", value: "all" },
+      ...suppliers.map((sup) => ({
+        label: sup.name || sup.company || sup.supplierCode || "Unnamed Supplier",
+        value: sup.id,
+        description: sup.supplierCode || sup.company || undefined,
+      })),
+    ];
+  }, [suppliers]);
   const [deleteItemId, setDeleteItemId] = useState<string | null>(null);
   const [restoreItemId, setRestoreItemId] = useState<string | null>(null);
   const [stockErrorMsg, setStockErrorMsg] = useState<string | null>(null);
@@ -202,6 +225,14 @@ export default function ItemsListClient({
     setItemTypeFilter(value);
     const params = new URLSearchParams(searchParams.toString());
     if (value !== "all") params.set("itemType", value); else params.delete("itemType");
+    params.set("page", "1");
+    router.push(`/dashboard/master/items?${params.toString()}`);
+  };
+
+  const handleSupplierFilter = (value: string) => {
+    setSupplierIdFilter(value);
+    const params = new URLSearchParams(searchParams.toString());
+    if (value !== "all") params.set("supplierId", value); else params.delete("supplierId");
     params.set("page", "1");
     router.push(`/dashboard/master/items?${params.toString()}`);
   };
@@ -432,18 +463,33 @@ export default function ItemsListClient({
           <Input placeholder="Search..." value={search} onChange={(e) => handleSearch(e.target.value)} className="pl-10" />
         </div>
         {!isTrash && (
-          <Select value={itemTypeFilter} onValueChange={handleItemTypeFilter}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Types</SelectItem>
-              <SelectItem value="RAW_MATERIAL">Raw Material</SelectItem>
-              <SelectItem value="READY_PRODUCT">Ready Product</SelectItem>
-              <SelectItem value="RETAIL">Retail</SelectItem>
-              <SelectItem value="WHOLESALE">Wholesale</SelectItem>
-            </SelectContent>
-          </Select>
+          <>
+            <Select value={itemTypeFilter} onValueChange={handleItemTypeFilter}>
+              <SelectTrigger className="w-[160px]">
+                <SelectValue placeholder="Type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="RAW_MATERIAL">Raw Material</SelectItem>
+                <SelectItem value="READY_PRODUCT">Ready Product</SelectItem>
+                <SelectItem value="RETAIL">Retail</SelectItem>
+                <SelectItem value="WHOLESALE">Wholesale</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {suppliers && suppliers.length > 0 && (
+              <div className="w-[220px]">
+                <SearchableSelect
+                  options={supplierOptions}
+                  value={supplierIdFilter}
+                  onValueChange={(val) => handleSupplierFilter(val || "all")}
+                  placeholder="Filter by Supplier"
+                  searchPlaceholder="Search supplier..."
+                  emptyMessage="No suppliers found."
+                />
+              </div>
+            )}
+          </>
         )}
         <div className="flex items-center gap-2">
           {selectedItems.size > 0 && <span className="text-sm text-muted-foreground">{selectedItems.size} selected</span>}

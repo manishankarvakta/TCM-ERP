@@ -16,12 +16,14 @@ interface ExportItemsButtonProps {
   search?: string;
   tab?: string;
   itemType?: ItemType | "all";
+  supplierId?: string;
 }
 
 export default function ExportItemsButton({
   search = "",
   tab = "all",
   itemType,
+  supplierId,
 }: ExportItemsButtonProps) {
   const [isExporting, setIsExporting] = useState(false);
   const { toast } = useToast();
@@ -34,6 +36,7 @@ export default function ExportItemsButton({
       if (search) params.set("search", search);
       if (tab) params.set("tab", tab);
       if (itemType && itemType !== "all") params.set("itemType", itemType);
+      if (supplierId && supplierId !== "all") params.set("supplierId", supplierId);
 
       const url = `/api/export/items?${params.toString()}`;
 

@@ -1,5 +1,5 @@
 import React from "react";
-import { getItems } from "./_actions/item.action";
+import { getItems, getActiveSuppliers } from "./_actions/item.action";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from "next/link";
@@ -18,6 +18,7 @@ interface ItemsPageProps {
     search?: string;
     tab?: string;
     itemType?: string;
+    supplierId?: string;
     limit?: string;
   }>;
 };
@@ -29,18 +30,22 @@ export default async function ItemsPage({ searchParams }: ItemsPageProps) {
   const search = params.search || "";
   const tab = params.tab || "all";
   const itemType = params.itemType as ItemType | undefined;
+  const supplierId = params.supplierId || "all";
 
   const session = await auth();
   const userId = session?.user?.id;
 
   // Check permissions on server side for better performance
-  const [result, canView, canEdit, canMoveToTrash, canDeletePermanently] = await Promise.all([
-    getItems(page, limit, search, tab === "trash" ? "trash" : "all", itemType),
+  const [result, suppliersResult, canView, canEdit, canMoveToTrash, canDeletePermanently] = await Promise.all([
+    getItems(page, limit, search, tab === "trash" ? "trash" : "all", itemType, supplierId),
+    getActiveSuppliers(),
     userId ? hasPermission(userId, "master.items", "view") : false,
     userId ? hasPermission(userId, "master.items", "edit") : false,
     userId ? hasPermission(userId, "master.items", "move-to-trash") : false,
     userId ? hasPermission(userId, "master.items", "delete-permanently") : false,
   ]);
+
+  const suppliers = suppliersResult.success ? suppliersResult.suppliers : [];
 
   // Handle errors
   if (!result.success) {
@@ -74,7 +79,7 @@ export default async function ItemsPage({ searchParams }: ItemsPageProps) {
             <p className="text-sm text-muted-foreground">Manage items in your system</p>
           </div>
           <div className="flex items-center gap-2">
-            <ExportItemsButton search={search} tab={tab} itemType={itemType} />
+            <ExportItemsButton search={search} tab={tab} itemType={itemType} supplierId={supplierId} />
             {tab !== "trash" && canEdit && (
               <Button asChild>
                 <Link href="/dashboard/master/items/add">
@@ -107,6 +112,8 @@ export default async function ItemsPage({ searchParams }: ItemsPageProps) {
             }}
             initialSearch={search}
             initialItemType={itemType || "all"}
+            initialSupplierId={supplierId}
+            suppliers={suppliers}
             isTrash={false}
           />
         </TabsContent>
@@ -121,6 +128,8 @@ export default async function ItemsPage({ searchParams }: ItemsPageProps) {
             }}
             initialSearch={search}
             initialItemType="all"
+            initialSupplierId="all"
+            suppliers={suppliers}
             isTrash={true}
           />
           </TabsContent>

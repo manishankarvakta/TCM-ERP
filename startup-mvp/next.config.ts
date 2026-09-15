@@ -42,6 +42,8 @@ const nextConfig: NextConfig = {
   // Enable standalone output for Docker
   output: 'standalone',
 
+  serverExternalPackages: ['bullmq'],
+
   experimental: {
     serverActions: {
       bodySizeLimit: '50mb',
@@ -84,6 +86,15 @@ const nextConfig: NextConfig = {
         permanent: true,
       },
     ];
+  },
+
+  webpack: (config) => {
+    config.resolve = config.resolve || {};
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@valkey/valkey-glide': false,
+    };
+    return config;
   },
 };
 

@@ -214,6 +214,45 @@ export async function getActiveUnits() {
 }
 
 /**
+ * Get active suppliers for dropdowns
+ */
+export async function getActiveSuppliers() {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized", suppliers: [] };
+    }
+
+    const suppliers = await prisma.supplier.findMany({
+      where: {
+        status: "active",
+      },
+      select: {
+        id: true,
+        name: true,
+        company: true,
+        supplierCode: true,
+      },
+      orderBy: {
+        name: "asc",
+      },
+    });
+
+    return {
+      success: true,
+      suppliers,
+    };
+  } catch (error) {
+    console.error("getActiveSuppliers error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to fetch suppliers",
+      suppliers: [],
+    };
+  }
+}
+
+/**
  * Get paginated list of items with search
  */
 export async function getItems(
@@ -379,9 +418,18 @@ export async function getItems(
 
     const totalPages = Math.ceil(total / limit);
 
+    const serializedItems = items.map((item) => ({
+      ...item,
+      costPrice: item.costPrice ? Number(item.costPrice) : 0,
+      salesPrice: item.salesPrice ? Number(item.salesPrice) : null,
+      wholesalePrice: item.wholesalePrice ? Number(item.wholesalePrice) : null,
+      wholesaleDiscountAmount: item.wholesaleDiscountAmount ? Number(item.wholesaleDiscountAmount) : null,
+      discount: item.discount ? Number(item.discount) : null,
+    }));
+
     return {
       success: true,
-      items,
+      items: serializedItems,
       pagination: {
         page,
         limit,

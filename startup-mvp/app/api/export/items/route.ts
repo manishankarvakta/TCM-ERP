@@ -23,6 +23,7 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get("search") || "";
     const tab = searchParams.get("tab") || "all";
     const itemType = searchParams.get("itemType");
+    const supplierId = searchParams.get("supplierId");
 
     const where: any = {};
 
@@ -43,6 +44,14 @@ export async function GET(req: NextRequest) {
 
     if (itemType && itemType !== "all") {
       where.itemType = itemType as ItemType;
+    }
+
+    if (supplierId && supplierId !== "all") {
+      where.suppliers = {
+        some: {
+          id: supplierId,
+        },
+      };
     }
 
     const items = await prisma.item.findMany({

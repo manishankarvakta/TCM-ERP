@@ -324,12 +324,13 @@ export default function PurchaseForm({
   const watchedSupplierId = watch("supplierId");
 
   const filteredItemsForSelect = useMemo(() => {
-    let list = items;
-    if (watchedSupplierId) {
-      list = list.filter((item: any) => {
-        return !item.supplierIds || item.supplierIds.length === 0 || item.supplierIds.includes(watchedSupplierId);
-      });
+    if (!watchedSupplierId) {
+      return [];
     }
+
+    let list = items.filter((item: any) => {
+      return Array.isArray(item.supplierIds) && item.supplierIds.includes(watchedSupplierId);
+    });
 
     if (!itemSearch) return list;
     const searchLower = itemSearch.toLowerCase();
@@ -934,7 +935,7 @@ export default function PurchaseForm({
                                         ))
                                       ) : (
                                         <div className="px-2 py-4 text-sm text-muted-foreground text-center">
-                                          {itemSearch ? "No items found" : "All items already selected"}
+                                          {!watchedSupplierId ? "Please select a supplier first" : itemSearch ? "No items found" : "All supplier items already selected"}
                                         </div>
                                       )}
                                     </div>
