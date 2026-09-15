@@ -9,10 +9,46 @@ export interface LeaveApplicationPrintTemplateProps {
   reason?: string;
   dateText?: string;
   daysCount?: string;
+  // Dynamic Organization Details
+  organization?: {
+    name?: string | null;
+    details?: string | null;
+    address?: string | null;
+    phone?: string | null;
+    email?: string | null;
+    website?: string | null;
+    logo?: string | null;
+  } | null;
+  // Dynamic Approver / Signature Names
+  signatures?: {
+    applicantName?: string | null;
+    supervisorName?: string | null;
+    hrAdminName?: string | null;
+    managingDirectorName?: string | null;
+  } | null;
 }
 
 const LeaveApplicationPrintTemplate = forwardRef<HTMLDivElement, LeaveApplicationPrintTemplateProps>(
-  ({ cardNoOrDept, employeeName, designation, reason, dateText, daysCount }, ref) => {
+  ({ cardNoOrDept, employeeName, designation, reason, dateText, daysCount, organization, signatures }, ref) => {
+    // Dynamic Organization fallbacks
+    const orgName = organization?.name || "FERRARI FASHION LTD.";
+    const orgDetails = organization?.details || "Garments Manufacturing & Export Industry • HR & Payroll Department";
+    const orgAddress = organization?.address || "Ashulia, Savar, Dhaka, Bangladesh";
+    const orgPhone = organization?.phone || "+880 19 5658 2108";
+    const orgEmail = organization?.email || "info@ferrarifashion.com";
+
+    const rawLogo = organization?.logo;
+    const logoUrl =
+      rawLogo && rawLogo.trim() !== "" && rawLogo !== "null" && rawLogo !== "undefined"
+        ? rawLogo
+        : "/main_logo.png";
+
+    // Dynamic Signatures fallbacks
+    const applicantName = signatures?.applicantName || employeeName || "";
+    const supervisorName = signatures?.supervisorName || "";
+    const hrAdminName = signatures?.hrAdminName || "";
+    const mdName = signatures?.managingDirectorName || "";
+
     return (
       <div
         ref={ref}
@@ -43,30 +79,55 @@ const LeaveApplicationPrintTemplate = forwardRef<HTMLDivElement, LeaveApplicatio
 
         {/* TOP SECTION */}
         <div className="space-y-5">
-          {/* Executive Company Header */}
-          <div className="border-b-2 border-black pb-3 text-center">
-            <h1 className="text-2xl font-extrabold tracking-tight text-black uppercase">
-              FERRARI FASHION LTD.
-            </h1>
-            <p className="text-lg font-semibold text-gray-800">ফেরারী ফ্যাশন লিমিটেড</p>
-            <p className="text-xs text-gray-600 mt-0.5">
-              Garments Manufacturing & Export Industry • HR & Payroll Department
-            </p>
-            <div className="mt-2.5 inline-block bg-black text-white px-4 py-1 text-sm font-bold rounded uppercase tracking-wider print:bg-black print:text-white">
-              LEAVE APPLICATION FORM / ছুটির আবেদনপত্র
+          {/* Executive Dynamic Company Header */}
+          <div className="border-b-2 border-black pb-3">
+            <div className="flex items-center justify-between gap-4">
+              {/* Organization Logo */}
+              <div className="w-20 h-20 flex-shrink-0 flex items-center justify-center border border-gray-200 rounded p-1">
+                <img
+                  src={logoUrl}
+                  alt={orgName}
+                  className="max-h-16 max-w-16 object-contain"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    if (target.src !== "/main_logo.png") {
+                      target.src = "/main_logo.png";
+                    }
+                  }}
+                />
+              </div>
+
+              {/* Organization Info */}
+              <div className="text-center grow">
+                <h1 className="text-2xl font-extrabold tracking-tight text-black uppercase">
+                  {orgName}
+                </h1>
+                {orgDetails && <p className="text-xs font-semibold text-gray-800 mt-0.5">{orgDetails}</p>}
+                <p className="text-[11px] text-gray-600 mt-0.5">
+                  {[orgAddress, orgPhone, orgEmail].filter(Boolean).join(" • ")}
+                </p>
+              </div>
+
+              {/* Form Ref Box */}
+              <div className="text-right text-xs border border-black p-2 rounded shrink-0">
+                <p>তারিখ / Date: <span className="font-bold underline">{new Date().toLocaleDateString("en-GB")}</span></p>
+                <p className="mt-1 font-semibold text-gray-700">ফর্ম নং: FFL-HR-LV-01</p>
+              </div>
+            </div>
+
+            <div className="mt-2 text-center">
+              <div className="inline-block bg-black text-white px-4 py-1 text-xs font-bold rounded uppercase tracking-wider print:bg-black print:text-white">
+                LEAVE APPLICATION FORM / ছুটির আবেদনপত্র
+              </div>
             </div>
           </div>
 
-          {/* Recipient Header & Form Ref */}
+          {/* Recipient Header */}
           <div className="flex justify-between items-start text-sm leading-relaxed pt-1">
             <div>
               <p className="font-semibold">বরাবর,</p>
               <p className="font-semibold">ব্যবস্থাপনা পরিচালক / মানবসম্পদ বিভাগ</p>
-              <p className="font-bold text-gray-900">ফেরারী ফ্যাশন লিমিটেড</p>
-            </div>
-            <div className="text-right text-xs border border-black p-2 rounded">
-              <p>তারিখ / Date: <span className="font-bold underline">{new Date().toLocaleDateString("en-GB")}</span></p>
-              <p className="mt-1 font-semibold text-gray-700">ফর্ম নং / Form Ref: FFL-HR-LV-01</p>
+              <p className="font-bold text-gray-900">{orgName}</p>
             </div>
           </div>
 
@@ -181,27 +242,59 @@ const LeaveApplicationPrintTemplate = forwardRef<HTMLDivElement, LeaveApplicatio
             </div>
           </div>
 
-          {/* 4-Column Authoritative Signature Block */}
+          {/* 4-Column Authoritative Dynamic Signature Block */}
           <div className="pt-4 border-t-2 border-gray-300">
-            <div className="grid grid-cols-4 gap-2 text-center text-xs font-bold">
-              <div className="flex flex-col justify-between h-16">
-                <div className="border-b border-black mx-2"></div>
-                <p>আবেদনকারীর স্বাক্ষর<br /><span className="text-[10px] font-normal text-gray-600">(Applicant)</span></p>
+            <div className="grid grid-cols-4 gap-2 text-center text-xs">
+              {/* Applicant */}
+              <div className="flex flex-col justify-between h-20">
+                <div className="border-b border-black mx-2 min-h-[32px] flex items-end justify-center pb-1">
+                  {applicantName && (
+                    <span className="font-semibold text-[11px] text-gray-800 leading-tight">{applicantName}</span>
+                  )}
+                </div>
+                <div>
+                  <p className="font-bold">আবেদনকারীর স্বাক্ষর</p>
+                  <p className="text-[10px] font-normal text-gray-600">(Applicant)</p>
+                </div>
               </div>
 
-              <div className="flex flex-col justify-between h-16">
-                <div className="border-b border-black mx-2"></div>
-                <p>সুপারভাইজার / সেকশন ইনচার্জ<br /><span className="text-[10px] font-normal text-gray-600">(Supervisor)</span></p>
+              {/* Supervisor / Manager */}
+              <div className="flex flex-col justify-between h-20">
+                <div className="border-b border-black mx-2 min-h-[32px] flex items-end justify-center pb-1">
+                  {supervisorName && (
+                    <span className="font-semibold text-[11px] text-gray-800 leading-tight">{supervisorName}</span>
+                  )}
+                </div>
+                <div>
+                  <p className="font-bold">সুপারভাইজার / ম্যানেজার</p>
+                  <p className="text-[10px] font-normal text-gray-600">(Supervisor)</p>
+                </div>
               </div>
 
-              <div className="flex flex-col justify-between h-16">
-                <div className="border-b border-black mx-2"></div>
-                <p>এইচআর / অ্যাডমিন বিভাগ<br /><span className="text-[10px] font-normal text-gray-600">(HR & Admin)</span></p>
+              {/* HR / Admin */}
+              <div className="flex flex-col justify-between h-20">
+                <div className="border-b border-black mx-2 min-h-[32px] flex items-end justify-center pb-1">
+                  {hrAdminName && (
+                    <span className="font-semibold text-[11px] text-gray-800 leading-tight">{hrAdminName}</span>
+                  )}
+                </div>
+                <div>
+                  <p className="font-bold">এইচআর / অ্যাডমিন বিভাগ</p>
+                  <p className="text-[10px] font-normal text-gray-600">(HR & Admin)</p>
+                </div>
               </div>
 
-              <div className="flex flex-col justify-between h-16">
-                <div className="border-b border-black mx-2"></div>
-                <p>ব্যবস্থাপনা পরিচালক / কর্তৃপক্ষ<br /><span className="text-[10px] font-normal text-gray-600">(Managing Director)</span></p>
+              {/* Managing Director */}
+              <div className="flex flex-col justify-between h-20">
+                <div className="border-b border-black mx-2 min-h-[32px] flex items-end justify-center pb-1">
+                  {mdName && (
+                    <span className="font-semibold text-[11px] text-gray-800 leading-tight">{mdName}</span>
+                  )}
+                </div>
+                <div>
+                  <p className="font-bold">ব্যবস্থাপনা পরিচালক / কর্তৃপক্ষ</p>
+                  <p className="text-[10px] font-normal text-gray-600">(Managing Director)</p>
+                </div>
               </div>
             </div>
           </div>
@@ -214,4 +307,5 @@ const LeaveApplicationPrintTemplate = forwardRef<HTMLDivElement, LeaveApplicatio
 LeaveApplicationPrintTemplate.displayName = "LeaveApplicationPrintTemplate";
 
 export default LeaveApplicationPrintTemplate;
+
 

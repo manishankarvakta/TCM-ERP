@@ -2,6 +2,7 @@ import React from "react";
 import { getLeaveApplicationById } from "../_actions/leave-application.action";
 import { auth } from "@/lib/auth";
 import { hasPermission } from "@/lib/permissions";
+import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -18,9 +19,10 @@ interface LeaveDetailsPageProps {
 export default async function LeaveDetailsPage({ params }: LeaveDetailsPageProps) {
   const { id } = await params;
   
-  const [session, result] = await Promise.all([
+  const [session, result, organization] = await Promise.all([
     auth(),
-    getLeaveApplicationById(id)
+    getLeaveApplicationById(id),
+    prisma.organization.findFirst({ where: { status: "active" } }).catch(() => null)
   ]);
 
   if (!result.success || !result.leaveApplication) {
@@ -49,9 +51,11 @@ export default async function LeaveDetailsPage({ params }: LeaveDetailsPageProps
 
         <LeaveDetailsClient 
           leaveApplication={result.leaveApplication} 
+          organization={organization}
           permissions={{ edit: canApproveOrEdit }} 
         />
       </div>
     </PageGuard>
   );
 }
+

@@ -17,12 +17,13 @@ import LeaveApplicationPrintTemplate from "@/components/hr/print/leave-applicati
 
 interface LeaveDetailsClientProps {
   leaveApplication: any;
+  organization?: any;
   permissions: {
     edit: boolean;
   };
 }
 
-export default function LeaveDetailsClient({ leaveApplication, permissions }: LeaveDetailsClientProps) {
+export default function LeaveDetailsClient({ leaveApplication, organization, permissions }: LeaveDetailsClientProps) {
   const { toast } = useToast();
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -52,7 +53,7 @@ export default function LeaveDetailsClient({ leaveApplication, permissions }: Le
     });
   };
 
-  const handleAdminFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAttachmentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -60,7 +61,7 @@ export default function LeaveDetailsClient({ leaveApplication, permissions }: Le
       setIsUploading(true);
       const formData = new FormData();
       formData.append("file", file);
-      formData.append("path", "leave-attachments");
+      formData.append("directory", "leave-attachments");
 
       const res = await fetch("/api/files/upload", {
         method: "POST",
@@ -68,11 +69,8 @@ export default function LeaveDetailsClient({ leaveApplication, permissions }: Le
       });
 
       const json = await res.json();
-      if (json.success && json.data?.key) {
-        const fileKey = json.data.key;
-        const fileUrl = `/api/files/${encodeURIComponent(fileKey)}`;
-        
-        const updateRes = await updateLeaveAttachment(app.id, fileUrl);
+      if (res.ok && json.url) {
+        const updateRes = await updateLeaveAttachment(app.id, json.url);
         if (updateRes.success) {
           toast({ title: "Success", description: "Attachment updated successfully." });
           router.refresh();
@@ -127,6 +125,13 @@ export default function LeaveDetailsClient({ leaveApplication, permissions }: Le
               : `${format(new Date(app.startDate), "dd/MM/yyyy")} হতে ${format(new Date(app.endDate), "dd/MM/yyyy")}`
           }
           daysCount={`${app.totalDays}`}
+          organization={organization}
+          signatures={{
+            applicantName: app.employee.name,
+            supervisorName: app.manager?.name || null,
+            hrAdminName: app.hr?.name || null,
+            managingDirectorName: null,
+          }}
         />
       </div>
 
@@ -210,7 +215,7 @@ export default function LeaveDetailsClient({ leaveApplication, permissions }: Le
                       accept="image/*,.pdf,.doc,.docx"
                       className="hidden"
                       disabled={isUploading}
-                      onChange={handleAdminFileUpload}
+                      onChange={handleAttachmentUpload}
                     />
                     <Button variant="outline" size="sm" asChild disabled={isUploading}>
                       <span>

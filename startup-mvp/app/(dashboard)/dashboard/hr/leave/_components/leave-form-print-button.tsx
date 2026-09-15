@@ -6,7 +6,11 @@ import { Button } from "@/components/ui/button";
 import { FiPrinter } from "react-icons/fi";
 import LeaveApplicationPrintTemplate from "@/components/hr/print/leave-application-print-template";
 
-export default function LeaveFormPrintButton() {
+interface LeaveFormPrintButtonProps {
+  organization?: any;
+}
+
+export default function LeaveFormPrintButton({ organization }: LeaveFormPrintButtonProps) {
   const componentRef = useRef<HTMLDivElement>(null);
 
   const handlePrint = useReactToPrint({
@@ -17,7 +21,7 @@ export default function LeaveFormPrintButton() {
   return (
     <>
       <div style={{ display: "none" }}>
-        <LeaveApplicationPrintTemplate ref={componentRef} />
+        <LeaveApplicationPrintTemplate ref={componentRef} organization={organization} />
       </div>
       <Button variant="outline" onClick={() => handlePrint()}>
         <FiPrinter className="mr-2 h-4 w-4" />
