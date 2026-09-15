@@ -148,6 +148,30 @@ export default function RTVForm({ suppliers, warehouses, items, purchase }: any)
   }, [skuModalIndex, watchedItems]);
   const watchedTax = watch("tax");
   const watchedWarehouseId = watch("warehouseId");
+  const watchedSupplierId = watch("supplierId");
+
+  const filteredItemsForSelect = useMemo(() => {
+    if (!watchedSupplierId) {
+      return [];
+    }
+
+    let list = items.filter((item: any) => {
+      return Array.isArray(item.supplierIds) && item.supplierIds.includes(watchedSupplierId);
+    });
+
+    if (!itemSearch) return list;
+    const searchLower = itemSearch.toLowerCase();
+    return list.filter(
+      (item: any) =>
+        item.code?.toLowerCase().includes(searchLower) ||
+        item.description?.toLowerCase().includes(searchLower) ||
+        (item.barcode && item.barcode.toLowerCase().includes(searchLower)) ||
+        item.variants?.some((v: any) => 
+          (v.sku && v.sku.toLowerCase().includes(searchLower)) ||
+          (v.barcode && v.barcode.toLowerCase().includes(searchLower))
+        )
+    );
+  }, [items, itemSearch, watchedSupplierId]);
 
   // Fetch ALL stocks for warehouse when warehouse changes
   useEffect(() => {
@@ -494,7 +518,9 @@ export default function RTVForm({ suppliers, warehouses, items, purchase }: any)
                       .filter((val): val is { itemId: string; variantId: string | null } => !!val && !!val.itemId);
                     
                     // Filter out already selected items (only if all variants are selected, or it has no variants and is selected)
-                    const availableItems = items.filter((item: any) => {
+                    const availableItems = filteredItemsForSelect.filter((item: any) => {
+                      const currentItemId = watch(`items.${index}.itemId`);
+                      if (currentItemId && item.id === currentItemId) return true;
                       const hasVariants = item.variants && item.variants.length > 0;
                       if (!hasVariants) {
                         return !otherSelectedItems.some(osi => osi.itemId === item.id);
@@ -643,11 +669,11 @@ export default function RTVForm({ suppliers, warehouses, items, purchase }: any)
                                               </div>
                                             </SelectItem>
                                           ))
-                                        ) : (
-                                          <div className="px-2 py-4 text-sm text-muted-foreground text-center">
-                                            No items found
-                                          </div>
-                                        )}
+                                         ) : (
+                                           <div className="px-2 py-4 text-sm text-muted-foreground text-center">
+                                             {!watchedSupplierId ? "Please select a supplier first" : itemSearch ? "No items found" : "All supplier items already selected"}
+                                           </div>
+                                         )}
                                       </div>
                                     </SelectContent>
                                   </Select>
