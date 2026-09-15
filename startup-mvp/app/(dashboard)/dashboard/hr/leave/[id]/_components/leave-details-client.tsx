@@ -34,9 +34,9 @@ export default function LeaveDetailsClient({ leaveApplication, organization, per
   const [modalOpen, setModalOpen] = useState(false);
   const componentRef = useRef<HTMLDivElement>(null);
 
-  const canApproveManager = permissions.approveManager ?? permissions.edit;
-  const canApproveHR = permissions.approveHR ?? permissions.edit;
-  const canReject = permissions.reject ?? permissions.edit;
+  const canApproveManager = Boolean(permissions.approveManager);
+  const canApproveHR = Boolean(permissions.approveHR);
+  const canReject = Boolean(permissions.reject);
   const hasAnyApprovalAction = canApproveManager || canApproveHR || canReject;
 
   const app = leaveApplication;

@@ -38,9 +38,9 @@ export default async function LeaveDetailsPage({ params }: LeaveDetailsPageProps
 
   const permissions = {
     edit: canEdit,
-    approveManager: canApproveManager || canApproveGeneric || canEdit,
-    approveHR: canApproveHR || canApproveGeneric || canEdit,
-    reject: canReject || canApproveGeneric || canEdit,
+    approveManager: canApproveManager || canApproveGeneric,
+    approveHR: canApproveHR || canApproveGeneric,
+    reject: canReject || canApproveGeneric,
   };
 
   return (

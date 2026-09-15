@@ -219,26 +219,26 @@ export async function updateLeaveStatus(id: string, newStatus: LeaveStatus) {
       return { success: false, error: "Unauthorized" };
     }
 
-    // Require granular or general approve / edit permission to update leave status
-    const canEdit = await hasPermission(session.user.id, "hr.leave", "edit");
+    // Require granular or general approve permission to update leave status
     const canApproveGeneric = await hasPermission(session.user.id, "hr.leave", "approve");
 
     if (newStatus === "MANAGER_APPROVED") {
       const canApproveManager = await hasPermission(session.user.id, "hr.leave", "approve_manager");
-      if (!canApproveManager && !canApproveGeneric && !canEdit) {
+      if (!canApproveManager && !canApproveGeneric) {
         return { success: false, error: "You don't have permission to approve leave as Manager" };
       }
     } else if (newStatus === "HR_APPROVED") {
       const canApproveHR = await hasPermission(session.user.id, "hr.leave", "approve_hr");
-      if (!canApproveHR && !canApproveGeneric && !canEdit) {
+      if (!canApproveHR && !canApproveGeneric) {
         return { success: false, error: "You don't have permission to approve leave as HR" };
       }
     } else if (newStatus === "REJECTED") {
       const canReject = await hasPermission(session.user.id, "hr.leave", "reject");
-      if (!canReject && !canApproveGeneric && !canEdit) {
+      if (!canReject && !canApproveGeneric) {
         return { success: false, error: "You don't have permission to reject leave requests" };
       }
     } else {
+      const canEdit = await hasPermission(session.user.id, "hr.leave", "edit");
       if (!canApproveGeneric && !canEdit) {
         return { success: false, error: "You don't have permission to update leave status" };
       }
