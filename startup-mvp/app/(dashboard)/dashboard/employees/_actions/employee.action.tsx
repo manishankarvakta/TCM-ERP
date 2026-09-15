@@ -2212,18 +2212,18 @@ export async function getEmployeeLedger(
       },
     });
 
-    // Query Loans, Fines, and Bonuses for this employee
+    // Query Loans, Fines, and Bonuses for this employee (APPROVED only)
     const [loans, fines, bonuses] = await Promise.all([
       prisma.employeeLoan.findMany({
-        where: { employeeId: employeeId },
+        where: { employeeId: employeeId, status: "APPROVED" },
         orderBy: { createdAt: "asc" },
       }),
       prisma.employeeFine.findMany({
-        where: { employeeId: employeeId },
+        where: { employeeId: employeeId, status: "APPROVED" },
         orderBy: { createdAt: "asc" },
       }),
       prisma.employeeBonus.findMany({
-        where: { employeeId: employeeId },
+        where: { employeeId: employeeId, status: "APPROVED" },
         orderBy: { createdAt: "asc" },
       }),
     ]);
