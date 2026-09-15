@@ -207,6 +207,25 @@ async function generateUniqueItemSlug(baseSlug?: string | null, excludeId?: stri
 }
 
 /**
+ * Generate a unique 7-digit numeric item code for import fallbacks
+ */
+async function generateUnique7DigitItemCode(): Promise<string> {
+  let unique = false;
+  let code = "";
+  while (!unique) {
+    code = Math.floor(1000000 + Math.random() * 9000000).toString();
+    const existing = await prisma.item.findFirst({
+      where: { code },
+      select: { id: true },
+    });
+    if (!existing) {
+      unique = true;
+    }
+  }
+  return code;
+}
+
+/**
  * Get available import modules
  */
 export async function getImportModulesAction(): Promise<{
@@ -1031,7 +1050,7 @@ export async function executeImportAction(
             continue;
           }
 
-          const finalCode = codeVal || `ITM-${Date.now().toString().slice(-6)}-${Math.floor(100 + Math.random() * 900)}`;
+          const finalCode = codeVal || (await generateUnique7DigitItemCode());
           const itemSlug = await generateUniqueItemSlug(String(row.name).trim());
 
           await prisma.item.create({

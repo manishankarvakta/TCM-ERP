@@ -1249,19 +1249,46 @@ export default function POSComponent({ items, clients: initialClients, warehouse
 
       if (!matchesOrderType) return false;
 
-      const matchesCode = item.code?.toLowerCase() === prefix7 || (item.code && (prefix7 === item.code.toLowerCase() || codeStr.startsWith(item.code.toLowerCase())));
-      const matchesBarcode = item.barcode?.toLowerCase() === prefix7 || (item.barcode && (prefix7 === item.barcode.toLowerCase() || codeStr.startsWith(item.barcode.toLowerCase())));
-      const matchesDesc = item.description?.toLowerCase() === prefix7 || (item.description && (prefix7 === item.description.toLowerCase() || codeStr.startsWith(item.description.toLowerCase())));
-      const matchesName = item.name?.toLowerCase() === prefix7 || (item.name && (prefix7 === item.name.toLowerCase() || codeStr.startsWith(item.name.toLowerCase())));
+      const matchesCode = Boolean(
+        item.code && (
+          item.code.toLowerCase() === prefix7 ||
+          prefix7 === item.code.toLowerCase() ||
+          codeStr.startsWith(item.code.toLowerCase())
+        )
+      );
+      const matchesBarcode = Boolean(
+        item.barcode && (
+          item.barcode.toLowerCase() === prefix7 ||
+          prefix7 === item.barcode.toLowerCase() ||
+          codeStr.startsWith(item.barcode.toLowerCase())
+        )
+      );
+      const matchesDesc = Boolean(
+        item.description && (
+          item.description.toLowerCase() === prefix7 ||
+          prefix7 === item.description.toLowerCase() ||
+          codeStr.startsWith(item.description.toLowerCase())
+        )
+      );
+      const matchesName = Boolean(
+        item.name && (
+          item.name.toLowerCase() === prefix7 ||
+          prefix7 === item.name.toLowerCase() ||
+          codeStr.startsWith(item.name.toLowerCase())
+        )
+      );
       const matchesVariant = item.variants?.some(
-        (v) => v.sku?.toLowerCase() === prefix7 || v.barcode?.toLowerCase() === prefix7 || (v.sku && (prefix7 === v.sku.toLowerCase() || codeStr.startsWith(v.sku.toLowerCase()))) || (v.barcode && (prefix7 === v.barcode.toLowerCase() || codeStr.startsWith(v.barcode.toLowerCase())))
+        (v) => (v.sku && (v.sku.toLowerCase() === prefix7 || codeStr.startsWith(v.sku.toLowerCase()))) ||
+               (v.barcode && (v.barcode.toLowerCase() === prefix7 || codeStr.startsWith(v.barcode.toLowerCase())))
       );
 
       return matchesCode || matchesBarcode || matchesDesc || matchesName || matchesVariant;
     });
 
-    // Prioritize item that has isWeighingScale enabled
-    const targetItem = matchingItems.find(i => i.isWeighingScale) || matchingItems[0];
+    // Prioritize item that has isWeighingScale enabled and matches code or barcode
+    const targetItem = matchingItems.find(i => i.isWeighingScale && (i.code?.toLowerCase() === prefix7 || i.barcode?.toLowerCase() === prefix7))
+      || matchingItems.find(i => i.isWeighingScale)
+      || matchingItems[0];
 
     if (targetItem) {
       if (!targetItem.isWeighingScale) {

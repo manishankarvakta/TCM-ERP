@@ -11,35 +11,42 @@ import { type Prisma, ItemType } from "@prisma/client";
 /**
  * Generate unique item code based on item type
  */
+/**
+ * Generate unique 7-digit purely numeric item code (no dashes or special characters)
+ */
 async function generateItemCode(itemType: ItemType): Promise<string> {
-  const prefix = {
-    RAW_MATERIAL: "RM",
-    READY_PRODUCT: "RP",
-    RETAIL: "RT",
-    WHOLESALE: "WS",
-  }[itemType];
-  
-  const year = new Date().getFullYear();
-  const pattern = `${prefix}-${year}-`;
-  
-  // Find last code with this pattern
-  const lastItem = await prisma.item.findFirst({
-    where: { 
-      code: { startsWith: pattern },
-    },
-    orderBy: { code: "desc" },
+  const items = await prisma.item.findMany({
+    select: { code: true }
   });
-  
-  let sequence = 1;
-  if (lastItem) {
-    const parts = lastItem.code.split("-");
-    if (parts.length >= 3) {
-      const lastSeq = parseInt(parts[2] || "0");
-      sequence = lastSeq + 1;
+
+  let maxNum = 1000000;
+  for (const item of items) {
+    if (/^\d{7}$/.test(item.code)) {
+      const val = parseInt(item.code, 10);
+      if (val > maxNum) {
+        maxNum = val;
+      }
     }
   }
-  
-  return `${prefix}-${year}-${String(sequence).padStart(4, "0")}`;
+
+  let nextNum = maxNum + 1;
+  let code = String(nextNum).slice(0, 7);
+
+  let unique = false;
+  while (!unique) {
+    const existing = await prisma.item.findFirst({
+      where: { code },
+      select: { id: true }
+    });
+    if (!existing) {
+      unique = true;
+    } else {
+      nextNum++;
+      code = String(nextNum).slice(0, 7);
+    }
+  }
+
+  return code;
 }
 
 /**
