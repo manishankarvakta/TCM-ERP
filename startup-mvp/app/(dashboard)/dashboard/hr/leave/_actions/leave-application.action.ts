@@ -141,6 +141,7 @@ export async function applyForLeave(input: {
   endDate: string;
   totalDays: number;
   reason?: string;
+  attachmentUrl?: string;
 }) {
   try {
     const session = await auth();
@@ -156,6 +157,7 @@ export async function applyForLeave(input: {
         endDate: new Date(input.endDate),
         totalDays: input.totalDays,
         reason: input.reason,
+        attachmentUrl: input.attachmentUrl || null,
         status: "PENDING",
         createdBy: session.user.id,
       },
@@ -168,6 +170,41 @@ export async function applyForLeave(input: {
   } catch (error) {
     console.error("applyForLeave error:", error);
     return { success: false, error: error instanceof Error ? error.message : "Failed to apply for leave" };
+  }
+}
+
+/**
+ * Update or attach document to an existing Leave Application (HR / Admin)
+ */
+export async function updateLeaveAttachment(id: string, attachmentUrl: string | null) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const canEdit = await hasPermission(session.user.id, "hr.leave", "edit");
+    if (!canEdit) {
+      return { success: false, error: "You don't have permission to update leave attachments" };
+    }
+
+    const oldApp = await prisma.leaveApplication.findUnique({ where: { id } });
+    if (!oldApp) {
+      return { success: false, error: "Leave application not found" };
+    }
+
+    const leaveApp = await prisma.leaveApplication.update({
+      where: { id },
+      data: { attachmentUrl },
+    });
+
+    await logItemUpdated(session.user.id, "LeaveApplication", id, ["Updated attachment"], oldApp as any, leaveApp as any);
+    revalidateBothPaths("hr/leave");
+
+    return { success: true, leaveApplication: leaveApp };
+  } catch (error) {
+    console.error("updateLeaveAttachment error:", error);
+    return { success: false, error: error instanceof Error ? error.message : "Failed to update attachment" };
   }
 }
 

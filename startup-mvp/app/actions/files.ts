@@ -403,6 +403,13 @@ export async function getFileUsages(storageKey: string): Promise<FileUsage[]> {
     });
     sales.forEach(s => addUsage("Sale", s.saleNumber, s.id));
 
+    // 8. Check Leave Applications
+    const leaveApps = await prisma.leaveApplication.findMany({
+      where: { attachmentUrl: { contains: storageKey } },
+      select: { id: true, reason: true }
+    });
+    leaveApps.forEach(l => addUsage("LeaveApplication", `Leave Application #${l.id.substring(0, 6)}`, l.id));
+
   } catch (error) {
     console.error("Error checking file usage:", error);
   }

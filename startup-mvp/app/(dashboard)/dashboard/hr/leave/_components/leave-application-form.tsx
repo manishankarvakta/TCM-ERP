@@ -128,6 +128,47 @@ export default function LeaveApplicationForm() {
     }
   }, [selectedEmployeeId]);
 
+  const [attachmentUrl, setAttachmentUrl] = useState<string>("");
+  const [attachmentName, setAttachmentName] = useState<string>("");
+  const [uploadingFile, setUploadingFile] = useState(false);
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setUploadingFile(true);
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("path", "leave-attachments");
+
+      const res = await fetch("/api/files/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const json = await res.json();
+      if (json.success && json.data?.key) {
+        const fileKey = json.data.key;
+        const fileUrl = `/api/files/${encodeURIComponent(fileKey)}`;
+        setAttachmentUrl(fileUrl);
+        setAttachmentName(file.name);
+        toast({ title: "Success", description: "Document uploaded successfully." });
+      } else {
+        throw new Error(json.error || "File upload failed.");
+      }
+    } catch (err) {
+      console.error("File upload error:", err);
+      toast({
+        title: "Upload Failed",
+        description: err instanceof Error ? err.message : "Failed to upload document",
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingFile(false);
+    }
+  };
+
   const onSubmit = async (data: LeaveApplicationFormData) => {
     try {
       setLoading(true);
@@ -137,15 +178,10 @@ export default function LeaveApplicationForm() {
         throw new Error("Invalid date range.");
       }
 
-      if (selectedBalance && selectedBalance.remainingDays < requestedDays && selectedBalance.totalDays > 0) {
-        // Warning, but let's allow it maybe they take unpaid
-        // Actually, if it's unpaid it shouldn't matter. If paid, maybe restrict?
-        // Let's just pass a warning, but for MVP allow submission and HR can reject or convert to unpaid.
-      }
-
       const result = await applyForLeave({
         ...data,
         totalDays: requestedDays,
+        attachmentUrl: attachmentUrl || undefined,
       });
 
       if (!result.success) {
@@ -284,6 +320,44 @@ export default function LeaveApplicationForm() {
                       className="resize-none"
                       rows={4}
                     />
+                  </div>
+
+                  <div className="col-span-1 md:col-span-2 space-y-2">
+                    <Label htmlFor="attachment">Supporting Document / Photo (Optional)</Label>
+                    <div className="flex flex-col gap-2">
+                      <Input
+                        id="attachment"
+                        type="file"
+                        accept="image/*,.pdf,.doc,.docx"
+                        disabled={loading || uploadingFile}
+                        onChange={handleFileChange}
+                      />
+                      {uploadingFile && (
+                        <p className="text-xs text-muted-foreground animate-pulse">Uploading file...</p>
+                      )}
+                      {attachmentUrl && (
+                        <div className="flex items-center justify-between p-2 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-md text-xs">
+                          <span className="font-medium text-emerald-700 dark:text-emerald-300 truncate max-w-[280px]">
+                            Attachment Uploaded: {attachmentName || attachmentUrl.split('/').pop()}
+                          </span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 text-destructive hover:bg-destructive/10"
+                            onClick={() => {
+                              setAttachmentUrl("");
+                              setAttachmentName("");
+                            }}
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                      )}
+                      <p className="text-[11px] text-muted-foreground">
+                        Attach medical certificates, prescription photos, or official documents (Max 10MB).
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>

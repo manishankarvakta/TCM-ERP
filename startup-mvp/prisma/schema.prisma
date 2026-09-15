@@ -1467,6 +1467,7 @@ model LeaveApplication {
   endDate     DateTime     @db.Date
   totalDays   Int
   reason      String?
+  attachmentUrl String?
   status      LeaveStatus  @default(PENDING)
   managerId   String?
   hrId        String?
