@@ -972,11 +972,17 @@ export default function POSScreenModern({
                                   return;
                                 }
                                 let val = parseFloat(rawVal);
-                                if (isNaN(val)) val = 1;
+                                if (isNaN(val)) val = 0;
                                 if (isIntegerOnlyUnit && val % 1 !== 0) {
-                                  val = Math.round(val) || 1;
+                                  val = Math.round(val);
                                 }
                                 handleCustomQuantitySet(item.cartKey, val);
+                              }}
+                              onBlur={(e) => {
+                                const val = parseFloat(e.target.value);
+                                if (isNaN(val) || val < 0) {
+                                  handleCustomQuantitySet(item.cartKey, 0);
+                                }
                               }}
                               onKeyDown={(e) => {
                                 if (e.key === "Enter") {

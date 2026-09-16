@@ -516,8 +516,8 @@ export default function POSScreenStandard({
                         }}
                         onBlur={(e) => {
                           const val = parseFloat(e.target.value);
-                          if (isNaN(val) || val <= 0) {
-                            handleRemoveItem(item.cartKey);
+                          if (isNaN(val) || val < 0) {
+                            handleCustomQuantitySet(item.cartKey, 0);
                           }
                         }}
                         className="text-sm font-semibold w-14 text-center text-foreground bg-background border border-border/80 rounded-md outline-none focus:border-primary/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none py-0.5 px-0.5 m-0"

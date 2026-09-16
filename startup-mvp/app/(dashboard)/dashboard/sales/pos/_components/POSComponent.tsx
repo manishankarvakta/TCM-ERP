@@ -1181,10 +1181,10 @@ export default function POSComponent({ items, clients: initialClients, warehouse
       return prev.map((i) => {
         if (i.cartKey === cartKey) {
           const newQ = i.cartQuantity + delta;
-          return { ...i, cartQuantity: newQ };
+          return { ...i, cartQuantity: newQ < 0 && !i.isReturnItem ? 0 : newQ };
         }
         return i;
-      }).filter((i) => i.cartQuantity !== 0);
+      });
     });
   };
 
@@ -1223,7 +1223,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
           return { ...i, cartQuantity: qty };
         }
         return i;
-      }).filter((i) => i.cartQuantity !== 0);
+      });
     });
   };
 
