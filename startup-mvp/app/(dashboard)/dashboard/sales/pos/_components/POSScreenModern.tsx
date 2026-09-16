@@ -878,7 +878,7 @@ export default function POSScreenModern({
                   <th className="py-2.5 px-3">Product</th>
                   <th className="py-2.5 px-3 text-center">Stock</th>
                   <th className="py-2.5 px-3 text-right">Price</th>
-                  <th className="py-2.5 px-3 text-center w-28">Quantity</th>
+                  <th className="py-2.5 px-3 text-center w-36">Quantity</th>
                   <th className="py-2.5 px-3 text-right">Sub-Total</th>
                   <th className="py-2.5 px-2 w-10 text-center"></th>
                 </tr>
@@ -896,8 +896,10 @@ export default function POSScreenModern({
                 ) : (
                   sortedCart.map((item, index) => {
                     const itemQty = item.cartQuantity || item.quantity || 1;
-                    const itemUnit = (typeof item.unit === "object" ? item.unit?.symbol : item.unit) || item.unitSymbol;
+                    const itemUnit = item.unit || item.unitName || item.unitType || item.unit_name || item.uom;
                     const isIntegerOnlyUnit = isDiscreteUnit(itemUnit);
+                    const isFractionalQtyError = isIntegerOnlyUnit && itemQty != null && itemQty % 1 !== 0;
+
                     const lineUnitPrice = item.unitPrice || getItemLineUnitPrice(item) || 0;
                     const lineTotal = lineUnitPrice * itemQty;
                     const itemStock =
@@ -949,11 +951,20 @@ export default function POSScreenModern({
                           ৳{lineUnitPrice.toFixed(2)}
                         </td>
                         <td className="py-2.5 px-3 text-center">
-                          <div className="inline-flex items-center border border-border rounded bg-background overflow-hidden p-0.5">
+                          <div className={`inline-flex items-center border rounded bg-background overflow-hidden p-0.5 transition-colors ${
+                            isFractionalQtyError ? "border-destructive ring-1 ring-destructive" : "border-border"
+                          }`}>
                             <button
                               type="button"
-                              className="w-6 h-6 flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground rounded"
-                              onClick={() => handleUpdateQuantity(item.cartKey, -1)}
+                              className="w-6 h-6 flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground rounded shrink-0"
+                              onClick={() => {
+                                if (isIntegerOnlyUnit && itemQty % 1 !== 0) {
+                                  const rounded = Math.max(1, Math.round(itemQty));
+                                  handleCustomQuantitySet(item.cartKey, rounded);
+                                } else {
+                                  handleUpdateQuantity(item.cartKey, -1);
+                                }
+                              }}
                             >
                               <FaMinus className="w-2.5 h-2.5" />
                             </button>
@@ -963,28 +974,32 @@ export default function POSScreenModern({
                               }}
                               type="number"
                               step={isIntegerOnlyUnit ? "1" : "any"}
-                              min="0"
+                              min={isIntegerOnlyUnit ? "1" : "0.0001"}
+                              title={isIntegerOnlyUnit ? `Quantity for ${itemUnit || "Pcs"} must be an integer (decimals blocked)` : "Quantity"}
                               value={itemQty === 0 ? "" : itemQty}
                               onChange={(e) => {
-                                const rawVal = e.target.value;
-                                if (rawVal === "") {
-                                  handleCustomQuantitySet(item.cartKey, 0);
-                                  return;
+                                if (isIntegerOnlyUnit) {
+                                  const sanitized = e.target.value.replace(/[^0-9]/g, "");
+                                  const val = parseInt(sanitized, 10);
+                                  handleCustomQuantitySet(item.cartKey, isNaN(val) ? 0 : val);
+                                } else {
+                                  const val = parseFloat(e.target.value);
+                                  handleCustomQuantitySet(item.cartKey, isNaN(val) ? 0 : val);
                                 }
-                                let val = parseFloat(rawVal);
-                                if (isNaN(val)) val = 0;
-                                if (isIntegerOnlyUnit && val % 1 !== 0) {
-                                  val = Math.round(val);
-                                }
-                                handleCustomQuantitySet(item.cartKey, val);
                               }}
                               onBlur={(e) => {
                                 const val = parseFloat(e.target.value);
                                 if (isNaN(val) || val < 0) {
                                   handleCustomQuantitySet(item.cartKey, 0);
+                                } else if (isIntegerOnlyUnit) {
+                                  handleCustomQuantitySet(item.cartKey, Math.max(0, Math.floor(val)));
                                 }
                               }}
                               onKeyDown={(e) => {
+                                if (isIntegerOnlyUnit && (e.key === "." || e.key === "," || e.key === "e" || e.key === "E" || e.key === "-" || e.key === "+")) {
+                                  e.preventDefault();
+                                  return;
+                                }
                                 if (e.key === "Enter") {
                                   e.preventDefault();
                                   if (searchInputRef.current) {
@@ -993,12 +1008,21 @@ export default function POSScreenModern({
                                   }
                                 }
                               }}
-                              className="w-10 text-center text-xs font-bold bg-transparent outline-none py-0.5 focus:bg-accent/60 focus:ring-1 focus:ring-primary rounded"
+                              className={`w-16 text-center text-xs font-bold bg-transparent outline-none py-0.5 focus:bg-accent/60 focus:ring-1 focus:ring-primary rounded ${
+                                isFractionalQtyError ? "text-destructive font-semibold" : ""
+                              }`}
                             />
                             <button
                               type="button"
-                              className="w-6 h-6 flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground rounded"
-                              onClick={() => handleUpdateQuantity(item.cartKey, 1)}
+                              className="w-6 h-6 flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground rounded shrink-0"
+                              onClick={() => {
+                                if (isIntegerOnlyUnit && itemQty % 1 !== 0) {
+                                  const rounded = Math.max(1, Math.round(itemQty));
+                                  handleCustomQuantitySet(item.cartKey, rounded);
+                                } else {
+                                  handleUpdateQuantity(item.cartKey, 1);
+                                }
+                              }}
                             >
                               <FaPlus className="w-2.5 h-2.5" />
                             </button>

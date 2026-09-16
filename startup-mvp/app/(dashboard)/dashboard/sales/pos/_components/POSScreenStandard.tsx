@@ -23,19 +23,6 @@ import {
 } from "react-icons/fa";
 import POSBottomToolbar from "./POSBottomToolbar";
 
-const isDiscreteUnit = (unit?: string | null): boolean => {
-  if (!unit) return false;
-  const norm = unit.trim().toLowerCase();
-  const discreteUnits = [
-    "pcs", "pc", "pcs.", "pc.", "piece", "pieces",
-    "box", "boxes", "ctn", "carton", "cartons",
-    "pack", "packs", "packet", "packets", "pkt",
-    "bag", "bags", "set", "sets", "doz", "dozen",
-    "pair", "pairs", "roll", "rolls", "can", "cans", "bottle", "bottles"
-  ];
-  return discreteUnits.includes(norm);
-};
-
 export interface POSScreenStandardProps {
   // Config & Catalog Props
   items: any[];
@@ -437,11 +424,7 @@ export default function POSScreenStandard({
                   <p>Your cart is empty</p>
                 </div>
               ) : (
-                sortedCart.map((item) => {
-                  const itemUnit = (typeof item.unit === "object" ? item.unit?.symbol : item.unit) || item.unitSymbol;
-                  const isIntegerOnlyUnit = isDiscreteUnit(itemUnit);
-
-                  return (
+                sortedCart.map((item) => (
                   <div key={item.cartKey} className="flex items-center gap-3">
                     <div className="w-12 h-12 bg-muted rounded-md shrink-0 flex items-center justify-center relative overflow-hidden">
                       {item.imageUrl ? (
@@ -498,21 +481,15 @@ export default function POSScreenStandard({
                       </button>
                       <input
                         type="number"
-                        step={isIntegerOnlyUnit ? "1" : "any"}
+                        step="any"
                         min="0"
                         value={item.cartQuantity === 0 ? "" : item.cartQuantity}
                         onChange={(e) => {
-                          const rawVal = e.target.value;
-                          if (rawVal === "") {
-                            handleCustomQuantitySet(item.cartKey, 0);
-                            return;
-                          }
-                          let val = parseFloat(rawVal);
-                          if (isNaN(val)) val = 0;
-                          if (isIntegerOnlyUnit && val % 1 !== 0) {
-                            val = Math.round(val);
-                          }
-                          handleCustomQuantitySet(item.cartKey, val);
+                          const val = parseFloat(e.target.value);
+                          handleCustomQuantitySet(
+                            item.cartKey,
+                            isNaN(val) ? 0 : val
+                          );
                         }}
                         onBlur={(e) => {
                           const val = parseFloat(e.target.value);
@@ -538,8 +515,7 @@ export default function POSScreenStandard({
                       <FaTrashAlt className="w-4 h-4" />
                     </button>
                   </div>
-                );
-              })
+                ))
               )}
             </div>
           </div>

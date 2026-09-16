@@ -29,19 +29,6 @@ import {
 } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 
-const isDiscreteUnit = (unit?: string | null): boolean => {
-  if (!unit) return false;
-  const norm = unit.trim().toLowerCase();
-  const discreteUnits = [
-    "pcs", "pc", "pcs.", "pc.", "piece", "pieces",
-    "box", "boxes", "ctn", "carton", "cartons",
-    "pack", "packs", "packet", "packets", "pkt",
-    "bag", "bags", "set", "sets", "doz", "dozen",
-    "pair", "pairs", "roll", "rolls", "can", "cans", "bottle", "bottles"
-  ];
-  return discreteUnits.includes(norm);
-};
-
 interface ItemVariant {
   id: string;
   sku: string;
@@ -1180,8 +1167,8 @@ export default function POSComponent({ items, clients: initialClients, warehouse
 
       return prev.map((i) => {
         if (i.cartKey === cartKey) {
-          const newQ = i.cartQuantity + delta;
-          return { ...i, cartQuantity: newQ < 0 && !i.isReturnItem ? 0 : newQ };
+          const newQ = Math.max(0, i.cartQuantity + delta);
+          return { ...i, cartQuantity: newQ };
         }
         return i;
       });
@@ -1193,12 +1180,6 @@ export default function POSComponent({ items, clients: initialClients, warehouse
 
     setCart((prev) => {
       const item = prev.find((i) => i.cartKey === cartKey);
-      if (item) {
-        const itemUnit = (typeof item.unit === "object" ? (item.unit as any)?.symbol : item.unit) || (item as any).unitSymbol;
-        if (isDiscreteUnit(itemUnit) && qty % 1 !== 0) {
-          qty = Math.round(qty);
-        }
-      }
       if (item && !isNegativeSaleAllowed && item.trackInventory && !isReturnMode) {
         let availableStock = 0;
         if (item.variantId) {
@@ -1220,7 +1201,8 @@ export default function POSComponent({ items, clients: initialClients, warehouse
 
       return prev.map((i) => {
         if (i.cartKey === cartKey) {
-          return { ...i, cartQuantity: qty };
+          const newQ = Math.max(0, qty);
+          return { ...i, cartQuantity: newQ };
         }
         return i;
       });
@@ -2229,20 +2211,22 @@ export default function POSComponent({ items, clients: initialClients, warehouse
 
     setIsProcessing(true);
     try {
-      const saleItems = cart.map((item) => ({
-        itemId: item.id,
-        variantId: item.variantId || null,
-        description: item.variantSku ? `${item.description} (${item.color} / ${item.size})` : item.description,
-        quantity: item.cartQuantity,
-        unitPrice: item.unitPrice,
-        amount: item.unitPrice * item.cartQuantity,
-      }));
+      const saleItems = cart
+        .filter((item) => item.cartQuantity > 0)
+        .map((item) => ({
+          itemId: item.id,
+          variantId: item.variantId || null,
+          description: item.variantSku ? `${item.description} (${item.color} / ${item.size})` : item.description,
+          quantity: item.cartQuantity,
+          unitPrice: item.unitPrice,
+          amount: item.unitPrice * item.cartQuantity,
+        }));
 
       const primaryPaymentMethod = effectiveCashAmount > 0 ? effectiveCashAccountId : (effectiveCardAmount > 0 ? effectiveCardAccountId : (effectiveMfsAmount > 0 ? effectiveMfsAccountId : "SPLIT"));
 
       if (isExchangeMode) {
         const returnItems = cart
-          .filter((i) => i.isReturnItem)
+          .filter((i) => i.isReturnItem && i.cartQuantity > 0)
           .map((i) => ({
             itemId: i.id,
             variantId: i.variantId || undefined,
@@ -2252,7 +2236,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
           }));
 
         const newItems = cart
-          .filter((i) => !i.isReturnItem)
+          .filter((i) => !i.isReturnItem && i.cartQuantity > 0)
           .map((i) => ({
             itemId: i.id,
             variantId: i.variantId || undefined,
