@@ -499,7 +499,7 @@ export default function POSScreenStandard({
                       <input
                         type="number"
                         step={isIntegerOnlyUnit ? "1" : "any"}
-                        min={isIntegerOnlyUnit ? "1" : "0.0001"}
+                        min="0"
                         value={item.cartQuantity === 0 ? "" : item.cartQuantity}
                         onChange={(e) => {
                           const rawVal = e.target.value;
@@ -508,9 +508,9 @@ export default function POSScreenStandard({
                             return;
                           }
                           let val = parseFloat(rawVal);
-                          if (isNaN(val)) val = 1;
+                          if (isNaN(val)) val = 0;
                           if (isIntegerOnlyUnit && val % 1 !== 0) {
-                            val = Math.round(val) || 1;
+                            val = Math.round(val);
                           }
                           handleCustomQuantitySet(item.cartKey, val);
                         }}

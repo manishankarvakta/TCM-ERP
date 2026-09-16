@@ -963,7 +963,7 @@ export default function POSScreenModern({
                               }}
                               type="number"
                               step={isIntegerOnlyUnit ? "1" : "any"}
-                              min={isIntegerOnlyUnit ? "1" : "0.0001"}
+                              min="0"
                               value={itemQty === 0 ? "" : itemQty}
                               onChange={(e) => {
                                 const rawVal = e.target.value;
