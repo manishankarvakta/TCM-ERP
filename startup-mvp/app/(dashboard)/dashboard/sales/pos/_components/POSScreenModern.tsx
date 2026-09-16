@@ -29,6 +29,19 @@ import { FiAward } from "react-icons/fi";
 import POSBottomToolbar from "./POSBottomToolbar";
 import POSSecurityModal from "./POSSecurityModal";
 
+const isDiscreteUnit = (unit?: string | null): boolean => {
+  if (!unit) return false;
+  const norm = unit.trim().toLowerCase();
+  const discreteUnits = [
+    "pcs", "pc", "pcs.", "pc.", "piece", "pieces",
+    "box", "boxes", "ctn", "carton", "cartons",
+    "pack", "packs", "packet", "packets", "pkt",
+    "bag", "bags", "set", "sets", "doz", "dozen",
+    "pair", "pairs", "roll", "rolls", "can", "cans", "bottle", "bottles"
+  ];
+  return discreteUnits.includes(norm);
+};
+
 export interface POSScreenModernProps {
   // Config & Catalog Props
   items: any[];
@@ -883,6 +896,8 @@ export default function POSScreenModern({
                 ) : (
                   sortedCart.map((item, index) => {
                     const itemQty = item.cartQuantity || item.quantity || 1;
+                    const itemUnit = (typeof item.unit === "object" ? item.unit?.symbol : item.unit) || item.unitSymbol;
+                    const isIntegerOnlyUnit = isDiscreteUnit(itemUnit);
                     const lineUnitPrice = item.unitPrice || getItemLineUnitPrice(item) || 0;
                     const lineTotal = lineUnitPrice * itemQty;
                     const itemStock =
@@ -947,12 +962,21 @@ export default function POSScreenModern({
                                 qtyInputRefs.current[index] = el;
                               }}
                               type="number"
-                              step="any"
-                              min="0.0001"
+                              step={isIntegerOnlyUnit ? "1" : "any"}
+                              min={isIntegerOnlyUnit ? "1" : "0.0001"}
                               value={itemQty === 0 ? "" : itemQty}
                               onChange={(e) => {
-                                const val = parseFloat(e.target.value);
-                                handleCustomQuantitySet(item.cartKey, isNaN(val) ? 1 : val);
+                                const rawVal = e.target.value;
+                                if (rawVal === "") {
+                                  handleCustomQuantitySet(item.cartKey, 0);
+                                  return;
+                                }
+                                let val = parseFloat(rawVal);
+                                if (isNaN(val)) val = 1;
+                                if (isIntegerOnlyUnit && val % 1 !== 0) {
+                                  val = Math.round(val) || 1;
+                                }
+                                handleCustomQuantitySet(item.cartKey, val);
                               }}
                               onKeyDown={(e) => {
                                 if (e.key === "Enter") {

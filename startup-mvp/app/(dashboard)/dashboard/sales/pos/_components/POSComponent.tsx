@@ -29,6 +29,19 @@ import {
 } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 
+const isDiscreteUnit = (unit?: string | null): boolean => {
+  if (!unit) return false;
+  const norm = unit.trim().toLowerCase();
+  const discreteUnits = [
+    "pcs", "pc", "pcs.", "pc.", "piece", "pieces",
+    "box", "boxes", "ctn", "carton", "cartons",
+    "pack", "packs", "packet", "packets", "pkt",
+    "bag", "bags", "set", "sets", "doz", "dozen",
+    "pair", "pairs", "roll", "rolls", "can", "cans", "bottle", "bottles"
+  ];
+  return discreteUnits.includes(norm);
+};
+
 interface ItemVariant {
   id: string;
   sku: string;
@@ -1180,6 +1193,12 @@ export default function POSComponent({ items, clients: initialClients, warehouse
 
     setCart((prev) => {
       const item = prev.find((i) => i.cartKey === cartKey);
+      if (item) {
+        const itemUnit = (typeof item.unit === "object" ? (item.unit as any)?.symbol : item.unit) || (item as any).unitSymbol;
+        if (isDiscreteUnit(itemUnit) && qty % 1 !== 0) {
+          qty = Math.round(qty);
+        }
+      }
       if (item && !isNegativeSaleAllowed && item.trackInventory && !isReturnMode) {
         let availableStock = 0;
         if (item.variantId) {
