@@ -32,6 +32,9 @@ export async function GET(req: NextRequest) {
         { name: { contains: search, mode: "insensitive" } },
         { code: { contains: search, mode: "insensitive" } },
         { description: { contains: search, mode: "insensitive" } },
+        { barcode: { contains: search, mode: "insensitive" } },
+        { variants: { some: { barcode: { contains: search, mode: "insensitive" } } } },
+        { variants: { some: { sku: { contains: search, mode: "insensitive" } } } },
       ];
     }
 
