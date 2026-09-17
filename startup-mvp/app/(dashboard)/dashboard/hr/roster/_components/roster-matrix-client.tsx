@@ -31,6 +31,7 @@ import {
   FiChevronRight,
 } from "react-icons/fi";
 import { RosterGeneratorDialog } from "./roster-generator-dialog";
+import { RosterPrintDialog } from "./roster-print-dialog";
 import { upsertRosterCell, clearRosterRange } from "../_actions/roster.action";
 import { toast } from "sonner";
 
@@ -319,6 +320,16 @@ export function RosterMatrixClient({
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2">
+          <RosterPrintDialog
+            currentMonthStr={monthStr}
+            daysInMonth={daysInMonth}
+            employees={employees}
+            rosterEntries={rosterEntries}
+            leaveEntries={leaveEntries}
+            shifts={shifts}
+            departments={departments}
+          />
+
           {permissions.clearMonth && (
             <Button
               variant="outline"
