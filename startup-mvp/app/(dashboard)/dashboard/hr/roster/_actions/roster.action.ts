@@ -250,6 +250,13 @@ export async function upsertRosterCell(input: {
       return { success: false, error: "Invalid date" };
     }
 
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+
+    if (dateStr < todayStr) {
+      return { success: false, error: "Previous dates cannot be edited" };
+    }
+
     // Overlay Strategy: If no custom shift and not an off-day, remove override entry
     if (shiftId === null && !isOffDay) {
       await prisma.employeeRoster.deleteMany({

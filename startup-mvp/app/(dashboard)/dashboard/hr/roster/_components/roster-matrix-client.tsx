@@ -260,6 +260,8 @@ export function RosterMatrixClient({
   };
 
   // Generate date columns metadata
+  const now = new Date();
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
   const [yearNum, monthNum] = monthStr.split("-").map(Number);
   const dateColumns = Array.from({ length: daysInMonth }, (_, i) => {
     const dayNum = i + 1;
@@ -267,7 +269,9 @@ export function RosterMatrixClient({
     const dayOfWeekStr = dateObj.toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" });
     const dateStr = `${monthStr}-${String(dayNum).padStart(2, "0")}`;
     const isWeekend = dateObj.getUTCDay() === 5 || dateObj.getUTCDay() === 6; // Fri / Sat
-    return { dayNum, dayOfWeekStr, dateStr, isWeekend };
+    const isPast = dateStr < todayStr;
+    const isToday = dateStr === todayStr;
+    return { dayNum, dayOfWeekStr, dateStr, isWeekend, isPast, isToday };
   });
 
   return (
@@ -394,10 +398,21 @@ export function RosterMatrixClient({
                 <th
                   key={col.dayNum}
                   className={`p-2 text-center border-r min-w-[90px] select-none ${
-                    col.isWeekend ? "bg-amber-500/10 text-amber-700 dark:text-amber-400" : ""
+                    col.isToday
+                      ? "bg-emerald-500/20 text-emerald-900 dark:text-emerald-200 font-bold border-b-2 border-b-emerald-600"
+                      : col.isWeekend
+                      ? "bg-amber-500/10 text-amber-700 dark:text-amber-400"
+                      : ""
                   }`}
                 >
-                  <div className="font-semibold">{col.dayNum}</div>
+                  <div className="font-semibold flex items-center justify-center gap-1">
+                    {col.dayNum}
+                    {col.isToday && (
+                      <span className="text-[9px] bg-emerald-600 text-white px-1 rounded-xs font-normal">
+                        Today
+                      </span>
+                    )}
+                  </div>
                   <div className="text-[10px] text-muted-foreground font-normal uppercase">
                     {col.dayOfWeekStr}
                   </div>
@@ -487,14 +502,18 @@ export function RosterMatrixClient({
                         >
                           <Popover
                             open={activeCellKey === cellKey}
-                            onOpenChange={(open) =>
-                              setActiveCellKey(open ? cellKey : null)
-                            }
+                            onOpenChange={(open) => {
+                              if (col.isPast) return;
+                              setActiveCellKey(open ? cellKey : null);
+                            }}
                           >
                             <PopoverTrigger asChild>
                               <button
-                                disabled={isUpdating}
+                                disabled={col.isPast || isUpdating || !permissions.edit}
+                                title={col.isPast ? "Previous dates cannot be edited" : ""}
                                 className={`w-full py-1 px-1 rounded-md text-[11px] font-medium transition-all flex flex-col items-center justify-center gap-0.5 min-h-[40px] ${
+                                  col.isPast ? "opacity-75 cursor-not-allowed" : "cursor-pointer"
+                                } ${
                                   cellType === "CUSTOM"
                                     ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/25"
                                     : cellType === "OFF"
