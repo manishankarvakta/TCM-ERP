@@ -134,7 +134,12 @@ export function RosterPrintDialog({
   // Target filtered employees
   const filteredEmployees = employees.filter((emp) => {
     if (departmentFilter === "all") return true;
-    return emp.departmentId === departmentFilter || emp.department === departmentFilter;
+    return (
+      emp.departmentId === departmentFilter ||
+      emp.department === departmentFilter ||
+      emp.departmentRelation?.id === departmentFilter ||
+      emp.departmentRelation?.name === departmentFilter
+    );
   });
 
   const selectedDeptObj = departments.find((d) => d.id === departmentFilter);
@@ -703,7 +708,12 @@ export function RosterPrintDialog({
                 <SelectItem value="all">All Departments ({employees.length} employees)</SelectItem>
                 {departments.map((dept) => {
                   const deptCount = employees.filter(
-                    (e) => e.departmentId === dept.id || e.department === dept.name
+                    (e) =>
+                      e.departmentId === dept.id ||
+                      e.department === dept.name ||
+                      e.department === dept.id ||
+                      e.departmentRelation?.id === dept.id ||
+                      e.departmentRelation?.name === dept.name
                   ).length;
                   return (
                     <SelectItem key={dept.id} value={dept.id}>

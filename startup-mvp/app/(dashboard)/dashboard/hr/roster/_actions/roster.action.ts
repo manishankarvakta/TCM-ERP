@@ -191,6 +191,7 @@ export async function getRosterMatrix(
 
     // Fetch active departments for header filter
     const departments = await prisma.department.findMany({
+      where: { isTrash: false, status: "active" },
       select: {
         id: true,
         name: true,
