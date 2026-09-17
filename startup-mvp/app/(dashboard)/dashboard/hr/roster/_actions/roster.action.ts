@@ -130,6 +130,53 @@ export async function getRosterMatrix(
         })
       : [];
 
+    // Fetch HR-approved leave applications for these employees in target month
+    const approvedLeaves = await prisma.leaveApplication.findMany({
+      where: {
+        employeeId: { in: employeeIds },
+        status: "HR_APPROVED",
+        isTrash: false,
+        startDate: { lte: endDate },
+        endDate: { gte: startDate },
+      },
+      include: {
+        leaveType: {
+          select: {
+            id: true,
+            name: true,
+            isPaid: true,
+          },
+        },
+      },
+    });
+
+    // Expand approved leaves into single-day leave entries for the month matrix
+    const leaveEntries: {
+      employeeId: string;
+      dateStr: string;
+      leaveTypeName: string;
+      isPaid: boolean;
+    }[] = [];
+
+    approvedLeaves.forEach((leave) => {
+      let curr = new Date(leave.startDate);
+      const end = new Date(leave.endDate);
+      while (curr <= end) {
+        if (curr >= startDate && curr <= endDate) {
+          const year = curr.getUTCFullYear();
+          const month = String(curr.getUTCMonth() + 1).padStart(2, "0");
+          const day = String(curr.getUTCDate()).padStart(2, "0");
+          leaveEntries.push({
+            employeeId: leave.employeeId,
+            dateStr: `${year}-${month}-${day}`,
+            leaveTypeName: leave.leaveType?.name || "Leave",
+            isPaid: leave.leaveType?.isPaid ?? true,
+          });
+        }
+        curr.setDate(curr.getDate() + 1);
+      }
+    });
+
     // Fetch active shifts for selection dropdowns
     const shifts = await prisma.shift.findMany({
       where: { isTrash: false, status: "active" },
@@ -158,6 +205,7 @@ export async function getRosterMatrix(
         daysInMonth,
         employees,
         rosterEntries,
+        leaveEntries,
         shifts,
         departments,
       },

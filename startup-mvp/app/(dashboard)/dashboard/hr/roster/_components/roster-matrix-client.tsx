@@ -70,12 +70,20 @@ interface RosterEntryData {
   shift: ShiftData | null;
 }
 
+interface LeaveEntryData {
+  employeeId: string;
+  dateStr: string;
+  leaveTypeName: string;
+  isPaid: boolean;
+}
+
 interface RosterMatrixClientProps {
   initialData: {
     monthStr: string;
     daysInMonth: number;
     employees: EmployeeData[];
     rosterEntries: RosterEntryData[];
+    leaveEntries?: LeaveEntryData[];
     shifts: ShiftData[];
     departments: DepartmentData[];
   };
@@ -85,6 +93,27 @@ interface RosterMatrixClientProps {
     bulkGenerate?: boolean;
     clearMonth?: boolean;
   };
+}
+
+function formatShiftTime12h(timeStr?: string | null): string {
+  if (!timeStr) return "";
+  const parts = timeStr.split(":");
+  if (parts.length < 2) return timeStr;
+  
+  let hours = parseInt(parts[0], 10);
+  const minutes = parts[1];
+  if (isNaN(hours)) return timeStr;
+
+  const ampm = hours >= 12 ? "PM" : "AM";
+  hours = hours % 12;
+  if (hours === 0) hours = 12;
+
+  return `${hours}:${minutes} ${ampm}`;
+}
+
+function formatShiftRange12h(startTime?: string | null, endTime?: string | null): string {
+  if (!startTime || !endTime) return "";
+  return `${formatShiftTime12h(startTime)} - ${formatShiftTime12h(endTime)}`;
 }
 
 export function RosterMatrixClient({
@@ -101,6 +130,7 @@ export function RosterMatrixClient({
     daysInMonth,
     employees,
     rosterEntries,
+    leaveEntries = [],
     shifts,
     departments,
   } = initialData;
@@ -161,6 +191,12 @@ export function RosterMatrixClient({
     const day = String(d.getUTCDate()).padStart(2, "0");
     const dateKey = `${year}-${month}-${day}`;
     rosterMap.set(`${entry.employeeId}_${dateKey}`, entry);
+  });
+
+  // Build leave lookup map: key = `${employeeId}_${dateStr}`
+  const leaveMap = new Map<string, LeaveEntryData>();
+  (leaveEntries || []).forEach((entry) => {
+    leaveMap.set(`${entry.employeeId}_${entry.dateStr}`, entry);
   });
 
   // Cell click action
@@ -307,8 +343,8 @@ export function RosterMatrixClient({
       </div>
 
       {/* Legend & Summary Info */}
-      <div className="flex items-center justify-between px-1 text-xs text-muted-foreground">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 px-1 text-xs text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-4">
           <span className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded-xs bg-emerald-500 inline-block"></span>
             Custom Shift Override
@@ -316,6 +352,14 @@ export function RosterMatrixClient({
           <span className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded-xs bg-rose-500 inline-block"></span>
             Off Day
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded-xs bg-blue-500 inline-block"></span>
+            Approved Paid Leave
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded-xs bg-amber-500 inline-block"></span>
+            Approved Unpaid Leave
           </span>
           <span className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded-xs border border-dashed border-slate-400 bg-slate-100 dark:bg-slate-800 inline-block"></span>
@@ -338,7 +382,7 @@ export function RosterMatrixClient({
               {dateColumns.map((col) => (
                 <th
                   key={col.dayNum}
-                  className={`p-2 text-center border-r min-w-[65px] select-none ${
+                  className={`p-2 text-center border-r min-w-[90px] select-none ${
                     col.isWeekend ? "bg-amber-500/10 text-amber-700 dark:text-amber-400" : ""
                   }`}
                 >
@@ -393,19 +437,33 @@ export function RosterMatrixClient({
                     {dateColumns.map((col) => {
                       const cellKey = `${emp.id}_${col.dateStr}`;
                       const rosterEntry = rosterMap.get(cellKey);
+                      const leaveEntry = leaveMap.get(cellKey);
                       const isUpdating = updatingCellKey === cellKey;
 
-                      // Evaluate shift resolution overlay
-                      let cellType: "CUSTOM" | "OFF" | "DEFAULT" = "DEFAULT";
+                      // Evaluate shift / leave / off-day resolution overlay
+                      let cellType: "CUSTOM" | "OFF" | "DEFAULT" | "PAID_LEAVE" | "UNPAID_LEAVE" = "DEFAULT";
                       let displayLabel = emp.shift?.name || "Morning";
+                      let displayTime = emp.shift ? formatShiftRange12h(emp.shift.startTime, emp.shift.endTime) : "";
 
-                      if (rosterEntry) {
+                      if (leaveEntry) {
+                        if (leaveEntry.isPaid) {
+                          cellType = "PAID_LEAVE";
+                          displayLabel = leaveEntry.leaveTypeName;
+                          displayTime = "Paid Leave";
+                        } else {
+                          cellType = "UNPAID_LEAVE";
+                          displayLabel = leaveEntry.leaveTypeName;
+                          displayTime = "Unpaid Leave";
+                        }
+                      } else if (rosterEntry) {
                         if (rosterEntry.isOffDay) {
                           cellType = "OFF";
                           displayLabel = "OFF";
+                          displayTime = "";
                         } else if (rosterEntry.shift) {
                           cellType = "CUSTOM";
                           displayLabel = rosterEntry.shift.name;
+                          displayTime = formatShiftRange12h(rosterEntry.shift.startTime, rosterEntry.shift.endTime);
                         }
                       }
 
@@ -425,30 +483,46 @@ export function RosterMatrixClient({
                             <PopoverTrigger asChild>
                               <button
                                 disabled={isUpdating}
-                                className={`w-full py-1.5 px-1 rounded-md text-[11px] font-medium transition-all flex flex-col items-center justify-center gap-0.5 min-h-[36px] ${
+                                className={`w-full py-1 px-1 rounded-md text-[11px] font-medium transition-all flex flex-col items-center justify-center gap-0.5 min-h-[40px] ${
                                   cellType === "CUSTOM"
                                     ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/25"
                                     : cellType === "OFF"
                                     ? "bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/40 hover:bg-rose-500/25"
+                                    : cellType === "PAID_LEAVE"
+                                    ? "bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/40 hover:bg-blue-500/25"
+                                    : cellType === "UNPAID_LEAVE"
+                                    ? "bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/40 hover:bg-amber-500/25"
                                     : "bg-slate-100 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 border border-dashed border-slate-300 dark:border-slate-700 hover:bg-slate-200/60"
                                 }`}
                               >
                                 {isUpdating ? (
                                   <FiRefreshCw className="w-3 h-3 animate-spin" />
                                 ) : (
-                                  <span className="truncate max-w-[55px]">
-                                    {displayLabel}
-                                  </span>
+                                  <>
+                                    <span className="truncate max-w-[85px] font-semibold leading-tight">
+                                      {displayLabel}
+                                    </span>
+                                    {displayTime && (
+                                      <span className="text-[9px] opacity-85 leading-none whitespace-nowrap font-normal">
+                                        {displayTime}
+                                      </span>
+                                    )}
+                                  </>
                                 )}
                               </button>
                             </PopoverTrigger>
-                            <PopoverContent className="w-56 p-2" align="center">
+                            <PopoverContent className="w-60 p-2" align="center">
                               <div className="text-xs font-semibold px-2 py-1 border-b mb-1.5 text-muted-foreground flex justify-between items-center">
                                 <span>{col.dateStr}</span>
                                 <span className="font-normal text-[10px]">
                                   {emp.name.split(" ")[0]}
                                 </span>
                               </div>
+                              {leaveEntry && (
+                                <div className="bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 p-1.5 rounded text-[10px] mb-1.5 border border-blue-200 dark:border-blue-800 font-medium">
+                                  Approved Leave: {leaveEntry.leaveTypeName} ({leaveEntry.isPaid ? "Paid" : "Unpaid"})
+                                </div>
+                              )}
                               <div className="space-y-1">
                                 {/* Option 1: Revert to Default */}
                                 <button
@@ -458,7 +532,7 @@ export function RosterMatrixClient({
                                   className="w-full text-left px-2 py-1.5 rounded-md hover:bg-muted text-xs flex items-center justify-between"
                                 >
                                   <span className="text-muted-foreground">
-                                    Default Shift ({emp.shift?.name || "Morning"})
+                                    Default ({emp.shift?.name || "Morning"})
                                   </span>
                                   {cellType === "DEFAULT" && (
                                     <FiCheck className="w-3.5 h-3.5 text-emerald-600" />
@@ -495,7 +569,7 @@ export function RosterMatrixClient({
                                     <div>
                                       <div className="font-medium">{s.name}</div>
                                       <div className="text-[10px] text-muted-foreground">
-                                        {s.startTime} - {s.endTime}
+                                        {formatShiftRange12h(s.startTime, s.endTime)}
                                       </div>
                                     </div>
                                     {rosterEntry?.shiftId === s.id && (

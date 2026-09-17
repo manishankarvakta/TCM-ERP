@@ -44,6 +44,27 @@ interface RosterGeneratorDialogProps {
   onSuccess?: () => void;
 }
 
+function formatShiftTime12h(timeStr?: string | null): string {
+  if (!timeStr) return "";
+  const parts = timeStr.split(":");
+  if (parts.length < 2) return timeStr;
+  
+  let hours = parseInt(parts[0], 10);
+  const minutes = parts[1];
+  if (isNaN(hours)) return timeStr;
+
+  const ampm = hours >= 12 ? "PM" : "AM";
+  hours = hours % 12;
+  if (hours === 0) hours = 12;
+
+  return `${hours}:${minutes} ${ampm}`;
+}
+
+function formatShiftRange12h(startTime?: string | null, endTime?: string | null): string {
+  if (!startTime || !endTime) return "";
+  return `${formatShiftTime12h(startTime)} - ${formatShiftTime12h(endTime)}`;
+}
+
 const DAYS_OF_WEEK = [
   { label: "Sun", value: 0 },
   { label: "Mon", value: 1 },
@@ -186,7 +207,7 @@ export function RosterGeneratorDialog({
                 </SelectItem>
                 {shifts.map((s) => (
                   <SelectItem key={s.id} value={s.id}>
-                    {s.name} ({s.startTime} - {s.endTime})
+                    {s.name} ({formatShiftRange12h(s.startTime, s.endTime)})
                   </SelectItem>
                 ))}
               </SelectContent>
