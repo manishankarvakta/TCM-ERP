@@ -13,6 +13,7 @@ import {
   Link2,
   ListOrdered
 } from "lucide-react";
+import Placeholder from "@tiptap/extension-placeholder";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useEffect } from "react";
@@ -22,7 +23,9 @@ interface RichTextEditorProps {
   onChange: (value: string) => void;
   placeholder?: string;
   className?: string;
+  editorClassName?: string;
   readOnly?: boolean;
+  minHeight?: string;
 }
 
 export function RichTextEditor({
@@ -30,7 +33,9 @@ export function RichTextEditor({
   onChange,
   placeholder,
   className,
+  editorClassName,
   readOnly = false,
+  minHeight,
 }: RichTextEditorProps) {
   const editor = useEditor({
     extensions: [
@@ -54,6 +59,10 @@ export function RichTextEditor({
       TaskItem.configure({
         nested: true,
       }),
+      Placeholder.configure({
+        placeholder: placeholder || "",
+        emptyEditorClass: "is-editor-empty",
+      }),
     ],
     content: value,
     editable: !readOnly,
@@ -61,8 +70,9 @@ export function RichTextEditor({
     editorProps: {
       attributes: {
         class: cn(
-          "prose prose-sm dark:prose-invert max-w-none w-full text-sm placeholder:text-muted-foreground focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 transition-all",
-          readOnly && "prose-p:my-0"
+          "prose prose-sm dark:prose-invert max-w-none w-full text-xs placeholder:text-muted-foreground focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 transition-all",
+          readOnly && "prose-p:my-0",
+          editorClassName
         ),
       },
     },
@@ -142,6 +152,17 @@ export function RichTextEditor({
           >
             <List className="h-3.5 w-3.5" />
           </Button>
+
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => editor.chain().focus().toggleOrderedList().run()}
+            className={cn("h-7 w-7 p-0 hover:bg-muted/50 transition-colors", editor.isActive("orderedList") && "bg-primary/10 text-primary hover:bg-primary/20")}
+            title="Numbered List"
+          >
+            <ListOrdered className="h-3.5 w-3.5" />
+          </Button>
           
           <Button
             type="button"
@@ -171,9 +192,10 @@ export function RichTextEditor({
       
       <EditorContent 
         editor={editor} 
+        style={minHeight ? { minHeight } : undefined}
         className={cn(
-          "tiptap-content p-3 transition-all", 
-          !readOnly && "min-h-[120px] focus-within:ring-1 focus-within:ring-primary/20",
+          "tiptap-content p-2.5 transition-all text-xs", 
+          !readOnly && !minHeight && "min-h-[120px]",
           readOnly && "p-0",
           className
         )} 
@@ -183,9 +205,17 @@ export function RichTextEditor({
         .tiptap-content .ProseMirror {
            padding: 0 !important;
            border: none !important;
-           min-height: 100px !important;
+           min-height: inherit !important;
            height: 100%;
            outline: none !important;
+        }
+        .tiptap-content p.is-editor-empty:first-child::before {
+          content: attr(data-placeholder);
+          float: left;
+          color: hsl(var(--muted-foreground));
+          opacity: 0.6;
+          pointer-events: none;
+          height: 0;
         }
         .tiptap ul {
           list-style: disc;

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 import {
   FiArrowLeft,
   FiEdit,
@@ -39,169 +40,190 @@ import {
   FiAward,
   FiShield,
 } from "react-icons/fi";
+import {
+  MarketingFunnelDetailData,
+  getMarketingFunnelDetailAction,
+} from "@/app/actions/crm/marketing-operations.action";
 
 interface MarketingFunnelDetailViewProps {
   funnelId: string;
+  initialData?: MarketingFunnelDetailData | null;
 }
 
-export default function MarketingFunnelDetailView({ funnelId }: MarketingFunnelDetailViewProps) {
+const FALLBACK_FUNNEL: MarketingFunnelDetailData = {
+  id: "fnl-default",
+  planId: "plan-default",
+  name: "Strategic Marketing Funnel Plan",
+  productName: "Enterprise Product Suite",
+  productDescription: "Multi-channel marketing funnel plan with structured customer acquisition stages.",
+  keyFeatures: "Omnichannel campaigns, automated lead capture, sales conversion alignment.",
+  problemSolved: "Pipeline velocity, high lead drop-off rates, lack of funnel transparency.",
+  usp: "Guaranteed high-intent lead qualification & conversion tracking.",
+  offer: "Strategic Consultation & Solution Walkthrough.",
+  pricing: "Standard & Enterprise Tiers",
+  mainCTA: "Schedule Consultation",
+  primaryObjective: "Scale qualified demand generation and accelerate sales velocity.",
+  leadTarget: 1000,
+  qualifiedLeadTarget: 300,
+  customerTarget: 50,
+  revenueTarget: "৳50,00,000",
+  kpiTargets: "CPL < ৳500 | CAC < ৳5,000 | SQL Ratio > 30%",
+  approvedBudget: "৳2,50,000",
+  allocatedBudget: "৳2,50,000",
+  actualSpend: "৳0",
+  remainingBudget: "৳2,50,000",
+  actualLeads: 0,
+  sqls: 0,
+  actualCustomers: 0,
+  actualRevenue: "৳0",
+  roas: "0.0x",
+  roi: "0%",
+  startDate: "",
+  endDate: "",
+  funnelOwner: "Marketing Team Lead",
+  marketingManager: "Growth Lead",
+  status: "ACTIVE",
+  channels: ["Facebook", "LinkedIn", "Google Search", "Email"],
+  stages: [
+    {
+      id: "stg-1",
+      position: 1,
+      name: "Awareness",
+      objective: "Brand reach, product problem/solution education & impressions across target audience",
+      leadVolume: "10,000 Impressions",
+      conversionRate: "100%",
+      budget: "৳50,000",
+      spend: "৳0",
+      channels: ["Facebook", "LinkedIn", "Google Display", "YouTube"],
+      assignedCampaigns: [{ id: "CMP-01", name: "Brand Positioning Campaign", channel: "LinkedIn & Organic" }],
+    },
+    {
+      id: "stg-2",
+      position: 2,
+      name: "Consideration / Interest",
+      objective: "Drive problem engagement, case study reviews, and solution comparison downloads",
+      leadVolume: "2,500 Views",
+      conversionRate: "25.0%",
+      budget: "৳40,000",
+      spend: "৳0",
+      channels: ["Website", "Email", "SMS", "Social Media"],
+      assignedCampaigns: [{ id: "CMP-02", name: "Case Study & Video Series", channel: "Email Broadcast & SMS" }],
+    },
+    {
+      id: "stg-3",
+      position: 3,
+      name: "Lead Generation",
+      objective: "Capture qualified prospect contact details and trial/demo requests",
+      leadVolume: "1,000 Leads",
+      conversionRate: "40.0%",
+      budget: "৳60,000",
+      spend: "৳0",
+      channels: ["Meta Lead Ads", "Google Search", "Landing Page"],
+      assignedCampaigns: [{ id: "CMP-03", name: "High-Intent Lead Search Ads", channel: "Google Search" }],
+    },
+    {
+      id: "stg-4",
+      position: 4,
+      name: "Lead Nurturing",
+      objective: "Educate captured leads through automated email drip sequences and sales touches",
+      leadVolume: "300 SQLs",
+      conversionRate: "30.0%",
+      budget: "৳40,000",
+      spend: "৳0",
+      channels: ["Email", "WhatsApp", "Sales Team"],
+      assignedCampaigns: [{ id: "CMP-04", name: "Executive Nurture Sequence", channel: "Email & WhatsApp" }],
+    },
+    {
+      id: "stg-5",
+      position: 5,
+      name: "Sales Conversion",
+      objective: "Submit proposals, commercial negotiations, and close won contracts",
+      leadVolume: "50 Customers",
+      conversionRate: "16.7%",
+      budget: "৳40,000",
+      spend: "৳0",
+      channels: ["Sales Team", "Direct Consultation"],
+      assignedCampaigns: [{ id: "CMP-05", name: "Deal Consultation Drive", channel: "Direct Outreach" }],
+    },
+    {
+      id: "stg-6",
+      position: 6,
+      name: "Retention & Remarketing",
+      objective: "Drive contract renewals, expansion MRR, and client referrals",
+      leadVolume: "50 Renewals",
+      conversionRate: "100%",
+      budget: "৳20,000",
+      spend: "৳0",
+      channels: ["Remarketing Ads", "Email"],
+      assignedCampaigns: [{ id: "CMP-06", name: "Retention & Upsell Drive", channel: "Google Display Network" }],
+    },
+  ],
+};
+
+function RichTextContent({ content, className }: { content?: string; className?: string }) {
+  if (!content) return null;
+  if (/<[a-z][\s\S]*>/i.test(content)) {
+    return (
+      <div 
+        className={cn("prose prose-sm dark:prose-invert max-w-none text-foreground leading-relaxed text-xs [&>p]:mb-1 [&>p:last-child]:mb-0 [&>ul]:list-disc [&>ul]:pl-4 [&>ol]:list-decimal [&>ol]:pl-4", className)} 
+        dangerouslySetInnerHTML={{ __html: content }} 
+      />
+    );
+  }
+  return <p className={cn("text-foreground leading-relaxed whitespace-pre-line text-xs", className)}>{content}</p>;
+}
+
+export default function MarketingFunnelDetailView({
+  funnelId,
+  initialData,
+}: MarketingFunnelDetailViewProps) {
   const router = useRouter();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
 
   // Executive Strategic Funnel State
-  const [funnel, setFunnel] = useState({
-    id: funnelId,
-    name: "Enterprise Garments ERP Strategic Marketing Funnel 2026",
-    productName: "Enterprise Garments ERP & HR Management Suite",
-    productDescription: "All-in-one manufacturing, merchandising, inventory, Bengali payroll & export LC tracking platform for Bangladesh RMG factories.",
-    keyFeatures: "Real-time floor tracking, automated OT calculation, biometric attendance, RFID bundle tracking, 1-click export invoice generation.",
-    problemSolved: "Fabric wastage, delayed export shipments, payroll discrepancies & compliance audit failures.",
-    usp: "The only ERP engineered specifically for Bangladesh Garment Factories with guaranteed 7-day deployment.",
-    offer: "Free 1-on-1 Factory Digitalization Audit & 30-Day Risk-Free Trial.",
-    pricing: "Standard Tier: ৳45,000/mo | Enterprise Custom: ৳1,20,000/mo",
-    mainCTA: "Book Free Factory Digital Audit",
-    
-    // Objectives & Targets
-    primaryObjective: "Acquire 100 new enterprise garment factory clients by Q4 2026 across Dhaka & Chittagong RMG hubs.",
-    leadTarget: 1500,
-    qualifiedLeadTarget: 500,
-    customerTarget: 100,
-    revenueTarget: "৳1,20,00,000",
-    kpiTargets: "CPL < ৳500 | CAC < ৳5,000 | ROAS > 8.0x | SQL Ratio > 33.3%",
+  const [funnel, setFunnel] = useState<MarketingFunnelDetailData>(
+    initialData || { ...FALLBACK_FUNNEL, id: funnelId }
+  );
 
-    // Financial Envelope
-    approvedBudget: "৳5,00,000",
-    allocatedBudget: "৳4,60,000",
-    actualSpend: "৳2,85,00,0",
-    remainingBudget: "৳2,15,000",
-    actualLeads: 1280,
-    sqls: 420,
-    actualCustomers: 78,
-    actualRevenue: "৳48,00,000",
-    roas: "12.5x",
-    roi: "340%",
+  // Sequential Funnel Stages
+  const [funnelStages, setFunnelStages] = useState(
+    initialData?.stages && initialData.stages.length > 0
+      ? initialData.stages
+      : FALLBACK_FUNNEL.stages
+  );
 
-    // Dates & Team
-    startDate: "2026-09-01",
-    endDate: "2026-12-31",
-    funnelOwner: "Farhana Yeasmin (Head of Marketing)",
-    marketingManager: "Kamrul Hasan (Senior Growth Lead)",
-    status: "ACTIVE",
-  });
-
-  // 7 Sequential Funnel Stages
-  const [funnelStages, setFunnelStages] = useState([
-    {
-      id: "stg-1",
-      position: 1,
-      name: "Awareness",
-      objective: "Brand reach, product problem/solution education & impressions across RMG leaders",
-      leadVolume: "250,000 Impressions",
-      conversionRate: "100%",
-      budget: "৳1,00,000",
-      spend: "৳98,000",
-      channels: ["Facebook", "LinkedIn", "Google Display", "YouTube"],
-      assignedCampaigns: [
-        { id: "CMP-02", name: "Enterprise ERP Brand Positioning", channel: "LinkedIn & Organic" },
-      ],
-    },
-    {
-      id: "stg-2",
-      position: 2,
-      name: "Acknowledgment",
-      objective: "Message recognition, explainer posts, factory problem communication & case studies",
-      leadVolume: "55,000 Views",
-      conversionRate: "22.0%",
-      budget: "৳50,000",
-      spend: "৳48,500",
-      channels: ["Website", "Email", "SMS", "Social Media"],
-      assignedCampaigns: [
-        { id: "CMP-03", name: "RMG Case Study & Video Series", channel: "Email Broadcast & SMS" },
-      ],
-    },
-    {
-      id: "stg-3",
-      position: 3,
-      name: "Engagement",
-      objective: "Active interactions, comments, shares, webinar signups & assessment tool usage",
-      leadVolume: "14,500 Engaged",
-      conversionRate: "26.3%",
-      budget: "৳70,000",
-      spend: "৳43,500",
-      channels: ["Webinar", "Landing Page", "WhatsApp"],
-      assignedCampaigns: [
-        { id: "CMP-04", name: "Garments Digital Audit Webinar Drive", channel: "Webinar & Social" },
-      ],
-    },
-    {
-      id: "stg-4",
-      position: 4,
-      name: "Lead Generation",
-      objective: "Demo requests, inquiries, consultation forms & high-intent lead form captures",
-      leadVolume: "1,280 Leads",
-      conversionRate: "8.8%",
-      budget: "৳1,40,000",
-      spend: "৳95,000",
-      channels: ["Meta Lead Ads", "Google Search", "Landing Page"],
-      assignedCampaigns: [
-        { id: "CMP-01", name: "Q3 Garments ERP Lead Generation", channel: "Meta & Google Ads" },
-      ],
-    },
-    {
-      id: "stg-5",
-      position: 5,
-      name: "Lead Nurturing",
-      objective: "Email sequences, case study follow-ups, salesperson handoff & ROI calculations",
-      leadVolume: "420 SQLs",
-      conversionRate: "32.8%",
-      budget: "৳40,000",
-      spend: "৳0",
-      channels: ["Email", "WhatsApp", "Sales Team"],
-      assignedCampaigns: [
-        { id: "CMP-06", name: "RMG Executive Nurture Sequence", channel: "Email & WhatsApp" },
-      ],
-    },
-    {
-      id: "stg-6",
-      position: 6,
-      name: "Sales Conversion",
-      objective: "Proposal follow-ups, trial closes, contract reviews & won deal signatures",
-      leadVolume: "78 Customers",
-      conversionRate: "18.5%",
-      budget: "৳70,000",
-      spend: "৳0",
-      channels: ["Sales Team", "Direct Consultation"],
-      assignedCampaigns: [
-        { id: "CMP-07", name: "Closing Deal Consultation Drive", channel: "Direct Outreach" },
-      ],
-    },
-    {
-      id: "stg-7",
-      position: 7,
-      name: "Retention / Remarketing",
-      objective: "Customer onboarding, renewal drives, factory expansion upsells & referral campaigns",
-      leadVolume: "78 Renewals",
-      conversionRate: "100%",
-      budget: "৳30,000",
-      spend: "৳0",
-      channels: ["Remarketing Ads", "Email", "Direct Account Manager"],
-      assignedCampaigns: [
-        { id: "CMP-05", name: "Q2 Client Retention & Upsell Drive", channel: "Google Display Network" },
-      ],
-    },
-  ]);
+  React.useEffect(() => {
+    if (initialData) {
+      setFunnel(initialData);
+      if (initialData.stages && initialData.stages.length > 0) {
+        setFunnelStages(initialData.stages);
+      }
+    }
+  }, [initialData]);
 
   const [assignForm, setAssignForm] = useState({
-    stageId: "stg-4",
-    campaignName: "Q4 Garments ERP Search Ad Campaign",
+    stageId: "stg-3",
+    campaignName: "Q4 Target Ad Campaign",
     channel: "Google Ads",
   });
 
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
     setIsRefreshing(true);
-    setTimeout(() => setIsRefreshing(false), 500);
+    try {
+      const res = await getMarketingFunnelDetailAction(funnelId);
+      if (res.success && res.funnel) {
+        setFunnel(res.funnel);
+        if (res.funnel.stages && res.funnel.stages.length > 0) {
+          setFunnelStages(res.funnel.stages);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to refresh funnel details:", err);
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   const handleAssignSubmit = (e: React.FormEvent) => {
@@ -356,7 +378,7 @@ export default function MarketingFunnelDetailView({ funnelId }: MarketingFunnelD
 
               <div className="md:col-span-2">
                 <span className="text-muted-foreground text-[10px] uppercase font-semibold block">Product Description</span>
-                <p className="font-medium text-foreground mt-0.5 leading-relaxed">{funnel.productDescription}</p>
+                <RichTextContent content={funnel.productDescription} className="font-medium mt-0.5" />
               </div>
 
               <div>
@@ -366,7 +388,7 @@ export default function MarketingFunnelDetailView({ funnelId }: MarketingFunnelD
 
               <div>
                 <span className="text-muted-foreground text-[10px] uppercase font-semibold block">Problem Solved</span>
-                <p className="font-medium text-foreground mt-0.5">{funnel.problemSolved}</p>
+                <RichTextContent content={funnel.problemSolved} className="font-medium mt-0.5" />
               </div>
 
               <div>
@@ -390,7 +412,7 @@ export default function MarketingFunnelDetailView({ funnelId }: MarketingFunnelD
             <div className="space-y-3">
               <div>
                 <span className="text-muted-foreground text-[10px] uppercase font-semibold block">Primary Strategic Objective</span>
-                <p className="font-bold text-foreground text-sm mt-0.5">{funnel.primaryObjective}</p>
+                <RichTextContent content={funnel.primaryObjective} className="font-bold text-foreground text-sm mt-0.5" />
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
@@ -551,7 +573,7 @@ export default function MarketingFunnelDetailView({ funnelId }: MarketingFunnelD
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                     <div>
                       <span className="text-[10px] text-muted-foreground uppercase font-semibold block">Stage Objective</span>
-                      <p className="font-medium text-foreground mt-0.5">{stg.objective}</p>
+                      <RichTextContent content={stg.objective} className="font-medium mt-0.5" />
                     </div>
                     <div>
                       <span className="text-[10px] text-muted-foreground uppercase font-semibold block">Stage Channels</span>

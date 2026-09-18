@@ -36,11 +36,6 @@ export default function MarketingFunnelView({
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-
-  const [newFunnelName, setNewFunnelName] = useState("");
-  const [newFunnelObjective, setNewFunnelObjective] = useState("");
-  const [newTargetValue, setNewTargetValue] = useState("10000000");
 
   useEffect(() => {
     setFunnelsList(initialFunnels);
@@ -50,30 +45,6 @@ export default function MarketingFunnelView({
     setIsRefreshing(true);
     router.refresh();
     setTimeout(() => setIsRefreshing(false), 600);
-  };
-
-  const handleCreateSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newFunnelName) return;
-    const newF: MarketingFunnelListItem = {
-      id: `FNL-${Date.now().toString().slice(-4)}`,
-      planId: `plan-${Date.now().toString().slice(-4)}`,
-      name: newFunnelName,
-      targetValue: `৳${parseInt(newTargetValue || "0", 10).toLocaleString()}`,
-      actualRevenue: "৳0",
-      totalLeads: 0,
-      sqls: 0,
-      wonDeals: 0,
-      conversionRate: "0%",
-      activeCampaigns: 0,
-      status: "ACTIVE",
-      createdAt: new Date().toISOString(),
-    };
-    setFunnelsList((prev) => [newF, ...prev]);
-    setNewFunnelName("");
-    setNewFunnelObjective("");
-    setShowCreateModal(false);
-    toast.success("Marketing Funnel draft added");
   };
 
   const [deletingFunnel, setDeletingFunnel] = useState<{ id: string; name: string } | null>(null);
@@ -336,65 +307,6 @@ export default function MarketingFunnelView({
                 {isDeleting ? "Deleting..." : "Delete Funnel"}
               </Button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* CREATE MARKETING FUNNEL MODAL */}
-      {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="w-full max-w-lg rounded-2xl bg-card border border-border/60 p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-border/40 pb-3">
-              <h3 className="text-lg font-bold text-foreground">Create New Marketing Funnel</h3>
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setShowCreateModal(false)}>
-                <FiX className="h-4 w-4" />
-              </Button>
-            </div>
-
-            <form onSubmit={handleCreateSubmit} className="space-y-4 text-xs">
-              <div>
-                <label className="block font-semibold text-foreground mb-1">Marketing Funnel Name</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Q4 Garments ERP Marketing Funnel"
-                  value={newFunnelName}
-                  onChange={(e) => setNewFunnelName(e.target.value)}
-                  className="w-full h-8 px-3 rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-foreground mb-1">Target Pipeline Value (৳)</label>
-                <input
-                  type="number"
-                  placeholder="10000000"
-                  value={newTargetValue}
-                  onChange={(e) => setNewTargetValue(e.target.value)}
-                  className="w-full h-8 px-3 rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-foreground mb-1">Funnel Strategy & Objective</label>
-                <textarea
-                  rows={3}
-                  placeholder="Describe target customers and conversion goals for this funnel..."
-                  value={newFunnelObjective}
-                  onChange={(e) => setNewFunnelObjective(e.target.value)}
-                  className="w-full p-3 rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-3 border-t border-border/40">
-                <Button type="button" variant="outline" size="sm" onClick={() => setShowCreateModal(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit" size="sm" className="font-semibold">
-                  Create Marketing Funnel
-                </Button>
-              </div>
-            </form>
           </div>
         </div>
       )}

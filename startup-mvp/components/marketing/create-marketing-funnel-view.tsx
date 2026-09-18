@@ -28,6 +28,61 @@ import {
 } from "react-icons/fi";
 import { createMarketingFunnelPlanAction } from "@/app/actions/crm/marketing-operations.action";
 import { getAssignableUsers } from "@/app/actions/user.action";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
+import { cn } from "@/lib/utils";
+
+interface FieldGuideProps {
+  label: string;
+  hint: string;
+  example?: string;
+  required?: boolean;
+  className?: string;
+}
+
+function FieldGuide({ label, hint, example, required = false, className }: FieldGuideProps) {
+  return (
+    <div className={cn("flex items-center gap-1.5 mb-1.5", className)}>
+      <span className="text-xs font-semibold text-foreground/90">
+        {label} {required && <span className="text-rose-500 font-bold">*</span>}
+      </span>
+      <Popover>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className="inline-flex items-center justify-center h-4 w-4 rounded-full text-muted-foreground/70 hover:text-primary hover:bg-primary/10 transition-colors focus:outline-none"
+            title={`Field guide for ${label}`}
+            aria-label={`Guide for ${label}`}
+          >
+            <FiInfo className="h-3 w-3" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent
+          side="top"
+          align="start"
+          sideOffset={6}
+          className="w-80 p-3.5 text-xs shadow-xl border-border/80 bg-popover text-popover-foreground rounded-xl z-50 animate-in fade-in zoom-in-95 duration-150"
+        >
+          <div className="space-y-2">
+            <div className="flex items-center gap-1.5 font-bold text-foreground text-xs pb-1 border-b border-border/40">
+              <span className="p-1 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                <FiInfo className="h-3 w-3" />
+              </span>
+              <span>{label} Guide</span>
+            </div>
+            <p className="text-muted-foreground leading-relaxed text-[11px]">{hint}</p>
+            {example && (
+              <div className="p-2 rounded-lg bg-muted/60 border border-border/50 text-[11px]">
+                <span className="font-semibold text-foreground block mb-0.5">Example:</span>
+                <span className="text-muted-foreground italic">{example}</span>
+              </div>
+            )}
+          </div>
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+}
 
 export interface AssignableUserItem {
   id: string;
@@ -464,57 +519,67 @@ export default function CreateMarketingFunnelView({ initialUsers = [] }: CreateM
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-xs font-semibold text-foreground/90 mb-1.5">
-                    Marketing Funnel Name <span className="text-rose-500">*</span>
-                  </label>
+                  <FieldGuide
+                    label="Marketing Funnel Name"
+                    required
+                    hint="A clear, memorable name for this strategic marketing funnel to identify it in executive reports and navigation."
+                    example="Enterprise Garments ERP Growth Funnel 2026"
+                  />
                   <input
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder=""
+                    placeholder="e.g. Enterprise Garments ERP Growth Funnel 2026"
                     className="w-full h-10 px-3.5 rounded-xl border border-border/80 bg-background text-foreground text-xs focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                   />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-foreground/90 mb-1.5">
-                      Product / Service Name
-                    </label>
+                    <FieldGuide
+                      label="Product / Service Name"
+                      hint="The primary product, solution package, or SaaS tier being promoted in this funnel."
+                      example="Enterprise Garments ERP & HR Suite"
+                    />
                     <input
                       type="text"
                       value={productName}
                       onChange={(e) => setProductName(e.target.value)}
-                      placeholder=""
+                      placeholder="e.g. Enterprise Garments ERP & HR Suite"
                       className="w-full h-10 px-3.5 rounded-xl border border-border/80 bg-background text-foreground text-xs focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-foreground/90 mb-1.5">
-                      Main Call-To-Action (CTA)
-                    </label>
+                    <FieldGuide
+                      label="Main Call-To-Action (CTA)"
+                      hint="The single primary action you want prospects to take on ads, landing pages, and lead forms."
+                      example="Book Free Factory Digital Audit"
+                    />
                     <input
                       type="text"
                       value={mainCTA}
                       onChange={(e) => setMainCTA(e.target.value)}
-                      placeholder=""
+                      placeholder="e.g. Book Free Factory Digital Audit"
                       className="w-full h-10 px-3.5 rounded-xl border border-border/80 bg-background text-foreground text-xs focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-foreground/90 mb-1.5">
-                    Product Description
-                  </label>
-                  <textarea
-                    rows={3}
-                    value={productDescription}
-                    onChange={(e) => setProductDescription(e.target.value)}
-                    placeholder=""
-                    className="w-full p-3.5 rounded-xl border border-border/80 bg-background text-foreground text-xs focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all resize-none"
+                  <FieldGuide
+                    label="Product Description"
+                    hint="A concise overview of what your product does, its core capabilities, and who it serves."
+                    example="All-in-one manufacturing, merchandising, inventory, Bengali payroll & export LC tracking platform for RMG factories."
                   />
+                  <div className="rounded-xl border border-border/80 bg-background focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-all overflow-hidden p-2">
+                    <RichTextEditor
+                      value={productDescription}
+                      onChange={setProductDescription}
+                      placeholder="Briefly describe what your product or service provides, how it works, and its delivery model..."
+                      minHeight="80px"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -528,27 +593,31 @@ export default function CreateMarketingFunnelView({ initialUsers = [] }: CreateM
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-foreground/90 mb-1.5">
-                    Problem Solved
-                  </label>
+                  <FieldGuide
+                    label="Problem Solved"
+                    hint="The expensive operational bottlenecks, compliance risks, or pain points your solution eliminates."
+                    example="Fabric wastage, delayed export shipments, payroll discrepancies & compliance audit failures"
+                  />
                   <input
                     type="text"
                     value={problemSolved}
                     onChange={(e) => setProblemSolved(e.target.value)}
-                    placeholder=""
+                    placeholder="e.g. Fabric wastage, delayed export shipments, payroll errors"
                     className="w-full h-10 px-3.5 rounded-xl border border-border/80 bg-background text-foreground text-xs focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-foreground/90 mb-1.5">
-                    Unique Selling Proposition (USP)
-                  </label>
+                  <FieldGuide
+                    label="Unique Selling Proposition (USP)"
+                    hint="The distinct competitive advantage that makes your offering superior to existing market alternatives."
+                    example="The only ERP engineered specifically for Bangladesh Garment Factories with guaranteed 7-day deployment"
+                  />
                   <input
                     type="text"
                     value={usp}
                     onChange={(e) => setUsp(e.target.value)}
-                    placeholder=""
+                    placeholder="e.g. Guaranteed 7-day deployment with real-time biometric floor tracking"
                     className="w-full h-10 px-3.5 rounded-xl border border-border/80 bg-background text-foreground text-xs focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                   />
                 </div>
@@ -564,16 +633,19 @@ export default function CreateMarketingFunnelView({ initialUsers = [] }: CreateM
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-xs font-semibold text-foreground/90 mb-1.5">
-                    Primary Strategic Objective
-                  </label>
-                  <textarea
-                    rows={2}
-                    value={primaryObjective}
-                    onChange={(e) => setPrimaryObjective(e.target.value)}
-                    placeholder=""
-                    className="w-full p-3.5 rounded-xl border border-border/80 bg-background text-foreground text-xs focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all resize-none"
+                  <FieldGuide
+                    label="Primary Strategic Objective"
+                    hint="The high-level qualitative milestone and business results this funnel is designed to accomplish."
+                    example="Acquire 100 new enterprise garment factory clients by Q4 2026 across Dhaka & Chittagong RMG hubs"
                   />
+                  <div className="rounded-xl border border-border/80 bg-background focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-all overflow-hidden p-2">
+                    <RichTextEditor
+                      value={primaryObjective}
+                      onChange={setPrimaryObjective}
+                      placeholder="e.g. Acquire 100 enterprise factory clients and achieve ৳1.2Cr pipeline revenue by Q4 2026..."
+                      minHeight="70px"
+                    />
+                  </div>
                 </div>
 
                 {/* 4-METRIC KPI GRID */}
@@ -585,13 +657,18 @@ export default function CreateMarketingFunnelView({ initialUsers = [] }: CreateM
                         <FiDollarSign className="h-4 w-4" />
                         <span className="text-[11px] font-bold uppercase tracking-wider">Target Revenue</span>
                       </div>
-                      <div className="relative group cursor-help">
-                        <FiInfo className="h-3.5 w-3.5 text-emerald-600/70 hover:text-emerald-600 transition-colors" />
-                        <div className="absolute right-0 bottom-full mb-2 hidden group-hover:block w-48 p-2 bg-popover text-popover-foreground text-[11px] font-normal normal-case rounded-lg shadow-md border border-border z-50 pointer-events-none text-left">
-                          Total projected revenue (৳) expected to be generated from this funnel.
-                          <div className="absolute top-full right-1.5 border-4 border-transparent border-t-popover" />
-                        </div>
-                      </div>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button type="button" className="text-emerald-600/70 hover:text-emerald-600 transition-colors p-0.5 rounded-full" title="Target Revenue Guide">
+                            <FiInfo className="h-3.5 w-3.5" />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent side="top" align="end" className="w-72 p-3 text-xs shadow-xl border-border/80 bg-popover text-popover-foreground rounded-xl">
+                          <p className="font-semibold text-foreground mb-1">Target Revenue Benchmark</p>
+                          <p className="text-muted-foreground text-[11px]">Total projected gross revenue (৳) expected to be closed and attributed to this funnel.</p>
+                          <div className="mt-1.5 p-1.5 rounded-md bg-muted/60 text-[10px] text-muted-foreground">Example: ৳1,20,00,000</div>
+                        </PopoverContent>
+                      </Popover>
                     </div>
                     <div className="relative">
                       <span className="absolute left-3 top-2.5 text-xs font-bold text-emerald-600/70">৳</span>
@@ -599,7 +676,7 @@ export default function CreateMarketingFunnelView({ initialUsers = [] }: CreateM
                         type="number"
                         value={targetRevenue}
                         onChange={(e) => setTargetRevenue(e.target.value)}
-                        placeholder="0"
+                        placeholder="e.g. 12000000"
                         className="w-full h-9 pl-7 pr-3 rounded-lg border border-emerald-500/40 bg-background font-mono text-foreground text-xs focus:outline-hidden focus:ring-2 focus:ring-emerald-500/30"
                       />
                     </div>
@@ -612,19 +689,24 @@ export default function CreateMarketingFunnelView({ initialUsers = [] }: CreateM
                         <FiUsers className="h-4 w-4" />
                         <span className="text-[11px] font-bold uppercase tracking-wider">Lead Target</span>
                       </div>
-                      <div className="relative group cursor-help">
-                        <FiInfo className="h-3.5 w-3.5 text-blue-600/70 hover:text-blue-600 transition-colors" />
-                        <div className="absolute right-0 bottom-full mb-2 hidden group-hover:block w-48 p-2 bg-popover text-popover-foreground text-[11px] font-normal normal-case rounded-lg shadow-md border border-border z-50 pointer-events-none text-left">
-                          Total raw prospective leads (MQLs) expected to be captured.
-                          <div className="absolute top-full right-1.5 border-4 border-transparent border-t-popover" />
-                        </div>
-                      </div>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button type="button" className="text-blue-600/70 hover:text-blue-600 transition-colors p-0.5 rounded-full" title="Lead Target Guide">
+                            <FiInfo className="h-3.5 w-3.5" />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent side="top" align="end" className="w-72 p-3 text-xs shadow-xl border-border/80 bg-popover text-popover-foreground rounded-xl">
+                          <p className="font-semibold text-foreground mb-1">Top-of-Funnel Leads (MQLs)</p>
+                          <p className="text-muted-foreground text-[11px]">Total raw prospective contacts, inquiries, and form captures expected across all channels.</p>
+                          <div className="mt-1.5 p-1.5 rounded-md bg-muted/60 text-[10px] text-muted-foreground">Example: 1,500 Leads</div>
+                        </PopoverContent>
+                      </Popover>
                     </div>
                     <input
                       type="number"
                       value={leadTarget}
                       onChange={(e) => setLeadTarget(e.target.value)}
-                      placeholder="0"
+                      placeholder="e.g. 1500"
                       className="w-full h-9 px-3 rounded-lg border border-blue-500/40 bg-background font-mono text-foreground text-xs focus:outline-hidden focus:ring-2 focus:ring-blue-500/30"
                     />
                   </div>
@@ -636,19 +718,24 @@ export default function CreateMarketingFunnelView({ initialUsers = [] }: CreateM
                         <FiTarget className="h-4 w-4" />
                         <span className="text-[11px] font-bold uppercase tracking-wider">SQL Target</span>
                       </div>
-                      <div className="relative group cursor-help">
-                        <FiInfo className="h-3.5 w-3.5 text-purple-600/70 hover:text-purple-600 transition-colors" />
-                        <div className="absolute right-0 bottom-full mb-2 hidden group-hover:block w-48 p-2 bg-popover text-popover-foreground text-[11px] font-normal normal-case rounded-lg shadow-md border border-border z-50 pointer-events-none text-left">
-                          Sales Qualified Leads — high-intent prospects qualified for direct sales.
-                          <div className="absolute top-full right-1.5 border-4 border-transparent border-t-popover" />
-                        </div>
-                      </div>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button type="button" className="text-purple-600/70 hover:text-purple-600 transition-colors p-0.5 rounded-full" title="SQL Target Guide">
+                            <FiInfo className="h-3.5 w-3.5" />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent side="top" align="end" className="w-72 p-3 text-xs shadow-xl border-border/80 bg-popover text-popover-foreground rounded-xl">
+                          <p className="font-semibold text-foreground mb-1">Sales Qualified Leads (SQLs)</p>
+                          <p className="text-muted-foreground text-[11px]">High-intent prospects verified for budget, authority, need and timeline ready for sales meetings.</p>
+                          <div className="mt-1.5 p-1.5 rounded-md bg-muted/60 text-[10px] text-muted-foreground">Example: 500 SQLs</div>
+                        </PopoverContent>
+                      </Popover>
                     </div>
                     <input
                       type="number"
                       value={sqlTarget}
                       onChange={(e) => setSqlTarget(e.target.value)}
-                      placeholder="0"
+                      placeholder="e.g. 500"
                       className="w-full h-9 px-3 rounded-lg border border-purple-500/40 bg-background font-mono text-foreground text-xs focus:outline-hidden focus:ring-2 focus:ring-purple-500/30"
                     />
                   </div>
@@ -660,19 +747,24 @@ export default function CreateMarketingFunnelView({ initialUsers = [] }: CreateM
                         <FiCheckCircle className="h-4 w-4" />
                         <span className="text-[11px] font-bold uppercase tracking-wider">Deal Target</span>
                       </div>
-                      <div className="relative group cursor-help">
-                        <FiInfo className="h-3.5 w-3.5 text-amber-600/70 hover:text-amber-600 transition-colors" />
-                        <div className="absolute right-0 bottom-full mb-2 hidden group-hover:block w-48 p-2 bg-popover text-popover-foreground text-[11px] font-normal normal-case rounded-lg shadow-md border border-border z-50 pointer-events-none text-left">
-                          Total number of closed-won customer contracts expected to close.
-                          <div className="absolute top-full right-1.5 border-4 border-transparent border-t-popover" />
-                        </div>
-                      </div>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button type="button" className="text-amber-600/70 hover:text-amber-600 transition-colors p-0.5 rounded-full" title="Deal Target Guide">
+                            <FiInfo className="h-3.5 w-3.5" />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent side="top" align="end" className="w-72 p-3 text-xs shadow-xl border-border/80 bg-popover text-popover-foreground rounded-xl">
+                          <p className="font-semibold text-foreground mb-1">Closed-Won Deals</p>
+                          <p className="text-muted-foreground text-[11px]">Final finalized contracts and paying customers expected to convert from this funnel.</p>
+                          <div className="mt-1.5 p-1.5 rounded-md bg-muted/60 text-[10px] text-muted-foreground">Example: 100 Deals</div>
+                        </PopoverContent>
+                      </Popover>
                     </div>
                     <input
                       type="number"
                       value={customerTarget}
                       onChange={(e) => setCustomerTarget(e.target.value)}
-                      placeholder="0"
+                      placeholder="e.g. 100"
                       className="w-full h-9 px-3 rounded-lg border border-amber-500/40 bg-background font-mono text-foreground text-xs focus:outline-hidden focus:ring-2 focus:ring-amber-500/30"
                     />
                   </div>
@@ -706,27 +798,31 @@ export default function CreateMarketingFunnelView({ initialUsers = [] }: CreateM
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-foreground/90 mb-1.5">
-                    Audience Segment
-                  </label>
+                  <FieldGuide
+                    label="Audience Segment"
+                    hint="The specific industry vertical, company size, revenue tier, or geographical area you are targeting."
+                    example="Tier-1 & Tier-2 Export Garment Manufacturers with 500+ workers"
+                  />
                   <input
                     type="text"
                     value={audienceSegment}
                     onChange={(e) => setAudienceSegment(e.target.value)}
-                    placeholder=""
+                    placeholder="e.g. Tier-1 & Tier-2 Export Garment Manufacturers with 500+ workers"
                     className="w-full h-10 px-3.5 rounded-xl border border-border/80 bg-background text-foreground text-xs focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-foreground/90 mb-1.5">
-                    Key Decision Makers
-                  </label>
+                  <FieldGuide
+                    label="Key Decision Makers"
+                    hint="The key executive stakeholders and job titles who evaluate, approve budget, and sign the contract."
+                    example="Managing Directors, Chief Operating Officers, Heads of IT & General Managers"
+                  />
                   <input
                     type="text"
                     value={decisionMakers}
                     onChange={(e) => setDecisionMakers(e.target.value)}
-                    placeholder=""
+                    placeholder="e.g. Managing Directors, Chief Operating Officers, Heads of IT"
                     className="w-full h-10 px-3.5 rounded-xl border border-border/80 bg-background text-foreground text-xs focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                   />
                 </div>
@@ -742,42 +838,51 @@ export default function CreateMarketingFunnelView({ initialUsers = [] }: CreateM
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-foreground/90 mb-1.5">
-                    Market Opportunity
-                  </label>
-                  <textarea
-                    rows={2}
-                    value={marketOpportunity}
-                    onChange={(e) => setMarketOpportunity(e.target.value)}
-                    placeholder=""
-                    className="w-full p-3 rounded-xl border border-border/80 bg-background text-foreground text-xs focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all resize-none"
+                  <FieldGuide
+                    label="Market Opportunity"
+                    hint="Macro trends, regulatory mandates, or modernization shifts making now the optimal time for prospects to buy."
+                    example="Rising international buyer mandates for automated biometric payroll and real-time floor monitoring"
                   />
+                  <div className="rounded-xl border border-border/80 bg-background focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-all overflow-hidden p-2">
+                    <RichTextEditor
+                      value={marketOpportunity}
+                      onChange={setMarketOpportunity}
+                      placeholder="Describe market growth, compliance mandates, or digitalization trends driving demand..."
+                      minHeight="70px"
+                    />
+                  </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-foreground/90 mb-1.5">
-                    Key Competitors
-                  </label>
-                  <textarea
-                    rows={2}
-                    value={keyCompetitors}
-                    onChange={(e) => setKeyCompetitors(e.target.value)}
-                    placeholder=""
-                    className="w-full p-3 rounded-xl border border-border/80 bg-background text-foreground text-xs focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all resize-none"
+                  <FieldGuide
+                    label="Key Competitors"
+                    hint="Direct alternative software providers or legacy substitute workflows currently used by target customers."
+                    example="Legacy on-premise software, generic international ERPs (SAP, NetSuite), manual spreadsheets"
                   />
+                  <div className="rounded-xl border border-border/80 bg-background focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-all overflow-hidden p-2">
+                    <RichTextEditor
+                      value={keyCompetitors}
+                      onChange={setKeyCompetitors}
+                      placeholder="e.g. Legacy on-premise software, generic international ERPs, manual Excel sheets"
+                      minHeight="70px"
+                    />
+                  </div>
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="block text-xs font-semibold text-foreground/90 mb-1.5">
-                    Market Gaps
-                  </label>
-                  <textarea
-                    rows={2}
-                    value={marketGaps}
-                    onChange={(e) => setMarketGaps(e.target.value)}
-                    placeholder=""
-                    className="w-full p-3 rounded-xl border border-border/80 bg-background text-foreground text-xs focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all resize-none"
+                  <FieldGuide
+                    label="Market Gaps"
+                    hint="Unaddressed customer frustrations and weaknesses in competitor offerings that your product capitalizes on."
+                    example="Competitors require 6+ months for deployment and lack localized Bengali compliance payroll rules"
                   />
+                  <div className="rounded-xl border border-border/80 bg-background focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-all overflow-hidden p-2">
+                    <RichTextEditor
+                      value={marketGaps}
+                      onChange={setMarketGaps}
+                      placeholder="What are competitors failing to deliver? e.g. High upfront license costs, slow implementation, lack of local support..."
+                      minHeight="70px"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -791,43 +896,52 @@ export default function CreateMarketingFunnelView({ initialUsers = [] }: CreateM
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-xs font-semibold text-foreground/90 mb-1.5">
-                    Value Proposition
-                  </label>
-                  <textarea
-                    rows={2}
-                    value={valueProp}
-                    onChange={(e) => setValueProp(e.target.value)}
-                    placeholder=""
-                    className="w-full p-3 rounded-xl border border-border/80 bg-background text-foreground text-xs focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all resize-none"
+                  <FieldGuide
+                    label="Value Proposition"
+                    hint="A clear, compelling promise of tangible business value that your campaigns communicate to prospects."
+                    example="Eliminate fabric wastage by 18% and automate payroll compliance in under 7 business days"
                   />
+                  <div className="rounded-xl border border-border/80 bg-background focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-all overflow-hidden p-2">
+                    <RichTextEditor
+                      value={valueProp}
+                      onChange={setValueProp}
+                      placeholder="e.g. Eliminate fabric wastage by 18% and automate payroll compliance in under 7 business days"
+                      minHeight="70px"
+                    />
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-foreground/90 mb-1.5">
-                      Campaign Theme
-                    </label>
-                    <textarea
-                      rows={2}
-                      value={campaignTheme}
-                      onChange={(e) => setCampaignTheme(e.target.value)}
-                      placeholder=""
-                      className="w-full p-3 rounded-xl border border-border/80 bg-background text-foreground text-xs focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all resize-none"
+                    <FieldGuide
+                      label="Campaign Theme"
+                      hint="The overarching creative angle, headline concept, or slogan unifying your ad copy and content."
+                      example="The RMG Factory Digital Transformation Drive 2026"
                     />
+                    <div className="rounded-xl border border-border/80 bg-background focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-all overflow-hidden p-2">
+                      <RichTextEditor
+                        value={campaignTheme}
+                        onChange={setCampaignTheme}
+                        placeholder="e.g. The RMG Factory Digital Transformation Drive 2026"
+                        minHeight="60px"
+                      />
+                    </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-foreground/90 mb-1.5">
-                      Core Message
-                    </label>
-                    <textarea
-                      rows={2}
-                      value={coreMessage}
-                      onChange={(e) => setCoreMessage(e.target.value)}
-                      placeholder=""
-                      className="w-full p-3 rounded-xl border border-border/80 bg-background text-foreground text-xs focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all resize-none"
+                    <FieldGuide
+                      label="Core Message"
+                      hint="The central takeaway message that must stick with prospects across every ad, email, and landing page."
+                      example="Modernize your factory floor with real-time tracking and zero compliance audit worries"
                     />
+                    <div className="rounded-xl border border-border/80 bg-background focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-all overflow-hidden p-2">
+                      <RichTextEditor
+                        value={coreMessage}
+                        onChange={setCoreMessage}
+                        placeholder="e.g. Modernize your factory floor with real-time tracking and zero compliance audit worries"
+                        minHeight="60px"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -925,9 +1039,11 @@ export default function CreateMarketingFunnelView({ initialUsers = [] }: CreateM
                   {/* Row 1: Template & Name */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-semibold text-foreground/90 mb-1.5">
-                        Standard Funnel Stage (Select from Template)
-                      </label>
+                      <FieldGuide
+                        label="Standard Funnel Stage"
+                        hint="Select a standard funnel progression template (Top, Middle, Bottom of funnel) or configure a custom milestone."
+                        example="Awareness (01), Consideration (02), Lead Generation (03), Sales Conversion (05)"
+                      />
                       <select
                         value={stagePreset}
                         onChange={(e) => handleSelectPreset(e.target.value)}
@@ -944,9 +1060,12 @@ export default function CreateMarketingFunnelView({ initialUsers = [] }: CreateM
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-foreground/90 mb-1.5">
-                        Stage Name <span className="text-rose-500">*</span>
-                      </label>
+                      <FieldGuide
+                        label="Stage Name"
+                        required
+                        hint="The descriptive title of this milestone in your prospect's lifecycle."
+                        example="Awareness, Consideration, Lead Gen, Demo Booking, Won Deal"
+                      />
                       <input
                         type="text"
                         value={stageName}
@@ -959,24 +1078,29 @@ export default function CreateMarketingFunnelView({ initialUsers = [] }: CreateM
 
                   {/* Row 2: Strategic Objective */}
                   <div>
-                    <label className="block text-xs font-semibold text-foreground/90 mb-1.5">
-                      Stage Strategic Objective
-                    </label>
-                    <textarea
-                      rows={2}
-                      value={stageObjective}
-                      onChange={(e) => setStageObjective(e.target.value)}
-                      placeholder="What is the key goal of this stage in the customer journey?"
-                      className="w-full p-3 rounded-xl border border-border/80 bg-background text-foreground text-xs focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all resize-none leading-relaxed"
+                    <FieldGuide
+                      label="Stage Strategic Objective"
+                      hint="What qualitative milestone must occur at this stage before a prospect is qualified to advance?"
+                      example="Build broad brand reach, educate factory owners on industry waste, and drive content discovery."
                     />
+                    <div className="rounded-xl border border-border/80 bg-background focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-all overflow-hidden p-2">
+                      <RichTextEditor
+                        value={stageObjective}
+                        onChange={setStageObjective}
+                        placeholder="What is the key goal of this stage in the customer journey? e.g. Drive problem engagement and demo requests..."
+                        minHeight="65px"
+                      />
+                    </div>
                   </div>
 
                   {/* Row 3: Linked Marketing Campaigns (Dropdown only) */}
                   <div className="p-4 rounded-xl border border-border/60 bg-muted/20 space-y-3">
                     <div className="flex items-center justify-between">
-                      <label className="block text-xs font-bold text-foreground">
-                        Linked Marketing Campaigns ({stageCampaigns.length} assigned)
-                      </label>
+                      <FieldGuide
+                        label={`Linked Marketing Campaigns (${stageCampaigns.length} assigned)`}
+                        hint="Assign specific omnichannel campaigns that feed traffic and prospect touches into this stage."
+                        example="Meta Lead Ads, Google Search Ads, LinkedIn InMail, Email Drip Sequences"
+                      />
                       {stageCampaigns.length > 0 && (
                         <button
                           type="button"
@@ -1037,43 +1161,49 @@ export default function CreateMarketingFunnelView({ initialUsers = [] }: CreateM
                   {/* Row 4: Budget & KPI Metrics */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                      <label className="block text-xs font-semibold text-foreground/90 mb-1.5">
-                        Planned Stage Budget (৳)
-                      </label>
+                      <FieldGuide
+                        label="Planned Stage Budget (৳)"
+                        hint="The planned marketing spend allocated to run ads, production, and sponsorships for this stage."
+                        example="50000"
+                      />
                       <div className="relative">
                         <span className="absolute left-3.5 top-2.5 text-xs font-bold text-muted-foreground">৳</span>
                         <input
                           type="number"
                           value={stageBudget}
                           onChange={(e) => setStageBudget(e.target.value)}
-                          placeholder="0"
+                          placeholder="e.g. 50000"
                           className="w-full h-10 pl-8 pr-3.5 rounded-xl border border-border/80 bg-background font-mono text-foreground text-xs focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
                         />
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-foreground/90 mb-1.5">
-                        Main KPI Metric Name
-                      </label>
+                      <FieldGuide
+                        label="Main KPI Metric Name"
+                        hint="The core performance metric used to evaluate whether this stage is succeeding."
+                        example="Reach, Clicks, Qualified Leads, Demo Bookings, Won Deals"
+                      />
                       <input
                         type="text"
                         value={stageKPI}
                         onChange={(e) => setStageKPI(e.target.value)}
-                        placeholder="e.g. Reach, Leads, SQLs, MQLs"
+                        placeholder="e.g. Reach, Leads, SQLs, Demo Bookings"
                         className="w-full h-10 px-3.5 rounded-xl border border-border/80 bg-background text-foreground text-xs focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-foreground/90 mb-1.5">
-                        Target Quantity / Benchmark
-                      </label>
+                      <FieldGuide
+                        label="Target Quantity / Benchmark"
+                        hint="The numeric volume or benchmark threshold you expect to achieve in this stage."
+                        example="50,000 Impressions, 1,000 Leads, 25% Stage Conversion"
+                      />
                       <input
                         type="text"
                         value={stageKPITarget}
                         onChange={(e) => setStageKPITarget(e.target.value)}
-                        placeholder="e.g. 50,000"
+                        placeholder="e.g. 50,000 Views, 1,000 Leads"
                         className="w-full h-10 px-3.5 rounded-xl border border-border/80 bg-background text-foreground text-xs focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
                       />
                     </div>
@@ -1284,9 +1414,11 @@ export default function CreateMarketingFunnelView({ initialUsers = [] }: CreateM
                             {/* Row 1: Template & Name */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                               <div>
-                                <label className="block text-xs font-semibold text-foreground/90 mb-1.5">
-                                  Standard Funnel Stage (Select from Template)
-                                </label>
+                                <FieldGuide
+                                  label="Standard Funnel Stage"
+                                  hint="Select a standard funnel progression template (Top, Middle, Bottom of funnel) or configure a custom milestone."
+                                  example="Awareness (01), Consideration (02), Lead Generation (03), Sales Conversion (05)"
+                                />
                                 <select
                                   value={stagePreset}
                                   onChange={(e) => handleSelectPreset(e.target.value)}
@@ -1303,9 +1435,12 @@ export default function CreateMarketingFunnelView({ initialUsers = [] }: CreateM
                               </div>
 
                               <div>
-                                <label className="block text-xs font-semibold text-foreground/90 mb-1.5">
-                                  Stage Name <span className="text-rose-500">*</span>
-                                </label>
+                                <FieldGuide
+                                  label="Stage Name"
+                                  required
+                                  hint="The descriptive title of this milestone in your prospect's lifecycle."
+                                  example="Awareness, Consideration, Lead Gen, Demo Booking, Won Deal"
+                                />
                                 <input
                                   type="text"
                                   value={stageName}
@@ -1318,24 +1453,29 @@ export default function CreateMarketingFunnelView({ initialUsers = [] }: CreateM
 
                             {/* Row 2: Strategic Objective */}
                             <div>
-                              <label className="block text-xs font-semibold text-foreground/90 mb-1.5">
-                                Stage Strategic Objective
-                              </label>
-                              <textarea
-                                rows={2}
-                                value={stageObjective}
-                                onChange={(e) => setStageObjective(e.target.value)}
-                                placeholder="What is the key goal of this stage in the customer journey?"
-                                className="w-full p-3 rounded-xl border border-border/80 bg-background text-foreground text-xs focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all resize-none leading-relaxed"
+                              <FieldGuide
+                                label="Stage Strategic Objective"
+                                hint="What qualitative milestone must occur at this stage before a prospect is qualified to advance?"
+                                example="Build broad brand reach, educate factory owners on industry waste, and drive content discovery."
                               />
+                              <div className="rounded-xl border border-border/80 bg-background focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-all overflow-hidden p-2">
+                                <RichTextEditor
+                                  value={stageObjective}
+                                  onChange={setStageObjective}
+                                  placeholder="What is the key goal of this stage in the customer journey? e.g. Drive problem engagement and demo requests..."
+                                  minHeight="65px"
+                                />
+                              </div>
                             </div>
 
                             {/* Row 3: Linked Marketing Campaigns */}
                             <div className="p-4 rounded-xl border border-border/60 bg-muted/20 space-y-3">
                               <div className="flex items-center justify-between">
-                                <label className="block text-xs font-bold text-foreground">
-                                  Linked Marketing Campaigns ({stageCampaigns.length} assigned)
-                                </label>
+                                <FieldGuide
+                                  label={`Linked Marketing Campaigns (${stageCampaigns.length} assigned)`}
+                                  hint="Assign specific omnichannel campaigns that feed traffic and prospect touches into this stage."
+                                  example="Meta Lead Ads, Google Search Ads, LinkedIn InMail, Email Drip Sequences"
+                                />
                                 {stageCampaigns.length > 0 && (
                                   <button
                                     type="button"
@@ -1396,43 +1536,49 @@ export default function CreateMarketingFunnelView({ initialUsers = [] }: CreateM
                             {/* Row 4: Budget & KPI Metrics */}
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                               <div>
-                                <label className="block text-xs font-semibold text-foreground/90 mb-1.5">
-                                  Planned Stage Budget (৳)
-                                </label>
+                                <FieldGuide
+                                  label="Planned Stage Budget (৳)"
+                                  hint="The planned marketing spend allocated to run ads, production, and sponsorships for this stage."
+                                  example="50000"
+                                />
                                 <div className="relative">
                                   <span className="absolute left-3.5 top-2.5 text-xs font-bold text-muted-foreground">৳</span>
                                   <input
                                     type="number"
                                     value={stageBudget}
                                     onChange={(e) => setStageBudget(e.target.value)}
-                                    placeholder="0"
+                                    placeholder="e.g. 50000"
                                     className="w-full h-10 pl-8 pr-3.5 rounded-xl border border-border/80 bg-background font-mono text-foreground text-xs focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
                                   />
                                 </div>
                               </div>
 
                               <div>
-                                <label className="block text-xs font-semibold text-foreground/90 mb-1.5">
-                                  Main KPI Metric Name
-                                </label>
+                                <FieldGuide
+                                  label="Main KPI Metric Name"
+                                  hint="The core performance metric used to evaluate whether this stage is succeeding."
+                                  example="Reach, Clicks, Qualified Leads, Demo Bookings, Won Deals"
+                                />
                                 <input
                                   type="text"
                                   value={stageKPI}
                                   onChange={(e) => setStageKPI(e.target.value)}
-                                  placeholder="e.g. Reach, Leads, SQLs, MQLs"
+                                  placeholder="e.g. Reach, Leads, SQLs, Demo Bookings"
                                   className="w-full h-10 px-3.5 rounded-xl border border-border/80 bg-background text-foreground text-xs focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
                                 />
                               </div>
 
                               <div>
-                                <label className="block text-xs font-semibold text-foreground/90 mb-1.5">
-                                  Target Quantity / Benchmark
-                                </label>
+                                <FieldGuide
+                                  label="Target Quantity / Benchmark"
+                                  hint="The numeric volume or benchmark threshold you expect to achieve in this stage."
+                                  example="50,000 Impressions, 1,000 Leads, 25% Stage Conversion"
+                                />
                                 <input
                                   type="text"
                                   value={stageKPITarget}
                                   onChange={(e) => setStageKPITarget(e.target.value)}
-                                  placeholder="e.g. 50,000"
+                                  placeholder="e.g. 50,000 Views, 1,000 Leads"
                                   className="w-full h-10 px-3.5 rounded-xl border border-border/80 bg-background text-foreground text-xs focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
                                 />
                               </div>
@@ -1488,9 +1634,11 @@ export default function CreateMarketingFunnelView({ initialUsers = [] }: CreateM
             {/* CHANNELS */}
             <div className="rounded-2xl border border-border/60 bg-card p-6 shadow-xs space-y-4">
               <div className="flex items-center justify-between border-b border-border/40 pb-2">
-                <h3 className="text-sm font-bold text-foreground">
-                  1. Marketing Channels ({selectedChannels.length} Selected)
-                </h3>
+                <FieldGuide
+                  label={`1. Marketing Channels (${selectedChannels.length} Selected)`}
+                  hint="Select all the digital and offline channels through which this funnel's campaigns will be distributed."
+                  example="Facebook, LinkedIn, Google Search, Email, WhatsApp, Events"
+                />
                 {selectedChannels.length > 0 && (
                   <button
                     type="button"
@@ -1534,16 +1682,21 @@ export default function CreateMarketingFunnelView({ initialUsers = [] }: CreateM
 
             {/* CONTENT PILLARS */}
             <div className="rounded-2xl border border-border/60 bg-card p-6 shadow-xs space-y-4">
-              <h3 className="text-sm font-bold text-foreground border-b border-border/40 pb-2">
-                2. Content Strategy & Pillars
-              </h3>
-              <textarea
-                rows={3}
-                value={contentPillars}
-                onChange={(e) => setContentPillars(e.target.value)}
-                placeholder=""
-                className="w-full p-3.5 rounded-xl border border-border/80 bg-background text-foreground text-xs focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all resize-none"
-              />
+              <div className="border-b border-border/40 pb-2">
+                <FieldGuide
+                  label="2. Content Strategy & Pillars"
+                  hint="The 3-5 core educational themes and thought leadership topics your team will create across channels."
+                  example="1) RMG Floor Efficiency, 2) Bengali Payroll Compliance, 3) Real-time Order Tracking Case Studies"
+                />
+              </div>
+              <div className="rounded-xl border border-border/80 bg-background focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-all overflow-hidden p-2">
+                <RichTextEditor
+                  value={contentPillars}
+                  onChange={setContentPillars}
+                  placeholder="Outline key content pillars: e.g. 1) RMG Floor Efficiency, 2) Bengali Payroll Compliance, 3) Real-time Order Tracking Case Studies..."
+                  minHeight="85px"
+                />
+              </div>
             </div>
 
             {/* BUDGET & TIMELINE */}
@@ -1553,22 +1706,25 @@ export default function CreateMarketingFunnelView({ initialUsers = [] }: CreateM
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-foreground/90 mb-1.5">
-                    Approved Budget Envelope (৳)
-                  </label>
+                  <FieldGuide
+                    label="Approved Budget Envelope (৳)"
+                    hint="Total authorized monetary budget approved by management for executing this strategic marketing funnel."
+                    example="500000"
+                  />
                   <input
                     type="number"
                     value={approvedBudget}
                     onChange={(e) => setApprovedBudget(e.target.value)}
-                    placeholder="0"
+                    placeholder="e.g. 500000"
                     className="w-full h-10 px-3.5 rounded-xl border border-border/80 bg-background font-mono text-foreground text-xs focus:outline-hidden focus:ring-2 focus:ring-primary/20"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-foreground/90 mb-1.5">
-                    Start Date
-                  </label>
+                  <FieldGuide
+                    label="Start Date"
+                    hint="The official launch date when campaigns under this funnel begin active distribution."
+                  />
                   <input
                     type="date"
                     value={startDate}
@@ -1578,9 +1734,10 @@ export default function CreateMarketingFunnelView({ initialUsers = [] }: CreateM
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-foreground/90 mb-1.5">
-                    End Date
-                  </label>
+                  <FieldGuide
+                    label="End Date"
+                    hint="The target deadline when final funnel conversion metrics and revenue attribution are reviewed."
+                  />
                   <input
                     type="date"
                     value={endDate}
@@ -1598,23 +1755,25 @@ export default function CreateMarketingFunnelView({ initialUsers = [] }: CreateM
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-foreground/90 mb-1.5">
-                    Main Conversion Goal
-                  </label>
+                  <FieldGuide
+                    label="Main Conversion Goal"
+                    hint="The ultimate conversion milestone that signifies this funnel has achieved its primary mission."
+                    example="100 Enterprise Factory Contract Signatures"
+                  />
                   <input
                     type="text"
                     value={mainConversionGoal}
                     onChange={(e) => setMainConversionGoal(e.target.value)}
-                    placeholder="e.g. 100 Qualified Demo Bookings"
+                    placeholder="e.g. 100 Enterprise Factory Contract Signatures"
                     className="w-full h-10 px-3.5 rounded-xl border border-border/80 bg-background text-foreground text-xs focus:outline-hidden focus:ring-2 focus:ring-primary/20"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-foreground/90 mb-1.5 flex items-center justify-between">
-                    <span>Funnel Owner</span>
-                    <span className="text-[10px] text-muted-foreground font-normal">Team member from /dashboard/users</span>
-                  </label>
+                  <FieldGuide
+                    label="Funnel Owner"
+                    hint="The primary team member or marketing manager responsible for driving execution and hitting targets."
+                  />
                   <select
                     value={funnelOwner}
                     onChange={(e) => setFunnelOwner(e.target.value)}
