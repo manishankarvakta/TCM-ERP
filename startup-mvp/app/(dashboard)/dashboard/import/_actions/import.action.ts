@@ -943,15 +943,26 @@ export async function executeImportAction(
               },
             });
             if (!supplier) {
-              supplier = await prisma.supplier.create({
-                data: {
-                  name: sName,
-                  status: "active",
-                  createdBy: currentUserId,
-                },
+              const res = await createSupplier({
+                name: sName,
+                phone: "",
+                status: "active",
               });
+              if (res.success && res.supplier) {
+                supplier = res.supplier as any;
+              } else {
+                supplier = await prisma.supplier.create({
+                  data: {
+                    name: sName,
+                    status: "active",
+                    createdBy: currentUserId,
+                  },
+                });
+              }
             }
-            supplierConnects.push({ id: supplier.id });
+            if (supplier?.id) {
+              supplierConnects.push({ id: supplier.id });
+            }
           }
 
           if (row.unitCode) {
@@ -1038,6 +1049,11 @@ export async function executeImportAction(
                 vatPercentage: row.vatPercentage ? Number(row.vatPercentage) : existing.vatPercentage,
                 isDiscountable: (row.isDiscountDisabled === "true" || row.isDiscountDisabled === true || row.isDiscountable === "false" || row.isDiscountable === false) ? false : existing.isDiscountable,
                 isCustomerPointAvailable: (row.isCustomerPointDisabled === "true" || row.isCustomerPointDisabled === true || row.isCustomerPointAvailable === "false" || row.isCustomerPointAvailable === false) ? false : existing.isCustomerPointAvailable,
+                isWeighingScale: (row.isWeighingScale === "true" || row.isWeighingScale === true || String(row.isWeighingScale).toLowerCase() === "yes" || row.isWeighingScale === "1")
+                  ? true
+                  : ((row.isWeighingScale === "false" || row.isWeighingScale === false || String(row.isWeighingScale).toLowerCase() === "no" || row.isWeighingScale === "0")
+                      ? false
+                      : existing.isWeighingScale),
                 categoryId: categoryId || existing.categoryId,
                 subCategoryId: subCategoryId || existing.subCategoryId,
                 brandId: brandId || existing.brandId,
@@ -1072,6 +1088,7 @@ export async function executeImportAction(
               vatPercentage: row.vatPercentage ? Number(row.vatPercentage) : 0,
               isDiscountable: (row.isDiscountDisabled === "true" || row.isDiscountDisabled === true || row.isDiscountable === "false" || row.isDiscountable === false) ? false : true,
               isCustomerPointAvailable: (row.isCustomerPointDisabled === "true" || row.isCustomerPointDisabled === true || row.isCustomerPointAvailable === "false" || row.isCustomerPointAvailable === false) ? false : true,
+              isWeighingScale: row.isWeighingScale === "true" || row.isWeighingScale === true || String(row.isWeighingScale).toLowerCase() === "yes" || row.isWeighingScale === "1",
               status: row.status === "inactive" ? "inactive" : "active",
               itemType: parsedItemType,
               categoryId,
