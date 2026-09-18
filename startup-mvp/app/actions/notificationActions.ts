@@ -272,29 +272,22 @@ export async function getUserNotifications(
  */
 export async function getCurrentUserNotifications(): Promise<ActionResult> {
   try {
-    console.log("getCurrentUserNotifications: Calling auth()...");
     const session = await auth();
-    console.log("getCurrentUserNotifications: session parsed:", session ? { id: session.user?.id, email: session.user?.email, role: session.user?.role } : "null");
 
     if (!session?.user?.id) {
-      console.warn("getCurrentUserNotifications: Unauthorized session");
       return {
         success: false,
         error: "Unauthorized",
       };
     }
 
-    console.log("getCurrentUserNotifications: Fetching notifications for user:", session.user.id);
     const result = await getUserNotifications(session.user.id);
-    console.log("getCurrentUserNotifications: Fetch notifications result:", result.success ? "Success" : "Failed");
 
     // Revalidate notifications paths
     if (result.success) {
-      console.log("getCurrentUserNotifications: Triggering revalidation paths...");
       revalidateBothPaths("");
       revalidateBothPaths("notifications");
       nextRevalidatePath("/dashboard/notifications");
-      console.log("getCurrentUserNotifications: Revalidation paths triggered successfully.");
     }
 
     return result;
