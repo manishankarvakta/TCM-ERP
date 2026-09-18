@@ -713,14 +713,6 @@ export default function MarketingFunnelDetailView({ funnelId }: MarketingFunnelD
                 <h2 className="text-sm font-bold text-foreground">Financial Roll-Up Envelope</h2>
                 <p className="text-xs text-muted-foreground">Total Budget → Stage Allocations → Campaign Budgets → Actual Vendor Expenses</p>
               </div>
-              <div className="flex items-center gap-2">
-                <Button size="sm" variant="outline" className="h-7 text-xs font-medium" asChild>
-                  <Link href="/dashboard/marketing/budget">Campaign Budget</Link>
-                </Button>
-                <Button size="sm" variant="outline" className="h-7 text-xs font-medium" asChild>
-                  <Link href="/dashboard/marketing/expenses">Expenses Ledger</Link>
-                </Button>
-              </div>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs">
@@ -778,9 +770,6 @@ export default function MarketingFunnelDetailView({ funnelId }: MarketingFunnelD
                 <p className="text-xs text-muted-foreground">Rolled up from existing Attribution & ROI Report engines</p>
               </div>
               <div className="flex items-center gap-2">
-                <Button size="sm" variant="outline" className="h-7 text-xs font-medium" asChild>
-                  <Link href="/dashboard/marketing/attribution">Attribution Models</Link>
-                </Button>
                 <Button size="sm" variant="outline" className="h-7 text-xs font-medium" asChild>
                   <Link href="/dashboard/marketing/roi-reports">ROI Reports</Link>
                 </Button>
