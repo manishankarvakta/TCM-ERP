@@ -123,3 +123,7 @@ biometricWorker.on("failed", (job, err) => {
   console.log(`Job ${job?.id} has failed with ${err.message}`);
 });
 
+biometricWorker.on("error", (err) => {
+  // Suppress unhandled error crash when Redis is temporarily offline/reconnecting
+});
+

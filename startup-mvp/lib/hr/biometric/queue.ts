@@ -16,6 +16,10 @@ export const biometricQueue = new Queue(QUEUE_NAME, {
   },
 });
 
+biometricQueue.on("error", (err) => {
+  // Suppress unhandled error crash when Redis is temporarily offline/reconnecting
+});
+
 export enum BiometricJobType {
   SYNC_LOGS = "SYNC_LOGS",
   PROCESS_ATTENDANCE = "PROCESS_ATTENDANCE",

@@ -6,7 +6,7 @@ const getRedisUrl = () => {
   }
   // Allow Next.js static build to pass without a real Redis connection
   if (process.env.npm_lifecycle_event === 'build' || process.env.NODE_ENV !== 'production') {
-    return "redis://localhost:6379";
+    return "redis://127.0.0.1:6379";
   }
   throw new Error("REDIS_URL is not defined");
 };

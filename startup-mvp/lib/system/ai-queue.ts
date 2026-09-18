@@ -29,6 +29,10 @@ export const aiQueue = new Queue(QUEUE_NAME, {
     },
 });
 
+aiQueue.on('error', (err) => {
+    // Suppress unhandled error crash when Redis is temporarily offline/reconnecting
+});
+
 export const AIQueueService = {
     async enqueue(type: AIJobType, payload: any, projectId?: string, teamMemberIds?: string[]) {
         const job: AIJob = { type, payload, projectId, teamMemberIds };

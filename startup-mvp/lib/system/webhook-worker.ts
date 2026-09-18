@@ -78,6 +78,10 @@ export const webhookWorker = new Worker(
   }
 );
 
+webhookWorker.on('error', (err) => {
+  // Suppress unhandled error crash when Redis is temporarily offline/reconnecting
+});
+
 async function processFacebookLead(event: any) {
   const payload = event.payload as any;
   const leadgenId = payload.leadgen_id;

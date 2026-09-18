@@ -23,6 +23,10 @@ export const webhookQueue = new Queue(QUEUE_NAME, {
   },
 });
 
+webhookQueue.on('error', (err) => {
+  // Suppress unhandled error crash when Redis is temporarily offline/reconnecting
+});
+
 export const WebhookQueueService = {
   async enqueue(type: WebhookJobType, eventId: string) {
     const job: WebhookJob = { type, eventId };

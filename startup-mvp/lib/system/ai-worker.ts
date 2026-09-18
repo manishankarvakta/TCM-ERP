@@ -76,3 +76,7 @@ aiWorker.on('completed', job => {
 aiWorker.on('failed', (job, err) => {
     console.error(`[BullMQ] AI Job ${job?.id} has failed with ${err.message}`);
 });
+
+aiWorker.on('error', (err) => {
+    // Suppress unhandled error crash when Redis is temporarily offline/reconnecting
+});
