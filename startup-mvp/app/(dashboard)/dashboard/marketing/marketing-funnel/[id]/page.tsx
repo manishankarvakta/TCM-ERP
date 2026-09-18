@@ -1,4 +1,4 @@
-import React from "react";
+import React, { Suspense } from "react";
 import MarketingFunnelDetailView from "@/components/marketing/marketing-funnel-detail-view";
 import { getMarketingFunnelDetailAction } from "@/app/actions/crm/marketing-operations.action";
 
@@ -11,6 +11,10 @@ export default async function MarketingFunnelDetailPage({ params }: MarketingFun
   const res = await getMarketingFunnelDetailAction(id);
   const initialData = res.success && res.funnel ? res.funnel : null;
 
-  return <MarketingFunnelDetailView funnelId={id} initialData={initialData} />;
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-xs text-muted-foreground animate-pulse">Loading funnel details...</div>}>
+      <MarketingFunnelDetailView funnelId={id} initialData={initialData} />
+    </Suspense>
+  );
 }
 

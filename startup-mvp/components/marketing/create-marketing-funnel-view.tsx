@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -161,9 +161,14 @@ interface CreateMarketingFunnelViewProps {
 
 export default function CreateMarketingFunnelView({ initialUsers = [] }: CreateMarketingFunnelViewProps) {
   const router = useRouter();
-  const [currentStep, setCurrentStep] = useState(1);
+  const searchParams = useSearchParams();
+  const stepParam = searchParams.get("step") || searchParams.get("tab");
+  const initialStep = stepParam ? Math.max(1, Math.min(5, parseInt(stepParam, 10) || 1)) : 1;
+  const [currentStep, setCurrentStep] = useState(initialStep);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [availableUsers, setAvailableUsers] = useState<AssignableUserItem[]>(initialUsers);
+  const [hasRestoredDraft, setHasRestoredDraft] = useState(false);
+  const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null);
 
   // Fallback client fetch for assignable users if initialUsers is empty
   React.useEffect(() => {
@@ -253,6 +258,205 @@ export default function CreateMarketingFunnelView({ initialUsers = [] }: CreateM
     { num: 4, title: "Execution Plan" },
     { num: 5, title: "Review & Create" },
   ];
+
+  // URL-based step navigation (preserves step on reload)
+  const goToStep = (step: number) => {
+    const targetStep = Math.max(1, Math.min(5, step));
+    setCurrentStep(targetStep);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("step", targetStep.toString());
+      window.history.replaceState(null, "", url.toString());
+    }
+  };
+
+  // Sync state if URL search param changes externally (e.g. browser back/forward)
+  React.useEffect(() => {
+    if (stepParam) {
+      const parsed = parseInt(stepParam, 10);
+      if (!isNaN(parsed) && parsed >= 1 && parsed <= 5 && parsed !== currentStep) {
+        setCurrentStep(parsed);
+      }
+    }
+  }, [stepParam]);
+
+  // RESTORE DRAFT FROM LOCALSTORAGE ON MOUNT (PREVENTS DATA LOSS ON RELOAD)
+  React.useEffect(() => {
+    try {
+      if (typeof window !== "undefined") {
+        const saved = localStorage.getItem("tcm_marketing_funnel_draft");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed && typeof parsed === "object") {
+            if (parsed.name) setName(parsed.name);
+            if (parsed.productName) setProductName(parsed.productName);
+            if (parsed.productDescription) setProductDescription(parsed.productDescription);
+            if (parsed.problemSolved) setProblemSolved(parsed.problemSolved);
+            if (parsed.usp) setUsp(parsed.usp);
+            if (parsed.mainCTA) setMainCTA(parsed.mainCTA);
+            if (parsed.primaryObjective) setPrimaryObjective(parsed.primaryObjective);
+            if (parsed.leadTarget) setLeadTarget(parsed.leadTarget);
+            if (parsed.sqlTarget) setSqlTarget(parsed.sqlTarget);
+            if (parsed.customerTarget) setCustomerTarget(parsed.customerTarget);
+            if (parsed.targetRevenue) setTargetRevenue(parsed.targetRevenue);
+            if (parsed.audienceSegment) setAudienceSegment(parsed.audienceSegment);
+            if (parsed.decisionMakers) setDecisionMakers(parsed.decisionMakers);
+            if (parsed.marketOpportunity) setMarketOpportunity(parsed.marketOpportunity);
+            if (parsed.keyCompetitors) setKeyCompetitors(parsed.keyCompetitors);
+            if (parsed.marketGaps) setMarketGaps(parsed.marketGaps);
+            if (parsed.valueProp) setValueProp(parsed.valueProp);
+            if (parsed.coreMessage) setCoreMessage(parsed.coreMessage);
+            if (parsed.campaignTheme) setCampaignTheme(parsed.campaignTheme);
+            if (Array.isArray(parsed.stages) && parsed.stages.length > 0) setStages(parsed.stages);
+            if (Array.isArray(parsed.selectedChannels) && parsed.selectedChannels.length > 0) setSelectedChannels(parsed.selectedChannels);
+            if (parsed.contentPillars) setContentPillars(parsed.contentPillars);
+            if (parsed.approvedBudget) setApprovedBudget(parsed.approvedBudget);
+            if (parsed.startDate) setStartDate(parsed.startDate);
+            if (parsed.endDate) setEndDate(parsed.endDate);
+            if (parsed.mainConversionGoal) setMainConversionGoal(parsed.mainConversionGoal);
+            if (parsed.funnelOwner) setFunnelOwner(parsed.funnelOwner);
+            if (parsed.savedAt) setDraftSavedAt(parsed.savedAt);
+
+            // If URL doesn't have an explicit ?step=, restore saved step
+            const currentUrlStep = new URLSearchParams(window.location.search).get("step");
+            if (!currentUrlStep && parsed.currentStep) {
+              goToStep(parsed.currentStep);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to restore funnel draft from localStorage:", e);
+    } finally {
+      setHasRestoredDraft(true);
+    }
+  }, []);
+
+  // AUTO-SAVE DRAFT TO LOCALSTORAGE WHEN FIELDS CHANGE
+  React.useEffect(() => {
+    if (!hasRestoredDraft) return;
+
+    const timer = setTimeout(() => {
+      try {
+        const hasAnyData = Boolean(
+          name || productName || productDescription || problemSolved || usp ||
+          primaryObjective || targetRevenue || audienceSegment || stages.length > 0 ||
+          selectedChannels.length > 0 || approvedBudget || contentPillars
+        );
+
+        if (hasAnyData && typeof window !== "undefined") {
+          const now = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+          const draft = {
+            currentStep,
+            name,
+            productName,
+            productDescription,
+            problemSolved,
+            usp,
+            mainCTA,
+            primaryObjective,
+            leadTarget,
+            sqlTarget,
+            customerTarget,
+            targetRevenue,
+            audienceSegment,
+            decisionMakers,
+            marketOpportunity,
+            keyCompetitors,
+            marketGaps,
+            valueProp,
+            coreMessage,
+            campaignTheme,
+            stages,
+            selectedChannels,
+            contentPillars,
+            approvedBudget,
+            startDate,
+            endDate,
+            mainConversionGoal,
+            funnelOwner,
+            savedAt: now,
+          };
+          localStorage.setItem("tcm_marketing_funnel_draft", JSON.stringify(draft));
+          setDraftSavedAt(now);
+        }
+      } catch (e) {
+        console.warn("Failed to auto-save funnel draft:", e);
+      }
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [
+    hasRestoredDraft,
+    currentStep,
+    name,
+    productName,
+    productDescription,
+    problemSolved,
+    usp,
+    mainCTA,
+    primaryObjective,
+    leadTarget,
+    sqlTarget,
+    customerTarget,
+    targetRevenue,
+    audienceSegment,
+    decisionMakers,
+    marketOpportunity,
+    keyCompetitors,
+    marketGaps,
+    valueProp,
+    coreMessage,
+    campaignTheme,
+    stages,
+    selectedChannels,
+    contentPillars,
+    approvedBudget,
+    startDate,
+    endDate,
+    mainConversionGoal,
+    funnelOwner,
+  ]);
+
+  // Reset/Discard Local Draft
+  const handleClearDraft = () => {
+    if (window.confirm("Are you sure you want to discard your saved draft and reset all fields?")) {
+      try {
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("tcm_marketing_funnel_draft");
+        }
+      } catch {}
+      setName("");
+      setProductName("");
+      setProductDescription("");
+      setProblemSolved("");
+      setUsp("");
+      setMainCTA("");
+      setPrimaryObjective("");
+      setLeadTarget("");
+      setSqlTarget("");
+      setCustomerTarget("");
+      setTargetRevenue("");
+      setAudienceSegment("");
+      setDecisionMakers("");
+      setMarketOpportunity("");
+      setKeyCompetitors("");
+      setMarketGaps("");
+      setValueProp("");
+      setCoreMessage("");
+      setCampaignTheme("");
+      setStages([]);
+      setSelectedChannels([]);
+      setContentPillars("");
+      setApprovedBudget("");
+      setStartDate("");
+      setEndDate("");
+      setMainConversionGoal("");
+      setFunnelOwner("");
+      setDraftSavedAt(null);
+      goToStep(1);
+    }
+  };
 
   // Start Editing a Stage (Inline Card Expansion)
   const handleEditStage = (stageToEdit: FunnelStageItem) => {
@@ -427,6 +631,11 @@ export default function CreateMarketingFunnelView({ initialUsers = [] }: CreateM
       setIsSubmitting(false);
 
       if (res.success && res.funnelId) {
+        try {
+          if (typeof window !== "undefined") {
+            localStorage.removeItem("tcm_marketing_funnel_draft");
+          }
+        } catch {}
         router.push(`/dashboard/marketing/marketing-funnel/${res.funnelId}`);
       } else {
         alert(res.error || "Failed to submit marketing funnel");
@@ -449,7 +658,21 @@ export default function CreateMarketingFunnelView({ initialUsers = [] }: CreateM
           </Link>
         </Button>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
+          {draftSavedAt && (
+            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground bg-muted/40 px-2.5 py-1 rounded-lg border border-border/40">
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span>Autosaved ({draftSavedAt})</span>
+              <button
+                type="button"
+                onClick={handleClearDraft}
+                className="text-muted-foreground hover:text-rose-500 ml-1 transition-colors cursor-pointer"
+                title="Discard saved draft and reset fields"
+              >
+                <FiTrash2 className="h-3 w-3" />
+              </button>
+            </div>
+          )}
           <Button
             variant="outline"
             size="sm"
@@ -467,7 +690,7 @@ export default function CreateMarketingFunnelView({ initialUsers = [] }: CreateM
           {stepsList.map((st) => (
             <button
               key={st.num}
-              onClick={() => setCurrentStep(st.num)}
+              onClick={() => goToStep(st.num)}
               className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all ${
                 currentStep === st.num
                   ? "bg-primary text-primary-foreground shadow-sm"
@@ -1910,7 +2133,7 @@ export default function CreateMarketingFunnelView({ initialUsers = [] }: CreateM
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setCurrentStep(4)}
+                onClick={() => goToStep(4)}
                 className="h-10 px-4"
               >
                 <FiArrowLeft className="mr-1.5 h-3.5 w-3.5" /> Back
@@ -1944,7 +2167,7 @@ export default function CreateMarketingFunnelView({ initialUsers = [] }: CreateM
               variant="outline"
               size="sm"
               disabled={currentStep === 1}
-              onClick={() => setCurrentStep(currentStep - 1)}
+              onClick={() => goToStep(currentStep - 1)}
               className="h-10 px-4 text-xs font-semibold"
             >
               <FiArrowLeft className="mr-1.5 h-3.5 w-3.5" /> Previous Step
@@ -1952,7 +2175,7 @@ export default function CreateMarketingFunnelView({ initialUsers = [] }: CreateM
 
             <Button
               size="sm"
-              onClick={() => setCurrentStep(currentStep + 1)}
+              onClick={() => goToStep(currentStep + 1)}
               className="h-10 px-6 text-xs font-semibold shadow-xs"
             >
               Next: {stepsList[currentStep]?.title || "Review"}{" "}

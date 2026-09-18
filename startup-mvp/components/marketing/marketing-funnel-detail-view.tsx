@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -178,9 +178,27 @@ export default function MarketingFunnelDetailView({
   initialData,
 }: MarketingFunnelDetailViewProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const urlTab = searchParams.get("tab");
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState(urlTab || "overview");
+
+  // Keep state in sync if URL changes (e.g. browser back/forward)
+  React.useEffect(() => {
+    if (urlTab && urlTab !== activeTab) {
+      setActiveTab(urlTab);
+    }
+  }, [urlTab]);
+
+  const handleTabChange = (newTab: string) => {
+    setActiveTab(newTab);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("tab", newTab);
+      window.history.replaceState(null, "", url.toString());
+    }
+  };
 
   // Executive Strategic Funnel State
   const [funnel, setFunnel] = useState<MarketingFunnelDetailData>(
@@ -342,7 +360,7 @@ export default function MarketingFunnelDetailView({
       </div>
 
       {/* 4. INTERNAL TABS (12 TABS AS SPECIFIED IN PROMPT) */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
         <TabsList className="bg-muted/60 p-1 border border-border/40 flex flex-wrap h-auto gap-1">
           <TabsTrigger value="overview" className="text-xs font-semibold">1. Overview (Product/Service)</TabsTrigger>
           <TabsTrigger value="strategy" className="text-xs font-semibold">2. Strategy (Objective)</TabsTrigger>
