@@ -65,7 +65,17 @@ export default function ScannerClient({ warehouses, defaultWarehouseId, isNormal
 
   const barcodeInputRef = useRef<HTMLInputElement>(null);
   const qtyInputRef = useRef<HTMLInputElement>(null);
+  const isScanningRef = useRef<boolean>(false);
   const pathname = usePathname();
+
+  // Helper to reliably focus the barcode input
+  const focusBarcodeInput = () => {
+    setTimeout(() => {
+      if (!isModalOpen && barcodeInputRef.current) {
+        barcodeInputRef.current.focus();
+      }
+    }, 50);
+  };
 
   // Load entries for selected warehouse
   const loadEntries = async (whId: string) => {
@@ -85,11 +95,27 @@ export default function ScannerClient({ warehouses, defaultWarehouseId, isNormal
     loadEntries(selectedWarehouseId);
   }, [selectedWarehouseId]);
 
-  // Keep focus on input field for scanning efficiency when modal is closed
+  // Keep focus on input field on mount and when modal closes
   useEffect(() => {
-    if (!isModalOpen && barcodeInputRef.current) {
-      barcodeInputRef.current.focus();
+    if (!isModalOpen) {
+      focusBarcodeInput();
     }
+  }, [isModalOpen]);
+
+  // Global Escape key shortcut to instantly focus the barcode scan field
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !isModalOpen) {
+        e.preventDefault();
+        if (barcodeInputRef.current) {
+          barcodeInputRef.current.focus();
+          barcodeInputRef.current.select();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isModalOpen]);
 
   // Focus quantity input when modal opens
@@ -106,6 +132,8 @@ export default function ScannerClient({ warehouses, defaultWarehouseId, isNormal
 
   const handleScanSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isScanningRef.current) return;
+
     const cleanCode = barcodeInput.trim();
     if (!cleanCode) return;
 
@@ -115,36 +143,41 @@ export default function ScannerClient({ warehouses, defaultWarehouseId, isNormal
     }
 
     setBarcodeInput(""); // Clear immediately for rapid scan input flow
+    isScanningRef.current = true;
     setIsScanning(true);
 
-    if (customQtyMode) {
-      // Prompt Quantity Mode: Lookup item first, then open dialog
-      const lookupRes = await lookupCountItem(cleanCode);
-      if (lookupRes.success && lookupRes.item) {
-        setPendingItem(lookupRes.item);
-        setCustomQtyInput("1");
-        setIsModalOpen(true);
-      } else {
-        toast.error(lookupRes.error || "Item not found or could not be processed");
-        if (barcodeInputRef.current) {
-          barcodeInputRef.current.focus();
+    try {
+      if (customQtyMode) {
+        // Prompt Quantity Mode: Lookup item first, then open dialog
+        const lookupRes = await lookupCountItem(cleanCode);
+        if (lookupRes.success && lookupRes.item) {
+          setPendingItem(lookupRes.item);
+          setCustomQtyInput("1");
+          setIsModalOpen(true);
+        } else {
+          toast.error(lookupRes.error || "Item not found or could not be processed");
+          focusBarcodeInput();
         }
-      }
-    } else {
-      // Standard Direct Mode: Save immediately with 1 quantity
-      const res = await scanBarcode(cleanCode, selectedWarehouseId, 1);
-      if (res.success && res.entry) {
-        toast.success(`Scanned: ${res.entry.name} (${res.entry.code})`);
-        loadEntries(selectedWarehouseId);
       } else {
-        toast.error(res.error || "Item not found or could not be processed");
+        // Standard Direct Mode: Save immediately with 1 quantity
+        const res = await scanBarcode(cleanCode, selectedWarehouseId, 1);
+        if (res.success && res.entry) {
+          toast.success(`Scanned: ${res.entry.name} (${res.entry.code})`);
+          await loadEntries(selectedWarehouseId);
+        } else {
+          toast.error(res.error || "Item not found or could not be processed");
+        }
+        focusBarcodeInput();
       }
-      if (barcodeInputRef.current) {
-        barcodeInputRef.current.focus();
-      }
+    } catch (error) {
+      console.error("Scan submission error:", error);
+      toast.error("An unexpected error occurred while scanning");
+      focusBarcodeInput();
+    } finally {
+      isScanningRef.current = false;
+      setIsScanning(false);
+      focusBarcodeInput();
     }
-
-    setIsScanning(false);
   };
 
   const handleModalSubmit = async (e?: React.FormEvent) => {
@@ -158,28 +191,29 @@ export default function ScannerClient({ warehouses, defaultWarehouseId, isNormal
     }
 
     setIsSubmittingModal(true);
-    const res = await scanBarcode(pendingItem.cleanCode, selectedWarehouseId, parsedQty);
-    if (res.success && res.entry) {
-      toast.success(`Counted ${parsedQty} ${res.entry.unit}: ${res.entry.name}`);
-      loadEntries(selectedWarehouseId);
-      setIsModalOpen(false);
-      setPendingItem(null);
-    } else {
-      toast.error(res.error || "Failed to save count entry");
-    }
-    setIsSubmittingModal(false);
-
-    if (barcodeInputRef.current) {
-      barcodeInputRef.current.focus();
+    try {
+      const res = await scanBarcode(pendingItem.cleanCode, selectedWarehouseId, parsedQty);
+      if (res.success && res.entry) {
+        toast.success(`Counted ${parsedQty} ${res.entry.unit}: ${res.entry.name}`);
+        await loadEntries(selectedWarehouseId);
+        setIsModalOpen(false);
+        setPendingItem(null);
+      } else {
+        toast.error(res.error || "Failed to save count entry");
+      }
+    } catch (error) {
+      console.error("Modal submission error:", error);
+      toast.error("Failed to save count entry");
+    } finally {
+      setIsSubmittingModal(false);
+      focusBarcodeInput();
     }
   };
 
   const handleModalCancel = () => {
     setIsModalOpen(false);
     setPendingItem(null);
-    if (barcodeInputRef.current) {
-      barcodeInputRef.current.focus();
-    }
+    focusBarcodeInput();
   };
 
   const handleQtyChange = async (id: string, currentQty: number, change: number) => {
@@ -353,7 +387,7 @@ export default function ScannerClient({ warehouses, defaultWarehouseId, isNormal
                           handleScanSubmit(e);
                         }
                       }}
-                      disabled={!selectedWarehouseId || !canCreate || isScanning}
+                      disabled={!selectedWarehouseId || !canCreate}
                       className="pr-10 h-11 font-mono tracking-wide"
                       autoComplete="off"
                     />
