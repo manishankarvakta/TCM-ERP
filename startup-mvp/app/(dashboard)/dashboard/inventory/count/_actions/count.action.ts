@@ -14,9 +14,110 @@ export interface ScanResult {
 }
 
 /**
+ * Lookup an item or variant by barcode/SKU without creating an entry
+ */
+export async function lookupCountItem(barcode: string): Promise<{
+  success: boolean;
+  error?: string;
+  item?: {
+    itemId: string;
+    variantId: string | null;
+    code: string;
+    name: string;
+    barcode: string | null;
+    unit: string;
+    cleanCode: string;
+  };
+}> {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const cleanCode = barcode.trim();
+    if (!cleanCode) {
+      return { success: false, error: "Barcode cannot be empty" };
+    }
+
+    // 1. Search for ProductVariant by barcode or SKU
+    const variant = await prisma.productVariant.findFirst({
+      where: {
+        OR: [
+          { barcode: cleanCode },
+          { sku: { equals: cleanCode, mode: "insensitive" } }
+        ]
+      },
+      include: {
+        item: {
+          include: {
+            unit: true
+          }
+        }
+      }
+    });
+
+    if (variant) {
+      if (!variant.item.trackInventory) {
+        return { success: false, error: `Item ${variant.item.name} does not track inventory` };
+      }
+      return {
+        success: true,
+        item: {
+          itemId: variant.itemId,
+          variantId: variant.id,
+          code: variant.sku,
+          name: `${variant.item.name} (${variant.color} / ${variant.size})`,
+          barcode: variant.barcode || cleanCode,
+          unit: variant.item.unit?.symbol || "pcs",
+          cleanCode
+        }
+      };
+    }
+
+    // 2. Search for Item by barcode or code
+    const item = await prisma.item.findFirst({
+      where: {
+        OR: [
+          { barcode: cleanCode },
+          { code: { equals: cleanCode, mode: "insensitive" } }
+        ]
+      },
+      include: {
+        unit: true
+      }
+    });
+
+    if (!item) {
+      return { success: false, error: `No item or variant found for code: ${cleanCode}` };
+    }
+
+    if (!item.trackInventory) {
+      return { success: false, error: `Item ${item.name} does not track inventory` };
+    }
+
+    return {
+      success: true,
+      item: {
+        itemId: item.id,
+        variantId: null,
+        code: item.code,
+        name: item.name,
+        barcode: item.barcode || cleanCode,
+        unit: item.unit?.symbol || "pcs",
+        cleanCode
+      }
+    };
+  } catch (error) {
+    console.error("lookupCountItem error:", error);
+    return { success: false, error: "Failed to look up item" };
+  }
+}
+
+/**
  * Scan a barcode or item code and create or update a count entry
  */
-export async function scanBarcode(barcode: string, warehouseId: string): Promise<ScanResult> {
+export async function scanBarcode(barcode: string, warehouseId: string, customQuantity?: number): Promise<ScanResult> {
   try {
     const session = await auth();
     if (!session?.user) {
@@ -93,6 +194,8 @@ export async function scanBarcode(barcode: string, warehouseId: string): Promise
       unitSymbol = item.unit?.symbol || "pcs";
     }
 
+    const finalQty = customQuantity && customQuantity > 0 ? customQuantity : 1.00;
+
     // 3. Create a separate entry for this scan (no grouping or incrementing quantity)
     const entry = await prisma.inventoryCountEntry.create({
       data: {
@@ -100,7 +203,7 @@ export async function scanBarcode(barcode: string, warehouseId: string): Promise
         variantId,
         barcode: finalBarcode,
         warehouseId,
-        quantity: new Prisma.Decimal(1.00),
+        quantity: new Prisma.Decimal(finalQty),
         createdBy: userId,
         status: "COUNTED"
       },
