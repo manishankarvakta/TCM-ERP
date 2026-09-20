@@ -27,6 +27,8 @@ export interface POSScreenStandardProps {
   // Config & Catalog Props
   items: any[];
   filteredItems: any[];
+  tryWeighingScaleScan?: (rawCode: string) => boolean;
+  handleBarcodeScan?: (barcode: string) => void;
   categories: string[];
   filterType: string;
   setFilterType: (cat: string) => void;
@@ -87,7 +89,10 @@ export interface POSScreenStandardProps {
 }
 
 export default function POSScreenStandard({
+  items,
   filteredItems,
+  tryWeighingScaleScan,
+  handleBarcodeScan,
   categories,
   filterType,
   setFilterType,
@@ -188,6 +193,33 @@ export default function POSScreenStandard({
                 placeholder="Search products... (Esc)"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const q = searchQuery.trim();
+                    if (!q) return;
+                    if (q.length >= 12 && tryWeighingScaleScan?.(q)) {
+                      setSearchQuery("");
+                      return;
+                    }
+                    const isExact = items?.some(
+                      (i) =>
+                        i.code?.toLowerCase() === q.toLowerCase() ||
+                        i.barcode?.toLowerCase() === q.toLowerCase() ||
+                        i.variants?.some(
+                          (v: any) =>
+                            v.barcode?.toLowerCase() === q.toLowerCase() ||
+                            v.sku?.toLowerCase() === q.toLowerCase()
+                        )
+                    );
+                    if (isExact) {
+                      handleBarcodeScan?.(q);
+                      setSearchQuery("");
+                      return;
+                    }
+                  }
+                }}
                 className="pl-10 bg-muted border-none text-foreground h-10"
               />
             </div>

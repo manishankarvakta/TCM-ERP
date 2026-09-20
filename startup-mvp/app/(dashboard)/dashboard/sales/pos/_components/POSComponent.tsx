@@ -1445,16 +1445,10 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     });
   };
   
-  // Exact match search auto-add to cart
+  // Exact match search auto-add to cart (for regular products; scale products wait for Enter/complete scan)
   useEffect(() => {
     const query = searchQuery.trim();
     if (!query) return;
-
-    // Check scale scan first (full scale barcode is >= 12 digits)
-    if (query.length >= 12 && tryWeighingScaleScan(query)) {
-      setSearchQuery("");
-      return;
-    }
 
     // Check variants first (SKU, Barcode)
     for (const item of items) {
@@ -1463,8 +1457,8 @@ export default function POSComponent({ items, clients: initialClients, warehouse
           v => v.barcode === query || v.sku === query
         );
         if (matchedVariant) {
-          // If the parent item is a scale item and full scale code (< 12 chars) hasn't finished typing, wait for full scan
-          if (item.isWeighingScale && query.length < 12) {
+          // If the parent item is a scale item, wait for full scan on Enter
+          if (item.isWeighingScale) {
             return;
           }
           const matchesOrderType = orderType === "RETAIL"
@@ -1485,6 +1479,13 @@ export default function POSComponent({ items, clients: initialClients, warehouse
               }
             }
 
+            const now = Date.now();
+            if (lastScanProcessedRef.current.code === query.toLowerCase() && now - lastScanProcessedRef.current.time < 800) {
+              setSearchQuery("");
+              return;
+            }
+            lastScanProcessedRef.current = { code: query.toLowerCase(), time: now };
+
             toast({
               title: "SKU Found",
               description: `Added: ${item.description} (${matchedVariant.color} / ${matchedVariant.size})`,
@@ -1501,8 +1502,8 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     // Check parent items (Code or Barcode)
     const matchedItem = items.find(i => i.code === query || i.barcode === query);
     if (matchedItem) {
-      // If this is a weighing scale item and full scale code (< 12 chars) hasn't finished typing, wait for full scan
-      if (matchedItem.isWeighingScale && query.length < 12) {
+      // If this is a weighing scale item, wait for full scan on Enter
+      if (matchedItem.isWeighingScale) {
         return;
       }
       const matchesOrderType = orderType === "RETAIL"
@@ -1530,6 +1531,13 @@ export default function POSComponent({ items, clients: initialClients, warehouse
           }
         }
 
+        const now = Date.now();
+        if (lastScanProcessedRef.current.code === query.toLowerCase() && now - lastScanProcessedRef.current.time < 800) {
+          setSearchQuery("");
+          return;
+        }
+        lastScanProcessedRef.current = { code: query.toLowerCase(), time: now };
+
         toast({
           title: "Product Found",
           description: `Added: ${matchedItem.description}`,
@@ -1539,11 +1547,6 @@ export default function POSComponent({ items, clients: initialClients, warehouse
         setSearchQuery("");
         return;
       }
-    }
-
-    if (query.length >= 12 && tryWeighingScaleScan(query)) {
-      setSearchQuery("");
-      return;
     }
   }, [searchQuery, items, orderType]);
 
@@ -2844,6 +2847,8 @@ export default function POSComponent({ items, clients: initialClients, warehouse
         <POSScreenStandard
           items={items}
           filteredItems={filteredItems}
+          tryWeighingScaleScan={tryWeighingScaleScan}
+          handleBarcodeScan={handleBarcodeScan}
           categories={categories}
           filterType={filterType}
           setFilterType={setFilterType}
