@@ -1342,6 +1342,10 @@ export default function POSComponent({ items, clients: initialClients, warehouse
   };
 
   const handleBarcodeScan = (barcode: string) => {
+    if (tryWeighingScaleScan(barcode)) {
+      return;
+    }
+
     for (const item of items) {
       if (item.variants) {
         const matchedVariant = item.variants.find(
@@ -1401,10 +1405,6 @@ export default function POSComponent({ items, clients: initialClients, warehouse
       return;
     }
 
-    if (tryWeighingScaleScan(barcode)) {
-      return;
-    }
-
     toast({
       title: "Barcode Not Found",
       description: `Could not find product matching: ${barcode}`,
@@ -1430,6 +1430,10 @@ export default function POSComponent({ items, clients: initialClients, warehouse
           v => v.barcode === query || v.sku === query
         );
         if (matchedVariant) {
+          // If the parent item is a scale item and full scale code (< 11 chars) hasn't finished typing, wait for full scan
+          if (item.isWeighingScale && query.length < 11) {
+            return;
+          }
           const matchesOrderType = orderType === "RETAIL"
             ? (item.itemType === "RETAIL" || item.itemType === "READY_PRODUCT")
             : item.itemType === "WHOLESALE";
@@ -1464,6 +1468,10 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     // Check parent items (Code or Barcode)
     const matchedItem = items.find(i => i.code === query || i.barcode === query);
     if (matchedItem) {
+      // If this is a weighing scale item and full scale code (< 11 chars) hasn't finished typing, wait for full scan
+      if (matchedItem.isWeighingScale && query.length < 11) {
+        return;
+      }
       const matchesOrderType = orderType === "RETAIL"
         ? (matchedItem.itemType === "RETAIL" || matchedItem.itemType === "READY_PRODUCT")
         : matchedItem.itemType === "WHOLESALE";
