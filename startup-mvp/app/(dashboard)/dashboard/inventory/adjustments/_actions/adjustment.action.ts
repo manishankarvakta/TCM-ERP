@@ -250,151 +250,241 @@ export async function approveAdjustment(id: string) {
       negativeFgInventoryId, negativeRmInventoryId, negativeAdjustmentExpenseId 
     } = settings.inventoryAdjustment;
 
-    // We will group Voucher Lines
-    const voucherLines: any[] = [];
-    let lineNumber = 1;
+    // Group / consolidate financial amounts by Chart of Account ID
+    const accountDebits = new Map<string, { amount: number; description: string }>();
+    const accountCredits = new Map<string, { amount: number; description: string }>();
 
-    // Transaction
+    // 1. Identify all variant and item IDs
+    const variantIds = adjustment.items.map((i) => i.variantId).filter(Boolean) as string[];
+    const itemIds = adjustment.items.filter((i) => !i.variantId).map((i) => i.itemId);
+
+    // 2. Perform Stock updates, Ledger entries, and status update inside transaction with extended timeout
     await prisma.$transaction(async (tx) => {
-      for (const item of adjustment.items) {
-        // 1. Update Stock
-        const existingStock = item.variantId ? await tx.stock.findUnique({
-          where: { variantId_warehouseId: { variantId: item.variantId, warehouseId: adjustment.warehouseId } }
-        }) : await tx.stock.findUnique({
-          where: { itemId_warehouseId: { itemId: item.itemId, warehouseId: adjustment.warehouseId } }
-        });
+      // Bulk fetch current stocks for target warehouse in 1 single query
+      const existingStocks = await tx.stock.findMany({
+        where: {
+          warehouseId: adjustment.warehouseId,
+          OR: [
+            ...(variantIds.length > 0 ? [{ variantId: { in: variantIds } }] : []),
+            ...(itemIds.length > 0 ? [{ itemId: { in: itemIds } }] : []),
+          ],
+        },
+      });
 
-        const newQty = existingStock ? Number(existingStock.quantity) + Number(item.quantity) : Number(item.quantity);
+      // Map stocks for O(1) instant access
+      const stockMap = new Map<string, (typeof existingStocks)[0]>();
+      for (const s of existingStocks) {
+        const key = s.variantId ? `variant:${s.variantId}` : `item:${s.itemId}`;
+        stockMap.set(key, s);
+      }
+
+      const stocksToCreate: Array<{
+        itemId: string | null;
+        variantId: string | null;
+        warehouseId: string;
+        quantity: number;
+      }> = [];
+
+      const stocksToUpdate: Array<{
+        id: string;
+        newQty: number;
+      }> = [];
+
+      const stockLedgerRows: Array<{
+        itemId: string | null;
+        variantId: string | null;
+        warehouseId: string;
+        transactionType: StockTransactionType;
+        quantity: any;
+        referenceType: string;
+        referenceId: string;
+        notes: string;
+        createdBy: string;
+        rate: any;
+      }> = [];
+
+      for (const item of adjustment.items) {
+        const key = item.variantId ? `variant:${item.variantId}` : `item:${item.itemId}`;
+        const existingStock = stockMap.get(key);
+        const itemQty = Number(item.quantity);
+        const newQty = existingStock ? Number(existingStock.quantity) + itemQty : itemQty;
 
         if (existingStock) {
-          await tx.stock.update({
-            where: { id: existingStock.id },
-            data: { quantity: newQty, lastUpdated: new Date() }
+          stocksToUpdate.push({
+            id: existingStock.id,
+            newQty,
           });
+          // Update local map in case duplicates exist in items
+          existingStock.quantity = newQty as any;
         } else {
-          await tx.stock.create({
-            data: {
-              itemId: item.variantId ? null : item.itemId,
-              variantId: item.variantId || null,
-              warehouseId: adjustment.warehouseId,
-              quantity: newQty,
-            }
-          });
-        }
-
-        // 2. Create Stock Ledger
-        await tx.stockLedger.create({
-          data: {
+          stocksToCreate.push({
             itemId: item.variantId ? null : item.itemId,
             variantId: item.variantId || null,
             warehouseId: adjustment.warehouseId,
-            transactionType: StockTransactionType.ADJUSTMENT,
-            quantity: item.quantity,
-            referenceType: "ADJUSTMENT",
-            referenceId: adjustment.id,
-            notes: adjustment.notes || "Inventory Adjustment",
-            createdBy: session.user.id,
-            rate: item.unitRate
-          }
+            quantity: newQty,
+          });
+          // Track in map for any duplicate lines
+          stockMap.set(key, {
+            id: `temp-${key}`,
+            itemId: item.variantId ? null : item.itemId,
+            variantId: item.variantId || null,
+            warehouseId: adjustment.warehouseId,
+            quantity: newQty as any,
+          } as any);
+        }
+
+        // Prepare Stock Ledger Row
+        stockLedgerRows.push({
+          itemId: item.variantId ? null : item.itemId,
+          variantId: item.variantId || null,
+          warehouseId: adjustment.warehouseId,
+          transactionType: StockTransactionType.ADJUSTMENT,
+          quantity: item.quantity,
+          referenceType: "ADJUSTMENT",
+          referenceId: adjustment.id,
+          notes: adjustment.notes || "Inventory Adjustment",
+          createdBy: session.user.id,
+          rate: item.unitRate,
         });
 
-        // 3. Prepare Accounting Lines
+        // 3. Consolidate Financial Amounts by Account
         const amount = Number(item.amount);
         if (amount > 0) {
-          const isGain = Number(item.quantity) > 0;
+          const isGain = itemQty > 0;
           const isRawMaterial = item.item.itemType === "RAW_MATERIAL";
 
           let inventoryAcctId = "";
           let adjustmentAcctId = "";
 
           if (isGain) {
-             inventoryAcctId = isRawMaterial ? positiveRmInventoryId : positiveFgInventoryId;
-             adjustmentAcctId = positiveAdjustmentGainId;
-          } else {
-             inventoryAcctId = isRawMaterial ? negativeRmInventoryId : negativeFgInventoryId;
-             adjustmentAcctId = negativeAdjustmentExpenseId;
-          }
+            inventoryAcctId = isRawMaterial ? positiveRmInventoryId : positiveFgInventoryId;
+            adjustmentAcctId = positiveAdjustmentGainId;
+            if (inventoryAcctId && adjustmentAcctId) {
+              const curDr = accountDebits.get(inventoryAcctId)?.amount || 0;
+              accountDebits.set(inventoryAcctId, {
+                amount: curDr + amount,
+                description: `Stock Gain: ${adjustment.warehouse.name} (${adjustment.adjustmentNumber})`,
+              });
 
-          if (inventoryAcctId && adjustmentAcctId) {
-             // For Gain: Dr Inventory, Cr Gain
-             // For Loss: Dr Expense, Cr Inventory
-             
-             if (isGain) {
-                voucherLines.push({
-                   lineNumber: lineNumber++,
-                   debitAmount: amount,
-                   creditAmount: 0,
-                   chartOfAccountId: inventoryAcctId,
-                   description: `Stock Gain: ${item.item.code} - ${item.item.name}`
-                });
-                voucherLines.push({
-                   lineNumber: lineNumber++,
-                   debitAmount: 0,
-                   creditAmount: amount,
-                   chartOfAccountId: adjustmentAcctId,
-                   description: `Adjustment Gain: ${item.item.code}`
-                });
-             } else {
-                voucherLines.push({
-                   lineNumber: lineNumber++,
-                   debitAmount: amount,
-                   creditAmount: 0,
-                   chartOfAccountId: adjustmentAcctId,
-                   description: `Adjustment Loss: ${item.item.code}`
-                });
-                voucherLines.push({
-                   lineNumber: lineNumber++,
-                   debitAmount: 0,
-                   creditAmount: amount,
-                   chartOfAccountId: inventoryAcctId,
-                   description: `Stock Loss: ${item.item.code} - ${item.item.name}`
-                });
-             }
+              const curCr = accountCredits.get(adjustmentAcctId)?.amount || 0;
+              accountCredits.set(adjustmentAcctId, {
+                amount: curCr + amount,
+                description: `Adjustment Gain (${adjustment.adjustmentNumber})`,
+              });
+            }
+          } else {
+            inventoryAcctId = isRawMaterial ? negativeRmInventoryId : negativeFgInventoryId;
+            adjustmentAcctId = negativeAdjustmentExpenseId;
+            if (inventoryAcctId && adjustmentAcctId) {
+              const curDr = accountDebits.get(adjustmentAcctId)?.amount || 0;
+              accountDebits.set(adjustmentAcctId, {
+                amount: curDr + amount,
+                description: `Adjustment Loss (${adjustment.adjustmentNumber})`,
+              });
+
+              const curCr = accountCredits.get(inventoryAcctId)?.amount || 0;
+              accountCredits.set(inventoryAcctId, {
+                amount: curCr + amount,
+                description: `Stock Loss: ${adjustment.warehouse.name} (${adjustment.adjustmentNumber})`,
+              });
+            }
           }
         }
       }
-      
+
+      // Execute Bulk Inserts for New Stocks
+      if (stocksToCreate.length > 0) {
+        await tx.stock.createMany({
+          data: stocksToCreate,
+        });
+      }
+
+      // Execute Batch Updates for Existing Stocks in parallel chunks of 50
+      const CHUNK_SIZE = 50;
+      for (let i = 0; i < stocksToUpdate.length; i += CHUNK_SIZE) {
+        const chunk = stocksToUpdate.slice(i, i + CHUNK_SIZE);
+        await Promise.all(
+          chunk.map((u) =>
+            tx.stock.update({
+              where: { id: u.id },
+              data: { quantity: u.newQty, lastUpdated: new Date() },
+            })
+          )
+        );
+      }
+
+      // Execute 1 Bulk Insert for all Stock Ledgers
+      if (stockLedgerRows.length > 0) {
+        await tx.stockLedger.createMany({
+          data: stockLedgerRows,
+        });
+      }
+
       // Update Adjustment Status
       await tx.inventoryAdjustment.update({
         where: { id },
-        data: { status: "COMPLETED", updatedBy: session.user.id }
+        data: { status: "COMPLETED", updatedBy: session.user.id },
       });
+    }, {
+      maxWait: 15000, // 15s connection acquisition budget
+      timeout: 90000, // 90s transaction execution budget
     });
 
-    // 4. Create Voucher (outside transaction block or need to pass tx? createVoucher is separate action)
-    // We will creating it after successful stock update for now, or we should integrate it. 
-    // Ideally createVoucher should be part of transaction but it's a separate complex action. 
-    // We will call it here. If it fails, we have a consistency issue (Stock updated, Voucher not).
-    // For MVP, we proceed.
-    
-    if (voucherLines.length > 0) {
-       const voucherResult = await createVoucher({
-          date: adjustment.date,
-          type: VoucherType.JOURNAL,
-          reference: adjustment.adjustmentNumber,
-          description: `Inventory Adjustment: ${adjustment.adjustmentNumber}`,
-          isSystemAction: true,
-          lines: voucherLines
-       });
+    // 4. Construct Balanced Consolidated Voucher Lines
+    const voucherLines: any[] = [];
+    let lineNumber = 1;
 
-       if (voucherResult.success && voucherResult.voucher) {
-          await postVoucher(voucherResult.voucher.id, undefined, true);
-          // Link voucher
-          await prisma.inventoryAdjustment.update({
-             where: { id },
-             data: { voucherId: voucherResult.voucher.id }
-          });
-       }
+    accountDebits.forEach(({ amount, description }, chartOfAccountId) => {
+      if (amount > 0) {
+        voucherLines.push({
+          lineNumber: lineNumber++,
+          debitAmount: Number(amount.toFixed(2)),
+          creditAmount: 0,
+          chartOfAccountId,
+          description,
+        });
+      }
+    });
+
+    accountCredits.forEach(({ amount, description }, chartOfAccountId) => {
+      if (amount > 0) {
+        voucherLines.push({
+          lineNumber: lineNumber++,
+          debitAmount: 0,
+          creditAmount: Number(amount.toFixed(2)),
+          chartOfAccountId,
+          description,
+        });
+      }
+    });
+
+    if (voucherLines.length > 0) {
+      const voucherResult = await createVoucher({
+        date: adjustment.date,
+        type: VoucherType.JOURNAL,
+        reference: adjustment.adjustmentNumber,
+        description: `Inventory Adjustment: ${adjustment.adjustmentNumber}`,
+        isSystemAction: true,
+        lines: voucherLines,
+      });
+
+      if (voucherResult.success && voucherResult.voucher) {
+        await postVoucher(voucherResult.voucher.id, undefined, true);
+        // Link voucher
+        await prisma.inventoryAdjustment.update({
+          where: { id },
+          data: { voucherId: voucherResult.voucher.id },
+        });
+      }
     }
 
     await logItemUpdated(session.user.id, "InventoryAdjustment", adjustment.id, ["Approved and Posted Adjustment"]);
     revalidateBothPaths("/dashboard/inventory/adjustments");
-    
-    return { success: true };
 
+    return { success: true };
   } catch (error) {
     console.error("approveAdjustment error:", error);
-    return { success: false, error: "Failed to approve adjustment" };
+    return { success: false, error: error instanceof Error ? error.message : "Failed to approve adjustment" };
   }
 }
 
