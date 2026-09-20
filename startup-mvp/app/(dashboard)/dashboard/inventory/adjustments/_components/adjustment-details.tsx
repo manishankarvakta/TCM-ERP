@@ -155,8 +155,8 @@ export default function AdjustmentDetails({ adjustment }: AdjustmentDetailsProps
                           {Number(item.quantity) > 0 ? "+" : ""}{Number(item.quantity)} {item.item.unit.symbol}
                        </span>
                     </TableCell>
-                    <TableCell className="text-right font-mono print:py-1.5 print:px-2 print:text-xs">৳{Number(item.unitRate).toFixed(2)}</TableCell>
-                    <TableCell className="text-right font-mono print:py-1.5 print:px-2 print:text-xs">৳{Number(item.amount).toFixed(2)}</TableCell>
+                    <TableCell className="text-right tabular-nums font-sans print:py-1.5 print:px-2 print:text-xs">৳{Number(item.unitRate).toFixed(2)}</TableCell>
+                    <TableCell className="text-right tabular-nums font-sans print:py-1.5 print:px-2 print:text-xs">৳{Number(item.amount).toFixed(2)}</TableCell>
                   </TableRow>
                 ))}
                 <TableRow className="bg-muted/50 font-bold">

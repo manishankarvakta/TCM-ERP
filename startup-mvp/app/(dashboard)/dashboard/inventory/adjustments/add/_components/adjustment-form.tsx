@@ -18,8 +18,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
-import { Plus, Trash2, Search } from "lucide-react";
+import { Plus, Trash2, Search, Upload } from "lucide-react";
 import { createAdjustment } from "../../_actions/adjustment.action";
+import AdjustmentCsvImportDialog from "./adjustment-csv-import-dialog";
 import { getTodayInTimezone } from "@/lib/timezone-utils";
 import { getStock, getWarehouseStocks } from "../../../stock/_actions/stock.action";
 import { getItemVariants } from "../../../../master/items/_actions/item.action";
@@ -96,6 +97,8 @@ export default function AdjustmentForm({ warehouses, items, userContext }: Adjus
   const [skuVariants, setSkuVariants] = useState<any[]>([]);
   const [skuLoading, setSkuLoading] = useState(false);
   const [selectedVariants, setSelectedVariants] = useState<Record<string, boolean>>({});
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [openRowIndex, setOpenRowIndex] = useState<number | null>(null);
 
   const form = useForm<AdjustmentFormValues>({
     resolver: zodResolver(adjustmentSchema),
@@ -107,7 +110,7 @@ export default function AdjustmentForm({ warehouses, items, userContext }: Adjus
     },
   });
 
-  const { fields, append, remove } = useFieldArray({
+  const { fields, append, remove, replace } = useFieldArray({
     control: form.control,
     name: "items",
   });
@@ -125,6 +128,24 @@ export default function AdjustmentForm({ warehouses, items, userContext }: Adjus
     control: form.control,
     name: "warehouseId",
   });
+
+  const itemsById = useMemo(() => {
+    const map = new Map<string, any>();
+    items.forEach((it) => map.set(it.id, it));
+    return map;
+  }, [items]);
+
+  const itemStockTotalMap = useMemo(() => {
+    const map: Record<string, number> = {};
+    items.forEach((item) => {
+      if (item.variants && item.variants.length > 0) {
+        map[item.id] = item.variants.reduce((sum: number, v: any) => sum + (stockMap[v.id] || 0), 0);
+      } else {
+        map[item.id] = stockMap[item.id] || 0;
+      }
+    });
+    return map;
+  }, [items, stockMap]);
 
   // Filter items based on search
   const filteredItems = useMemo(() => {
@@ -228,6 +249,31 @@ export default function AdjustmentForm({ warehouses, items, userContext }: Adjus
     setSkuModalIndex(null);
     setSelectedVariants({});
     setSkuVariants([]);
+  };
+
+  const handleImportItems = (
+    importedItems: Array<{
+      itemId: string;
+      variantId: string | null;
+      description: string;
+      quantity: number;
+      unitRate: number;
+      amount: number;
+    }>
+  ) => {
+    if (!importedItems || importedItems.length === 0) return;
+
+    const currentFormItems = form.getValues("items") || [];
+    const isOnlyBlankRow =
+      currentFormItems.length === 1 &&
+      !currentFormItems[0].itemId &&
+      (Number(currentFormItems[0].quantity) || 0) === 0;
+
+    if (isOnlyBlankRow) {
+      replace(importedItems);
+    } else {
+      append(importedItems);
+    }
   };
 
   const onSubmit = async (data: AdjustmentFormValues) => {
@@ -410,9 +456,19 @@ export default function AdjustmentForm({ warehouses, items, userContext }: Adjus
       <div className="space-y-4">
         <div className="flex items-center justify-between">
             <h3 className="text-lg font-medium">Items</h3>
-            <Button type="button" variant="outline" size="sm" onClick={() => append({ itemId: "", quantity: 0, unitRate: 0, description: "", amount: 0 })}>
-              <Plus className="mr-2 h-4 w-4" /> Add Item
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setImportModalOpen(true)}
+              >
+                <Upload className="mr-2 h-4 w-4" /> Import CSV
+              </Button>
+              <Button type="button" variant="outline" size="sm" onClick={() => append({ itemId: "", quantity: 0, unitRate: 0, description: "", amount: 0 })}>
+                <Plus className="mr-2 h-4 w-4" /> Add Item
+              </Button>
+            </div>
         </div>
 
         <Card>
@@ -431,7 +487,7 @@ export default function AdjustmentForm({ warehouses, items, userContext }: Adjus
                  </TableHeader>
                  <TableBody>
                     {fields.map((field, index) => {
-                      const selectedItem = items.find(i => i.id === form.getValues(`items.${index}.itemId`));
+                      const selectedItem = itemsById.get(form.getValues(`items.${index}.itemId`));
                       const itemUnit = (selectedItem as any)?.unit?.symbol || (selectedItem as any)?.unit;
                       const isIntegerOnlyUnit = isDiscreteUnit(itemUnit);
                       const currentQtyVal = Number(watchedItems[index]?.quantity);
@@ -441,14 +497,20 @@ export default function AdjustmentForm({ warehouses, items, userContext }: Adjus
                       <TableRow key={field.id}>
                         <TableCell>
                           <Select
-                            onValueChange={(val) => handleItemSelect(index, val)}
-                            defaultValue={form.getValues(`items.${index}.itemId`)}
+                            value={form.getValues(`items.${index}.itemId`) || ""}
+                            onValueChange={(val) => {
+                              handleItemSelect(index, val);
+                              setOpenRowIndex(null);
+                            }}
+                            open={openRowIndex === index}
                             onOpenChange={(open) => {
                                if (open) {
+                                 setOpenRowIndex(index);
                                  setTimeout(() => {
                                    searchInputRef.current?.focus();
-                                 }, 0);
+                                 }, 50);
                                } else {
+                                 setOpenRowIndex(null);
                                  setItemSearch("");
                                }
                             }}
@@ -480,21 +542,29 @@ export default function AdjustmentForm({ warehouses, items, userContext }: Adjus
                                    </div>
                                 </div>
                                 <div className="max-h-[200px] overflow-y-auto">
-                                  {filteredItems.length > 0 ? (
-                                     filteredItems.map((item) => (
-                                       <SelectItem key={item.id} value={item.id} className="text-left w-full">
-                                           <div className="flex justify-between items-center w-full gap-4">
-                                             <span>{item.name} ({item.code})</span>
-                                             <span className="text-xs text-muted-foreground whitespace-nowrap">
-                                                 Stock: {item.variants && item.variants.length > 0 ? item.variants.reduce((sum: number, v: any) => sum + (stockMap[v.id] || 0), 0) : (stockMap[item.id] || 0)}
-                                             </span>
-                                           </div>
-                                       </SelectItem>
-                                     ))
+                                  {openRowIndex === index ? (
+                                    filteredItems.slice(0, 50).length > 0 ? (
+                                       filteredItems.slice(0, 50).map((item) => (
+                                         <SelectItem key={item.id} value={item.id} className="text-left w-full">
+                                             <div className="flex justify-between items-center w-full gap-4">
+                                               <span>{item.name} ({item.code})</span>
+                                               <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                                   Stock: {itemStockTotalMap[item.id] ?? 0}
+                                               </span>
+                                             </div>
+                                         </SelectItem>
+                                       ))
+                                    ) : (
+                                       <div className="px-2 py-4 text-sm text-muted-foreground text-center">
+                                         No items found
+                                       </div>
+                                    )
                                   ) : (
-                                     <div className="px-2 py-4 text-sm text-muted-foreground text-center">
-                                       No items found
-                                     </div>
+                                    selectedItem && (
+                                      <SelectItem value={selectedItem.id}>
+                                        {selectedItem.name} ({selectedItem.code})
+                                      </SelectItem>
+                                    )
                                   )}
                                 </div>
                              </SelectContent>
@@ -554,7 +624,7 @@ export default function AdjustmentForm({ warehouses, items, userContext }: Adjus
                           <Input 
                               readOnly
                               className="bg-muted text-right"
-                              value={form.watch(`items.${index}.amount`) || 0}
+                              value={watchedItems[index]?.amount ?? 0}
                           />
                        </TableCell>
                        <TableCell>
@@ -713,6 +783,14 @@ export default function AdjustmentForm({ warehouses, items, userContext }: Adjus
           </div>
         </DialogContent>
       </Dialog>
+
+      <AdjustmentCsvImportDialog
+        open={importModalOpen}
+        onOpenChange={setImportModalOpen}
+        items={items}
+        stockMap={stockMap}
+        onImport={handleImportItems}
+      />
     </form>
   );
 }
