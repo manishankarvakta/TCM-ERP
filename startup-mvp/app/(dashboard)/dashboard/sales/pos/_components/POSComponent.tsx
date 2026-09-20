@@ -558,6 +558,9 @@ export default function POSComponent({ items, clients: initialClients, warehouse
   // Walkway customer
   const [walkwayCustomerId, setWalkwayCustomerId] = useState<string>('');
 
+  // Deduplication ref for scanner / enter key race conditions
+  const lastScanProcessedRef = React.useRef<{ code: string; time: number }>({ code: "", time: 0 });
+
   // Add Customer modal states
   const [isAddCustomerOpen, setIsAddCustomerOpen] = useState(false);
   const [newCustomerLoading, setNewCustomerLoading] = useState(false);
@@ -1217,6 +1220,11 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     const codeStr = rawCode.trim().toLowerCase();
     if (codeStr.length < 12 || codeStr.length > 14) return false;
 
+    const now = Date.now();
+    if (lastScanProcessedRef.current.code === codeStr && now - lastScanProcessedRef.current.time < 800) {
+      return true; // Already processed recently, ignore duplicate keydown/useEffect trigger
+    }
+
     // Check if there is an exact match for the FULL rawCode first!
     const exactMatch = items.find((item) => {
       const matchesOrderType = orderType === "RETAIL"
@@ -1333,6 +1341,8 @@ export default function POSComponent({ items, clients: initialClients, warehouse
         }
       }
 
+      lastScanProcessedRef.current = { code: codeStr, time: now };
+
       toast({
         title: "Scale Barcode Scanned",
         description: `Added: ${targetItem.description || targetItem.name || "Item"} (${parsedQty} kg)`,
@@ -1353,7 +1363,15 @@ export default function POSComponent({ items, clients: initialClients, warehouse
   };
 
   const handleBarcodeScan = (barcode: string) => {
+    const codeStr = barcode.trim().toLowerCase();
+    if (!codeStr) return;
+
     if (tryWeighingScaleScan(barcode)) {
+      return;
+    }
+
+    const now = Date.now();
+    if (lastScanProcessedRef.current.code === codeStr && now - lastScanProcessedRef.current.time < 800) {
       return;
     }
 
@@ -1375,6 +1393,8 @@ export default function POSComponent({ items, clients: initialClients, warehouse
               return;
             }
           }
+
+          lastScanProcessedRef.current = { code: codeStr, time: now };
 
           toast({
             title: "SKU Scanned",
@@ -1406,6 +1426,8 @@ export default function POSComponent({ items, clients: initialClients, warehouse
           return;
         }
       }
+
+      lastScanProcessedRef.current = { code: codeStr, time: now };
 
       toast({
         title: "Product Scanned",
@@ -2728,6 +2750,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
           items={items}
           filteredItems={filteredItems}
           tryWeighingScaleScan={tryWeighingScaleScan}
+          handleBarcodeScan={handleBarcodeScan}
           warehouses={warehouses}
           selectedWarehouseId={selectedWarehouseId}
           setSelectedWarehouseId={setSelectedWarehouseId}

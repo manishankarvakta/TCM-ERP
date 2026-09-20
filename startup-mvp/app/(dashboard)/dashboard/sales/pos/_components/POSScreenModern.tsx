@@ -47,6 +47,7 @@ export interface POSScreenModernProps {
   items: any[];
   filteredItems: any[];
   tryWeighingScaleScan?: (rawCode: string) => boolean;
+  handleBarcodeScan?: (barcode: string) => void;
   warehouses: any[];
   selectedWarehouseId: string;
   setSelectedWarehouseId: (id: string) => void;
@@ -117,6 +118,7 @@ export default function POSScreenModern({
   items,
   filteredItems,
   tryWeighingScaleScan,
+  handleBarcodeScan,
   warehouses,
   selectedWarehouseId,
   setSelectedWarehouseId,
@@ -650,13 +652,36 @@ export default function POSScreenModern({
       e.stopPropagation();
 
       const q = searchQuery.trim();
+      if (!q) return;
+
+      // 1. Try Weighing Scale Barcode Scan
       if (q.length >= 12 && tryWeighingScaleScan?.(q)) {
         setSearchQuery("");
         setHighlightedSearchIndex(0);
         return;
       }
 
-      if (q.length > 0 && searchResults.length > 0) {
+      // 2. Try Exact Barcode / SKU / Product Code Scan
+      const isExactCodeOrBarcode = items.some(
+        (i) =>
+          i.code?.toLowerCase() === q.toLowerCase() ||
+          i.barcode?.toLowerCase() === q.toLowerCase() ||
+          i.variants?.some(
+            (v: any) =>
+              v.barcode?.toLowerCase() === q.toLowerCase() ||
+              v.sku?.toLowerCase() === q.toLowerCase()
+          )
+      );
+
+      if (isExactCodeOrBarcode) {
+        handleBarcodeScan?.(q);
+        setSearchQuery("");
+        setHighlightedSearchIndex(0);
+        return;
+      }
+
+      // 3. Fallback: Manual search result selection from dropdown
+      if (searchResults.length > 0) {
         const selectedItem = searchResults[highlightedSearchIndex];
         if (selectedItem) {
           if (selectedItem.isWeighingScale && q.length >= 12 && tryWeighingScaleScan?.(q)) {
