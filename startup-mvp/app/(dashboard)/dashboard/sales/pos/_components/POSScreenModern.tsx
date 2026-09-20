@@ -650,7 +650,7 @@ export default function POSScreenModern({
       e.stopPropagation();
 
       const q = searchQuery.trim();
-      if (q.length >= 11 && tryWeighingScaleScan?.(q)) {
+      if (q.length >= 12 && tryWeighingScaleScan?.(q)) {
         setSearchQuery("");
         setHighlightedSearchIndex(0);
         return;
@@ -659,7 +659,7 @@ export default function POSScreenModern({
       if (q.length > 0 && searchResults.length > 0) {
         const selectedItem = searchResults[highlightedSearchIndex];
         if (selectedItem) {
-          if (selectedItem.isWeighingScale && q.length >= 11 && tryWeighingScaleScan?.(q)) {
+          if (selectedItem.isWeighingScale && q.length >= 12 && tryWeighingScaleScan?.(q)) {
             setSearchQuery("");
             setHighlightedSearchIndex(0);
             return;
@@ -826,7 +826,7 @@ export default function POSScreenModern({
                         onMouseEnter={() => setHighlightedSearchIndex(index)}
                         onClick={() => {
                           const q = searchQuery.trim();
-                          if (q.length >= 11 && tryWeighingScaleScan?.(q)) {
+                          if (q.length >= 12 && tryWeighingScaleScan?.(q)) {
                             setSearchQuery("");
                             setHighlightedSearchIndex(0);
                             return;

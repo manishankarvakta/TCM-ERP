@@ -1215,7 +1215,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
 
   const tryWeighingScaleScan = (rawCode: string): boolean => {
     const codeStr = rawCode.trim().toLowerCase();
-    if (codeStr.length < 11) return false;
+    if (codeStr.length < 12 || codeStr.length > 14) return false;
 
     // Check if there is an exact match for the FULL rawCode first!
     const exactMatch = items.find((item) => {
@@ -1236,9 +1236,19 @@ export default function POSComponent({ items, clients: initialClients, warehouse
       return false;
     }
 
-    // Split barcode: first 7 digits as barcode/code, remainder as quantity
+    // Split barcode: first 7 digits as barcode/code
     const prefix7 = codeStr.slice(0, 7);
-    const qtyDigits = codeStr.slice(7);
+    
+    // In standard retail EAN-13 scale barcodes (13 digits: 7-digit prefix + 5-digit weight + 1 check digit)
+    // Or 12 digits (7-digit prefix + 5-digit weight without check digit)
+    let qtyDigits = "";
+    if (codeStr.length === 13) {
+      qtyDigits = codeStr.slice(7, 12);
+    } else if (codeStr.length === 12) {
+      qtyDigits = codeStr.slice(7, 12);
+    } else {
+      qtyDigits = codeStr.slice(7);
+    }
 
     if (!/^\d{4,6}$/.test(qtyDigits)) return false;
 
@@ -1301,7 +1311,8 @@ export default function POSComponent({ items, clients: initialClients, warehouse
         return true;
       }
 
-      const divisor = qtyDigits.length === 6 ? 10000 : (qtyDigits.length === 5 ? 1000 : 100);
+      // Standard scale weight divisor: 5 digits is in grams (e.g. 00185 -> 0.185 kg, so divide by 1000)
+      const divisor = qtyDigits.length === 5 ? 1000 : (qtyDigits.length === 6 ? 10000 : 100);
       const parsedQty = parseFloat(qtyDigits) / divisor;
 
       if (isNaN(parsedQty) || parsedQty <= 0) return false;
@@ -1417,8 +1428,8 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     const query = searchQuery.trim();
     if (!query) return;
 
-    // Check scale scan first
-    if (tryWeighingScaleScan(query)) {
+    // Check scale scan first (full scale barcode is >= 12 digits)
+    if (query.length >= 12 && tryWeighingScaleScan(query)) {
       setSearchQuery("");
       return;
     }
@@ -1430,8 +1441,8 @@ export default function POSComponent({ items, clients: initialClients, warehouse
           v => v.barcode === query || v.sku === query
         );
         if (matchedVariant) {
-          // If the parent item is a scale item and full scale code (< 11 chars) hasn't finished typing, wait for full scan
-          if (item.isWeighingScale && query.length < 11) {
+          // If the parent item is a scale item and full scale code (< 12 chars) hasn't finished typing, wait for full scan
+          if (item.isWeighingScale && query.length < 12) {
             return;
           }
           const matchesOrderType = orderType === "RETAIL"
@@ -1468,8 +1479,8 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     // Check parent items (Code or Barcode)
     const matchedItem = items.find(i => i.code === query || i.barcode === query);
     if (matchedItem) {
-      // If this is a weighing scale item and full scale code (< 11 chars) hasn't finished typing, wait for full scan
-      if (matchedItem.isWeighingScale && query.length < 11) {
+      // If this is a weighing scale item and full scale code (< 12 chars) hasn't finished typing, wait for full scan
+      if (matchedItem.isWeighingScale && query.length < 12) {
         return;
       }
       const matchesOrderType = orderType === "RETAIL"
@@ -1508,7 +1519,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
       }
     }
 
-    if (tryWeighingScaleScan(query)) {
+    if (query.length >= 12 && tryWeighingScaleScan(query)) {
       setSearchQuery("");
       return;
     }
