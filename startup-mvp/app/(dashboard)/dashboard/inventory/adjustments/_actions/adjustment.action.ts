@@ -228,23 +228,45 @@ export async function createAdjustment(input: CreateAdjustmentInput) {
 }
 
 export async function approveAdjustment(id: string) {
+  const startTime = Date.now();
+  console.log(`\n================== [APPROVE ADJUSTMENT START] ==================`);
+  console.log(`[ApproveAdjustment] Starting approval for Adjustment ID: ${id} at ${new Date().toISOString()}`);
+
   try {
     const session = await auth();
-    if (!session?.user) return { success: false, error: "Unauthorized" };
+    if (!session?.user) {
+      console.warn(`[ApproveAdjustment] FAILED: Unauthorized user`);
+      return { success: false, error: "Unauthorized" };
+    }
+    console.log(`[ApproveAdjustment] User authenticated: ${session.user.id} (${session.user.name || "Unknown"})`);
 
     const canApprove = await hasPermission(session.user.id, "inventory.adjustments", "approve");
-    if (!canApprove) return { success: false, error: "Permission denied" };
+    if (!canApprove) {
+      console.warn(`[ApproveAdjustment] FAILED: Permission denied for user ${session.user.id}`);
+      return { success: false, error: "Permission denied" };
+    }
+    console.log(`[ApproveAdjustment] Permission granted for user ${session.user.id}`);
 
+    const tFetchStart = Date.now();
     const adjustment = await prisma.inventoryAdjustment.findUnique({
       where: { id },
       include: { items: { include: { item: true } }, warehouse: true }
     });
+    console.log(`[ApproveAdjustment] Fetched adjustment in ${Date.now() - tFetchStart}ms. Adjustment Number: ${adjustment?.adjustmentNumber}, Items count: ${adjustment?.items.length}, Status: ${adjustment?.status}, Warehouse: ${adjustment?.warehouse?.name}`);
 
-    if (!adjustment) return { success: false, error: "Adjustment not found" };
-    if (adjustment.status !== "DRAFT") return { success: false, error: "Adjustment is not in draft status" };
+    if (!adjustment) {
+      console.warn(`[ApproveAdjustment] FAILED: Adjustment not found for ID ${id}`);
+      return { success: false, error: "Adjustment not found" };
+    }
+    if (adjustment.status !== "DRAFT") {
+      console.warn(`[ApproveAdjustment] FAILED: Adjustment status is ${adjustment.status} (expected DRAFT)`);
+      return { success: false, error: "Adjustment is not in draft status" };
+    }
 
     // Get Accounting Settings
+    const tSettingsStart = Date.now();
     const settings = await getAccountingOperationSettings();
+    console.log(`[ApproveAdjustment] Fetched accounting settings in ${Date.now() - tSettingsStart}ms`);
     const { 
       positiveFgInventoryId, positiveRmInventoryId, positiveAdjustmentGainId,
       negativeFgInventoryId, negativeRmInventoryId, negativeAdjustmentExpenseId 
@@ -257,10 +279,15 @@ export async function approveAdjustment(id: string) {
     // 1. Identify all variant and item IDs
     const variantIds = adjustment.items.map((i) => i.variantId).filter(Boolean) as string[];
     const itemIds = adjustment.items.filter((i) => !i.variantId).map((i) => i.itemId);
+    console.log(`[ApproveAdjustment] Items breakdown: ${variantIds.length} variants, ${itemIds.length} standalone items`);
 
     // 2. Perform Stock updates, Ledger entries, and status update inside transaction with extended timeout
+    const tTxStart = Date.now();
+    console.log(`[ApproveAdjustment] Starting Prisma transaction (timeout: 90000ms)...`);
+    
     await prisma.$transaction(async (tx) => {
       // Bulk fetch current stocks for target warehouse in 1 single query
+      const tStockFetchStart = Date.now();
       const existingStocks = await tx.stock.findMany({
         where: {
           warehouseId: adjustment.warehouseId,
@@ -270,6 +297,7 @@ export async function approveAdjustment(id: string) {
           ],
         },
       });
+      console.log(`[ApproveAdjustment][Tx] Fetched ${existingStocks.length} existing stocks in ${Date.now() - tStockFetchStart}ms`);
 
       // Map stocks for O(1) instant access
       const stockMap = new Map<string, (typeof existingStocks)[0]>();
@@ -392,43 +420,63 @@ export async function approveAdjustment(id: string) {
         }
       }
 
+      console.log(`[ApproveAdjustment][Tx] Plan: ${stocksToCreate.length} stocks to create, ${stocksToUpdate.length} stocks to update, ${stockLedgerRows.length} ledger rows to create`);
+
       // Execute Bulk Inserts for New Stocks
       if (stocksToCreate.length > 0) {
+        const tCreateStockStart = Date.now();
         await tx.stock.createMany({
           data: stocksToCreate,
         });
+        console.log(`[ApproveAdjustment][Tx] Created ${stocksToCreate.length} new stock rows in ${Date.now() - tCreateStockStart}ms`);
       }
 
       // Execute Batch Updates for Existing Stocks in parallel chunks of 50
-      const CHUNK_SIZE = 50;
-      for (let i = 0; i < stocksToUpdate.length; i += CHUNK_SIZE) {
-        const chunk = stocksToUpdate.slice(i, i + CHUNK_SIZE);
-        await Promise.all(
-          chunk.map((u) =>
-            tx.stock.update({
-              where: { id: u.id },
-              data: { quantity: u.newQty, lastUpdated: new Date() },
-            })
-          )
-        );
+      if (stocksToUpdate.length > 0) {
+        const tUpdateStockStart = Date.now();
+        const CHUNK_SIZE = 50;
+        const totalChunks = Math.ceil(stocksToUpdate.length / CHUNK_SIZE);
+        console.log(`[ApproveAdjustment][Tx] Updating ${stocksToUpdate.length} stock rows in ${totalChunks} chunks of ${CHUNK_SIZE}...`);
+        
+        for (let i = 0; i < stocksToUpdate.length; i += CHUNK_SIZE) {
+          const chunkIndex = Math.floor(i / CHUNK_SIZE) + 1;
+          const chunk = stocksToUpdate.slice(i, i + CHUNK_SIZE);
+          const tChunkStart = Date.now();
+          await Promise.all(
+            chunk.map((u) =>
+              tx.stock.update({
+                where: { id: u.id },
+                data: { quantity: u.newQty, lastUpdated: new Date() },
+              })
+            )
+          );
+          console.log(`[ApproveAdjustment][Tx] Finished chunk ${chunkIndex}/${totalChunks} (${chunk.length} rows) in ${Date.now() - tChunkStart}ms`);
+        }
+        console.log(`[ApproveAdjustment][Tx] All ${stocksToUpdate.length} stock updates completed in ${Date.now() - tUpdateStockStart}ms`);
       }
 
       // Execute 1 Bulk Insert for all Stock Ledgers
       if (stockLedgerRows.length > 0) {
+        const tLedgerStart = Date.now();
         await tx.stockLedger.createMany({
           data: stockLedgerRows,
         });
+        console.log(`[ApproveAdjustment][Tx] Inserted ${stockLedgerRows.length} ledger rows in ${Date.now() - tLedgerStart}ms`);
       }
 
       // Update Adjustment Status
+      const tStatusStart = Date.now();
       await tx.inventoryAdjustment.update({
         where: { id },
         data: { status: "COMPLETED", updatedBy: session.user.id },
       });
+      console.log(`[ApproveAdjustment][Tx] Updated adjustment status to COMPLETED in ${Date.now() - tStatusStart}ms`);
     }, {
       maxWait: 15000, // 15s connection acquisition budget
       timeout: 90000, // 90s transaction execution budget
     });
+
+    console.log(`[ApproveAdjustment] Database transaction completed successfully in ${Date.now() - tTxStart}ms`);
 
     // 4. Construct Balanced Consolidated Voucher Lines
     const voucherLines: any[] = [];
@@ -458,7 +506,11 @@ export async function approveAdjustment(id: string) {
       }
     });
 
+    console.log(`[ApproveAdjustment] Consolidated voucher lines count: ${voucherLines.length}`);
+
     if (voucherLines.length > 0) {
+      const tVoucherStart = Date.now();
+      console.log(`[ApproveAdjustment] Creating accounting voucher...`);
       const voucherResult = await createVoucher({
         date: adjustment.date,
         type: VoucherType.JOURNAL,
@@ -468,22 +520,46 @@ export async function approveAdjustment(id: string) {
         lines: voucherLines,
       });
 
+      console.log(`[ApproveAdjustment] createVoucher result:`, voucherResult);
+
       if (voucherResult.success && voucherResult.voucher) {
-        await postVoucher(voucherResult.voucher.id, undefined, true);
+        console.log(`[ApproveAdjustment] Posting voucher ID: ${voucherResult.voucher.id}...`);
+        const postResult = await postVoucher(voucherResult.voucher.id, undefined, true);
+        console.log(`[ApproveAdjustment] postVoucher result:`, postResult);
+
         // Link voucher
         await prisma.inventoryAdjustment.update({
           where: { id },
           data: { voucherId: voucherResult.voucher.id },
         });
+        console.log(`[ApproveAdjustment] Linked voucher ${voucherResult.voucher.id} to adjustment in ${Date.now() - tVoucherStart}ms`);
+      } else {
+        console.warn(`[ApproveAdjustment] createVoucher failed or did not return voucher:`, voucherResult);
       }
+    } else {
+      console.log(`[ApproveAdjustment] No voucher lines to post (total amounts were 0 or missing account IDs)`);
     }
 
+    const tAuditStart = Date.now();
     await logItemUpdated(session.user.id, "InventoryAdjustment", adjustment.id, ["Approved and Posted Adjustment"]);
     revalidateBothPaths("/dashboard/inventory/adjustments");
+    console.log(`[ApproveAdjustment] Audit log and revalidate completed in ${Date.now() - tAuditStart}ms`);
+
+    const totalDuration = Date.now() - startTime;
+    console.log(`[ApproveAdjustment] SUCCESS: Adjustment ${adjustment.adjustmentNumber} approved in ${totalDuration}ms (${(totalDuration / 1000).toFixed(2)}s)`);
+    console.log(`================== [APPROVE ADJUSTMENT END] ==================\n`);
 
     return { success: true };
-  } catch (error) {
-    console.error("approveAdjustment error:", error);
+  } catch (error: any) {
+    const totalDuration = Date.now() - startTime;
+    console.error(`\n[ApproveAdjustment] CRITICAL ERROR after ${totalDuration}ms:`, {
+      message: error?.message,
+      stack: error?.stack,
+      code: error?.code,
+      meta: error?.meta,
+      raw: error,
+    });
+    console.log(`================== [APPROVE ADJUSTMENT FAILED] ==================\n`);
     return { success: false, error: error instanceof Error ? error.message : "Failed to approve adjustment" };
   }
 }

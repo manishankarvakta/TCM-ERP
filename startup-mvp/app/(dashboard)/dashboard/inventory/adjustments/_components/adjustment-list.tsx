@@ -223,9 +223,16 @@ export default function AdjustmentList({
   const handleApprove = async () => {
     if (!approveId) return;
     
+    console.log(`[AdjustmentList] Triggering approval for Adjustment ID: ${approveId}`);
     setLoadingId(approveId);
+    const start = performance.now();
+
     try {
+      console.log(`[AdjustmentList] Calling approveAdjustment server action...`);
       const result = await approveAdjustment(approveId);
+      const elapsed = (performance.now() - start).toFixed(0);
+      console.log(`[AdjustmentList] approveAdjustment response received in ${elapsed}ms:`, result);
+
       if (result.success) {
         toast({
           title: "Success",
@@ -233,6 +240,7 @@ export default function AdjustmentList({
         });
         router.refresh();
       } else {
+        console.error(`[AdjustmentList] Server returned error:`, result.error);
         toast({
           title: "Error",
           description: result.error || "Failed to approve adjustment",
@@ -240,6 +248,8 @@ export default function AdjustmentList({
         });
       }
     } catch (error) {
+      const elapsed = (performance.now() - start).toFixed(0);
+      console.error(`[AdjustmentList] Unhandled exception in handleApprove after ${elapsed}ms:`, error);
       toast({
         title: "Error",
         description: "An unexpected error occurred",
