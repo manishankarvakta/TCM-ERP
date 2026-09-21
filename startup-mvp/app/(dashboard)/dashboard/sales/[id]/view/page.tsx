@@ -79,7 +79,7 @@ export default async function SaleDetailsPage({ params }: SaleDetailsPageProps) 
   }
 
   // Fetch associated accounting vouchers
-  const vouchers = await prisma.voucher.findMany({
+  const rawVouchers = await prisma.voucher.findMany({
     where: {
       OR: [
         { reference: sale.saleNumber },
@@ -95,6 +95,15 @@ export default async function SaleDetailsPage({ params }: SaleDetailsPageProps) 
     },
     orderBy: { createdAt: "asc" },
   });
+
+  const vouchers = rawVouchers.map((v) => ({
+    ...v,
+    VoucherLine: v.VoucherLine.map((line) => ({
+      ...line,
+      debitAmount: Number(line.debitAmount || 0),
+      creditAmount: Number(line.creditAmount || 0),
+    })),
+  }));
 
   // Load accounting settings to fetch mapped discount accounts
   const { getAccountingOperationSettings } = await import("@/lib/accounting-settings");

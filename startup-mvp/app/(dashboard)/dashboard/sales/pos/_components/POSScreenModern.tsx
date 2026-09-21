@@ -26,6 +26,13 @@ import {
   FaExclamationTriangle,
 } from "react-icons/fa";
 import { FiAward } from "react-icons/fi";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import POSBottomToolbar from "./POSBottomToolbar";
 import POSSecurityModal from "./POSSecurityModal";
 
@@ -382,6 +389,7 @@ export default function POSScreenModern({
   const [selectedMfsAccount, setSelectedMfsAccount] = useState<string>(
     mfsAccounts[0]?.id || ""
   );
+  const [isPrintConfirmOpen, setIsPrintConfirmOpen] = useState(false);
 
   // Auto-update cash amount when cart/totals or split payment methods change
   React.useEffect(() => {
@@ -564,6 +572,7 @@ export default function POSScreenModern({
   };
 
   const handlePrintBillClick = () => {
+    if (cart.length === 0) return;
     if (discountLimitError) {
       toast.error(discountLimitError);
       return;
@@ -573,6 +582,11 @@ export default function POSScreenModern({
       toast.error("Due Sale Disabled: Due / credit sales are disabled in POS settings. Total paid must equal or exceed total amount.");
       return;
     }
+    setIsPrintConfirmOpen(true);
+  };
+
+  const handleExecutePrintPayment = () => {
+    setIsPrintConfirmOpen(false);
     onConfirmDirectPayment({
       cashAmount: Number(cashAmount) || 0,
       cardAmount: Number(cardAmount) || 0,
@@ -1851,6 +1865,120 @@ export default function POSScreenModern({
             : "Secure POS is enabled. Select an authorized user with POS permissions and enter password to enable due sale."
         }
       />
+
+      {/* Print Bill Confirmation Modal */}
+      <Dialog open={isPrintConfirmOpen} onOpenChange={setIsPrintConfirmOpen}>
+        <DialogContent className="sm:max-w-md bg-card text-card-foreground border border-border p-6 shadow-2xl rounded-xl">
+          <DialogHeader className="space-y-1">
+            <DialogTitle className="text-lg font-bold flex items-center gap-2 text-foreground">
+              <FaPrint className="w-5 h-5 text-primary" />
+              Confirm & Print Bill
+            </DialogTitle>
+            <p className="text-xs text-muted-foreground">
+              Please verify the order and payment details before completing and printing.
+            </p>
+          </DialogHeader>
+
+          <div className="space-y-3 py-3 text-sm">
+            {/* Customer Info */}
+            <div className="bg-muted/40 p-3 rounded-lg border border-border/60 flex justify-between items-center">
+              <div>
+                <span className="text-[11px] text-muted-foreground block font-medium uppercase tracking-wider">Customer</span>
+                <span className="font-bold text-foreground">{selectedClientObj?.name || "Walkway Customer"}</span>
+              </div>
+              <span className="text-xs text-muted-foreground font-mono">
+                {selectedClientObj?.phone || "0000000000"}
+              </span>
+            </div>
+
+            {/* Bill Summary */}
+            <div className="bg-muted/20 p-3 rounded-lg border border-border/60 space-y-1.5 text-xs">
+              <div className="flex justify-between text-muted-foreground">
+                <span>Total Items:</span>
+                <span className="font-bold text-foreground">{itemCount} items ({cart.length} lines)</span>
+              </div>
+              <div className="flex justify-between text-muted-foreground">
+                <span>Subtotal:</span>
+                <span className="font-bold text-foreground">৳{subTotal.toFixed(2)}</span>
+              </div>
+              {discountAmount > 0 && (
+                <div className="flex justify-between text-emerald-600 dark:text-emerald-400 font-semibold">
+                  <span>Discount:</span>
+                  <span>-৳{discountAmount.toFixed(2)}</span>
+                </div>
+              )}
+              {pointsDiscountAmount > 0 && (
+                <div className="flex justify-between text-indigo-600 dark:text-indigo-400 font-semibold">
+                  <span>Points Discount ({effectivePointsToRedeem} pts):</span>
+                  <span>-৳{pointsDiscountAmount.toFixed(2)}</span>
+                </div>
+              )}
+              <div className="border-t border-border pt-1.5 flex justify-between items-center text-sm font-black text-foreground">
+                <span>Payable Total:</span>
+                <span className="text-base text-primary">৳{roundedGrandTotal.toFixed(2)}</span>
+              </div>
+            </div>
+
+            {/* Payment Details */}
+            <div className="bg-muted/30 p-3 rounded-lg border border-border/60 space-y-1.5 text-xs">
+              <span className="text-[11px] text-muted-foreground block font-medium uppercase tracking-wider">Payment Breakdown</span>
+              <div className="flex justify-between text-muted-foreground">
+                <span>Cash Received:</span>
+                <span className="font-semibold text-foreground">৳{(Number(cashAmount) || 0).toFixed(2)}</span>
+              </div>
+              {Number(cardAmount) > 0 && (
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Card Payment:</span>
+                  <span className="font-semibold text-foreground">৳{(Number(cardAmount) || 0).toFixed(2)}</span>
+                </div>
+              )}
+              {Number(mfsAmount) > 0 && (
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Digital Wallet (MFS):</span>
+                  <span className="font-semibold text-foreground">৳{(Number(mfsAmount) || 0).toFixed(2)}</span>
+                </div>
+              )}
+              <div className="border-t border-border pt-1.5 flex justify-between font-bold text-foreground">
+                <span>Total Paid:</span>
+                <span>৳{totalPaid.toFixed(2)}</span>
+              </div>
+            </div>
+
+            {/* Change or Due Indicator */}
+            {totalPaid >= roundedGrandTotal ? (
+              <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 p-2.5 rounded-lg flex justify-between items-center text-xs font-bold">
+                <span className="uppercase tracking-wide">Change to Return:</span>
+                <span className="text-sm font-black">৳{(totalPaid - roundedGrandTotal).toFixed(2)}</span>
+              </div>
+            ) : (
+              <div className="bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 p-2.5 rounded-lg flex justify-between items-center text-xs font-bold">
+                <span className="uppercase tracking-wide">Due Remaining:</span>
+                <span className="text-sm font-black">৳{(roundedGrandTotal - totalPaid).toFixed(2)}</span>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="flex gap-2 sm:gap-0 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsPrintConfirmOpen(false)}
+              className="flex-1 font-semibold"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleExecutePrintPayment}
+              className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center justify-center gap-2 shadow-md shadow-emerald-600/20"
+              autoFocus
+            >
+              <FaPrint className="w-4 h-4" />
+              Confirm & Print
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
