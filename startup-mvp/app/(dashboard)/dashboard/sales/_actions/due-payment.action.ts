@@ -331,12 +331,24 @@ export async function computeClientNetARBalanceInternal(clientId: string) {
     where: { id: clientId },
     select: {
       id: true,
+      name: true,
+      phone: true,
+      clientType: true,
       openingBalance: true,
       chartOfAccountId: true,
     },
   });
 
   if (!client) return 0;
+
+  const isWalkway =
+    client.name?.toLowerCase().includes("walkway") ||
+    client.name?.toLowerCase().includes("walk-in") ||
+    client.phone === "0000000000" ||
+    client.phone === "00000000000" ||
+    client.clientType === "walkway";
+
+  if (isWalkway) return 0;
 
   const coaId = client.chartOfAccountId;
 
