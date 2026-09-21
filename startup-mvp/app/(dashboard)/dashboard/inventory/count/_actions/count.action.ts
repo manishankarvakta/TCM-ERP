@@ -487,15 +487,39 @@ export async function getAllCountEntries(filters: {
 
 /**
  * Load Stock Reconciliation report comparing System Stock vs Draft Scans
+ * Only includes items that have active physical count entries with status COUNTED.
  */
 export async function getReconciliationReport(warehouseId: string) {
   try {
     const session = await auth();
     if (!session?.user) return { success: false, error: "Unauthorized" };
 
-    // Get all items that track inventory
+    // 1. Get all COUNTED count entries for this warehouse
+    const draftCounts = await prisma.inventoryCountEntry.groupBy({
+      by: ["itemId", "variantId"],
+      where: {
+        warehouseId,
+        status: "COUNTED"
+      },
+      _sum: {
+        quantity: true
+      }
+    });
+
+    if (draftCounts.length === 0) {
+      return {
+        success: true,
+        report: []
+      };
+    }
+
+    const itemIds = Array.from(new Set(draftCounts.map(d => d.itemId)));
+    const variantIds = draftCounts.map(d => d.variantId).filter(Boolean) as string[];
+
+    // 2. Get only items that are part of the active draft count
     const items = await prisma.item.findMany({
       where: {
+        id: { in: itemIds },
         trackInventory: true,
         status: "active",
         isTrash: false
@@ -506,20 +530,14 @@ export async function getReconciliationReport(warehouseId: string) {
       }
     });
 
-    // Get current warehouse stock records
+    // 3. Get warehouse stock records for these counted items/variants only
     const systemStock = await prisma.stock.findMany({
-      where: { warehouseId }
-    });
-
-    // Get all COUNTED count entries for this warehouse
-    const draftCounts = await prisma.inventoryCountEntry.groupBy({
-      by: ["itemId", "variantId"],
       where: {
         warehouseId,
-        status: "COUNTED"
-      },
-      _sum: {
-        quantity: true
+        OR: [
+          ...(variantIds.length > 0 ? [{ variantId: { in: variantIds } }] : []),
+          ...(itemIds.length > 0 ? [{ itemId: { in: itemIds } }] : [])
+        ]
       }
     });
 
@@ -536,50 +554,33 @@ export async function getReconciliationReport(warehouseId: string) {
       countMap.set(key, Number(c._sum.quantity || 0));
     }
 
-    // Build the report lines
+    const itemMap = new Map<string, (typeof items)[0]>();
+    for (const it of items) {
+      itemMap.set(it.id, it);
+    }
+
+    // Build the report lines strictly for counted items with status COUNTED
     const lines: any[] = [];
 
-    for (const item of items) {
-      const hasVariants = item.variants && item.variants.length > 0;
+    for (const draft of draftCounts) {
+      const item = itemMap.get(draft.itemId);
+      if (!item) continue;
 
-      if (hasVariants) {
-        for (const variant of item.variants) {
-          const key = `${item.id}_${variant.id}`;
-          const systemQty = stockMap.get(key) || 0;
-          const physicalQty = countMap.get(key) || 0;
-          const discrepancy = physicalQty - systemQty;
+      const key = `${draft.itemId}_${draft.variantId || "null"}`;
+      const physicalQty = Number(draft._sum.quantity || 0);
+      const systemQty = stockMap.get(key) || 0;
+      const discrepancy = physicalQty - systemQty;
+
+      if (draft.variantId) {
+        const variant = item.variants?.find(v => v.id === draft.variantId);
+        if (variant) {
           const rate = Number(variant.costPrice || item.costPrice || 0);
-
-          if (systemQty > 0 || physicalQty > 0) {
-            lines.push({
-              itemId: item.id,
-              variantId: variant.id,
-              code: variant.sku,
-              name: `${item.name} (${variant.color} / ${variant.size})`,
-              barcode: variant.barcode || item.barcode || "-",
-              unit: item.unit?.symbol || "pcs",
-              systemStock: systemQty,
-              physicalCount: physicalQty,
-              discrepancy,
-              unitRate: rate,
-              amount: discrepancy * rate
-            });
-          }
-        }
-      } else {
-        const key = `${item.id}_null`;
-        const systemQty = stockMap.get(key) || 0;
-        const physicalQty = countMap.get(key) || 0;
-        const discrepancy = physicalQty - systemQty;
-        const rate = Number(item.costPrice || 0);
-
-        if (systemQty > 0 || physicalQty > 0) {
           lines.push({
             itemId: item.id,
-            variantId: null,
-            code: item.code,
-            name: item.name,
-            barcode: item.barcode || "-",
+            variantId: variant.id,
+            code: variant.sku,
+            name: `${item.name} (${variant.color} / ${variant.size})`,
+            barcode: variant.barcode || item.barcode || "-",
             unit: item.unit?.symbol || "pcs",
             systemStock: systemQty,
             physicalCount: physicalQty,
@@ -588,6 +589,21 @@ export async function getReconciliationReport(warehouseId: string) {
             amount: discrepancy * rate
           });
         }
+      } else {
+        const rate = Number(item.costPrice || 0);
+        lines.push({
+          itemId: item.id,
+          variantId: null,
+          code: item.code,
+          name: item.name,
+          barcode: item.barcode || "-",
+          unit: item.unit?.symbol || "pcs",
+          systemStock: systemQty,
+          physicalCount: physicalQty,
+          discrepancy,
+          unitRate: rate,
+          amount: discrepancy * rate
+        });
       }
     }
 

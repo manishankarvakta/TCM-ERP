@@ -282,7 +282,7 @@ export default function AdjustmentClient({ warehouses, defaultWarehouseId, isNor
                 <FiFileText className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-[10px] uppercase font-bold tracking-wider text-blue-600/80 dark:text-blue-400/80">Total Tracked SKUs</p>
+                <p className="text-[10px] uppercase font-bold tracking-wider text-blue-600/80 dark:text-blue-400/80">Total Counted SKUs</p>
                 <h3 className="text-xl font-bold font-mono mt-1 text-blue-700 dark:text-blue-300">
                   {summary.totalItems}
                 </h3>
@@ -325,7 +325,7 @@ export default function AdjustmentClient({ warehouses, defaultWarehouseId, isNor
         <CardHeader className="pb-3 flex flex-row items-center justify-between">
           <div>
             <CardTitle className="text-base">Stock Discrepancy Matrix</CardTitle>
-            <CardDescription>Comparison of physical count drafts vs database system stock</CardDescription>
+            <CardDescription>Comparison of physical count drafts (status: COUNTED) vs database system stock</CardDescription>
           </div>
           <Button variant="outline" size="sm" onClick={loadReport} disabled={isLoading || !warehouseParam || warehouseParam === "all"}>
             <FiRefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
@@ -345,7 +345,8 @@ export default function AdjustmentClient({ warehouses, defaultWarehouseId, isNor
           ) : report.length === 0 ? (
             <div className="p-16 text-center text-muted-foreground">
               <FiCheck className="h-10 w-10 mx-auto mb-3 text-muted-foreground/40" />
-              <p className="font-medium">No stock records found for this warehouse</p>
+              <p className="font-medium">No counted items with status COUNTED found for this warehouse.</p>
+              <p className="text-xs text-muted-foreground/70 mt-1">Use the Count Scanner to scan items before reconciling.</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
