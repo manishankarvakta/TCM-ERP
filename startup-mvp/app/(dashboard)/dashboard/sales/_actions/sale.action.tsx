@@ -312,6 +312,7 @@ export async function getClientsForSale() {
 
       return {
         ...c,
+        openingBalance: Number(c.openingBalance || 0),
         netDue: Math.max(0, Number(netDue.toFixed(2)))
       };
     });
@@ -321,6 +322,7 @@ export async function getClientsForSale() {
     if (defaultClient) {
       clientList.unshift({
         ...(defaultClient as any),
+        openingBalance: 0,
         netDue: 0
       });
     }

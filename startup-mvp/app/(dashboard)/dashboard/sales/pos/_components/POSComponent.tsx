@@ -411,6 +411,18 @@ export default function POSComponent({ items, clients: initialClients, warehouse
 
   useEffect(() => {
     if (selectedClientId) {
+      const selectedClient = clients.find(c => c.id === selectedClientId);
+      const isWalkway = selectedClient && (
+        selectedClient.name?.toLowerCase().includes("walkway") ||
+        selectedClient.phone === "0000000000" ||
+        selectedClient.phone === "00000000000"
+      );
+
+      if (isWalkway) {
+        setPreviousCustomerDue(0);
+        return;
+      }
+
       getClientNetARBalance(selectedClientId).then(res => {
         if (res.success) {
           setPreviousCustomerDue(res.netDue);
@@ -421,7 +433,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     } else {
       setPreviousCustomerDue(0);
     }
-  }, [selectedClientId, isConfirmModalOpen]);
+  }, [selectedClientId, isConfirmModalOpen, clients]);
 
   useEffect(() => {
     if (payDueClientId) {
@@ -2343,15 +2355,24 @@ export default function POSComponent({ items, clients: initialClients, warehouse
         return;
       }
 
+      // Automatically calculate round-off discount when rounding down (grandTotal > roundedGrandTotal)
+      const roundOffDiff = grandTotal > roundedGrandTotal
+        ? Number((grandTotal - roundedGrandTotal).toFixed(2))
+        : 0;
+      const totalDiscountWithRoundOff = Math.max(
+        0,
+        Number((effectiveDiscountAmount + effectivePointsDiscountAmount + roundOffDiff).toFixed(2))
+      );
+
       const res = await createSale({
         clientId: selectedClientId,
         warehouseId: selectedWarehouseId,
         date: new Date(),
         status: "COMPLETED",
         orderType: orderType as any,
-        notes: `POS Sale - Paid via Split Payment${membershipDiscountAmount > 0 ? ` (Includes Membership Discount of ৳${membershipDiscountAmount.toFixed(2)})` : ""}`,
+        notes: `POS Sale - Paid via Split Payment${membershipDiscountAmount > 0 ? ` (Includes Membership Discount of ৳${membershipDiscountAmount.toFixed(2)})` : ""}${roundOffDiff > 0 ? ` (Round-off: ৳${roundOffDiff.toFixed(2)})` : ""}`,
         tax: tax,
-        discount: effectiveDiscountAmount + effectivePointsDiscountAmount,
+        discount: totalDiscountWithRoundOff,
         items: saleItems,
         couponCode: appliedPromo || undefined,
         paymentMethod: primaryPaymentMethod,

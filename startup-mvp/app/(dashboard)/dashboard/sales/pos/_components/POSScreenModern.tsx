@@ -439,7 +439,11 @@ export default function POSScreenModern({
     !selectedClientObj ||
     selectedClientObj.name?.toLowerCase().includes("walkway") ||
     selectedClientObj.name?.toLowerCase().includes("walk-in") ||
+    selectedClientObj.phone === "0000000000" ||
+    selectedClientObj.phone === "00000000000" ||
     selectedClientObj.clientType === "walkway";
+
+  const effectivePreviousDue = isWalkwayCustomer ? 0 : (previousCustomerDue || 0);
 
   React.useEffect(() => {
     if (isWalkwayCustomer && isDueBill) {
@@ -1295,15 +1299,15 @@ export default function POSScreenModern({
                 <span>Gross Total(Round):</span>
                 <span>{roundedGrandTotal.toFixed(2)}BDT</span>
               </div>
-              {previousCustomerDue > 0 && (
+              {effectivePreviousDue > 0 && (
                 <>
                   <div className="flex justify-between items-center text-amber-600 dark:text-amber-400 font-semibold text-xs pt-1">
                     <span>Previous Due:</span>
-                    <span>{previousCustomerDue.toFixed(2)}BDT</span>
+                    <span>{effectivePreviousDue.toFixed(2)}BDT</span>
                   </div>
                   <div className="flex justify-between items-center text-destructive font-bold text-xs">
                     <span>Total Combined Due:</span>
-                    <span>{(previousCustomerDue + Math.max(0, roundedGrandTotal - totalPaid)).toFixed(2)}BDT</span>
+                    <span>{(effectivePreviousDue + Math.max(0, roundedGrandTotal - totalPaid)).toFixed(2)}BDT</span>
                   </div>
                 </>
               )}
@@ -1693,15 +1697,15 @@ export default function POSScreenModern({
                       ৳{Math.max(0, roundedGrandTotal - totalPaid).toFixed(2)}
                     </span>
                   </div>
-                  {previousCustomerDue > 0 && (
+                  {effectivePreviousDue > 0 && (
                     <>
                       <div className="pt-1 border-t border-amber-500/20 flex justify-between items-center text-xs font-semibold text-amber-700 dark:text-amber-300">
                         <span>Previous Customer Due:</span>
-                        <span>৳{previousCustomerDue.toFixed(2)}</span>
+                        <span>৳{effectivePreviousDue.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between items-center text-xs font-black text-destructive dark:text-rose-400">
                         <span>Total Combined Due:</span>
-                        <span>৳{(previousCustomerDue + Math.max(0, roundedGrandTotal - totalPaid)).toFixed(2)}</span>
+                        <span>৳{(effectivePreviousDue + Math.max(0, roundedGrandTotal - totalPaid)).toFixed(2)}</span>
                       </div>
                     </>
                   )}
