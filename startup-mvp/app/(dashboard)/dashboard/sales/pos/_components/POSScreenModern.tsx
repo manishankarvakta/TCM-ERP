@@ -42,6 +42,153 @@ const isDiscreteUnit = (unit?: string | null): boolean => {
   return discreteUnits.includes(norm);
 };
 
+const roundTo2Decimals = (num: number): number => {
+  return Number(Math.round(Number(num + "e2")) + "e-2");
+};
+
+interface ModernCartQtyInputProps {
+  inputRef: (el: HTMLInputElement | null) => void;
+  cartKey: string;
+  itemQty: number;
+  isIntegerOnlyUnit: boolean;
+  itemUnit?: string;
+  isFractionalQtyError: boolean;
+  handleCustomQuantitySet: (cartKey: string, qty: number) => void;
+  onEnter?: () => void;
+}
+
+function ModernCartQtyInput({
+  inputRef,
+  cartKey,
+  itemQty,
+  isIntegerOnlyUnit,
+  itemUnit,
+  isFractionalQtyError,
+  handleCustomQuantitySet,
+  onEnter,
+}: ModernCartQtyInputProps) {
+  const [valStr, setValStr] = React.useState<string>(itemQty === 0 ? "0" : itemQty.toString());
+  const [isFocused, setIsFocused] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!isFocused) {
+      setValStr(itemQty === 0 ? "0" : itemQty.toString());
+    }
+  }, [itemQty, isFocused]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let raw = e.target.value;
+
+    if (isIntegerOnlyUnit) {
+      raw = raw.replace(/[^0-9]/g, "");
+      if (raw === "") {
+        setValStr("0");
+        handleCustomQuantitySet(cartKey, 0);
+        return;
+      }
+      if (raw.length > 1 && raw.startsWith("0")) {
+        raw = raw.replace(/^0+/, "") || "0";
+      }
+      setValStr(raw);
+      const parsed = parseInt(raw, 10);
+      handleCustomQuantitySet(cartKey, isNaN(parsed) ? 0 : parsed);
+      return;
+    }
+
+    // If user deletes everything (backspace), immediately make it "0"
+    if (raw === "") {
+      setValStr("0");
+      handleCustomQuantitySet(cartKey, 0);
+      return;
+    }
+
+    // Allow user to type ".5" -> "0.5" or "." -> "0."
+    if (raw.startsWith(".")) {
+      raw = "0" + raw;
+    }
+
+    // Only allow digits and decimal point
+    if (!/^\d*\.?\d*$/.test(raw)) {
+      return;
+    }
+
+    // Strip leading zeros before non-decimal digits (e.g. "05" -> "5", but preserve "0." or "0.5")
+    if (raw.length > 1 && raw.startsWith("0") && raw[1] !== ".") {
+      raw = raw.replace(/^0+/, "") || "0";
+    }
+
+    // If more than 2 decimal places are typed, auto-convert / clamp to 2 decimal places
+    const parts = raw.split(".");
+    if (parts[1] && parts[1].length > 2) {
+      const num = parseFloat(raw);
+      if (!isNaN(num)) {
+        raw = roundTo2Decimals(num).toFixed(2);
+      }
+    }
+
+    setValStr(raw);
+
+    if (raw === "" || raw === "." || raw === "0.") {
+      handleCustomQuantitySet(cartKey, 0);
+    } else {
+      const parsed = parseFloat(raw);
+      if (!isNaN(parsed)) {
+        handleCustomQuantitySet(cartKey, roundTo2Decimals(parsed));
+      }
+    }
+  };
+
+  const handleBlur = () => {
+    setIsFocused(false);
+    if (valStr === "" || valStr === ".") {
+      setValStr("0");
+      handleCustomQuantitySet(cartKey, 0);
+    } else {
+      const parsed = parseFloat(valStr);
+      if (isNaN(parsed) || parsed < 0) {
+        setValStr("0");
+        handleCustomQuantitySet(cartKey, 0);
+      } else {
+        const finalVal = isIntegerOnlyUnit
+          ? Math.max(0, Math.floor(parsed))
+          : roundTo2Decimals(parsed);
+        setValStr(finalVal.toString());
+        handleCustomQuantitySet(cartKey, finalVal);
+      }
+    }
+  };
+
+  return (
+    <input
+      ref={inputRef}
+      type="text"
+      inputMode="decimal"
+      title={isIntegerOnlyUnit ? `Quantity for ${itemUnit || "Pcs"} must be an integer (decimals blocked)` : "Quantity"}
+      value={valStr}
+      onFocus={(e) => {
+        setIsFocused(true);
+        e.target.select();
+      }}
+      onChange={handleChange}
+      onBlur={handleBlur}
+      onKeyDown={(e) => {
+        if (isIntegerOnlyUnit && (e.key === "." || e.key === "," || e.key === "e" || e.key === "E" || e.key === "-" || e.key === "+")) {
+          e.preventDefault();
+          return;
+        }
+        if (e.key === "Enter") {
+          e.preventDefault();
+          handleBlur();
+          if (onEnter) onEnter();
+        }
+      }}
+      className={`w-16 text-center text-xs font-bold bg-transparent outline-none py-0.5 focus:bg-accent/60 focus:ring-1 focus:ring-primary rounded ${
+        isFractionalQtyError ? "text-destructive font-semibold" : ""
+      }`}
+    />
+  );
+}
+
 export interface POSScreenModernProps {
   // Config & Catalog Props
   items: any[];
@@ -993,49 +1140,22 @@ export default function POSScreenModern({
                             >
                               <FaMinus className="w-2.5 h-2.5" />
                             </button>
-                            <input
-                              ref={(el) => {
+                            <ModernCartQtyInput
+                              inputRef={(el) => {
                                 qtyInputRefs.current[index] = el;
                               }}
-                              type="number"
-                              step={isIntegerOnlyUnit ? "1" : "any"}
-                              min={isIntegerOnlyUnit ? "1" : "0.0001"}
-                              title={isIntegerOnlyUnit ? `Quantity for ${itemUnit || "Pcs"} must be an integer (decimals blocked)` : "Quantity"}
-                              value={itemQty === 0 ? "" : itemQty}
-                              onChange={(e) => {
-                                if (isIntegerOnlyUnit) {
-                                  const sanitized = e.target.value.replace(/[^0-9]/g, "");
-                                  const val = parseInt(sanitized, 10);
-                                  handleCustomQuantitySet(item.cartKey, isNaN(val) ? 0 : val);
-                                } else {
-                                  const val = parseFloat(e.target.value);
-                                  handleCustomQuantitySet(item.cartKey, isNaN(val) ? 0 : val);
+                              cartKey={item.cartKey}
+                              itemQty={itemQty}
+                              isIntegerOnlyUnit={isIntegerOnlyUnit}
+                              itemUnit={itemUnit}
+                              isFractionalQtyError={isFractionalQtyError}
+                              handleCustomQuantitySet={handleCustomQuantitySet}
+                              onEnter={() => {
+                                if (searchInputRef.current) {
+                                  searchInputRef.current.focus();
+                                  searchInputRef.current.select();
                                 }
                               }}
-                              onBlur={(e) => {
-                                const val = parseFloat(e.target.value);
-                                if (isNaN(val) || val < 0) {
-                                  handleCustomQuantitySet(item.cartKey, 0);
-                                } else if (isIntegerOnlyUnit) {
-                                  handleCustomQuantitySet(item.cartKey, Math.max(0, Math.floor(val)));
-                                }
-                              }}
-                              onKeyDown={(e) => {
-                                if (isIntegerOnlyUnit && (e.key === "." || e.key === "," || e.key === "e" || e.key === "E" || e.key === "-" || e.key === "+")) {
-                                  e.preventDefault();
-                                  return;
-                                }
-                                if (e.key === "Enter") {
-                                  e.preventDefault();
-                                  if (searchInputRef.current) {
-                                    searchInputRef.current.focus();
-                                    searchInputRef.current.select();
-                                  }
-                                }
-                              }}
-                              className={`w-16 text-center text-xs font-bold bg-transparent outline-none py-0.5 focus:bg-accent/60 focus:ring-1 focus:ring-primary rounded ${
-                                isFractionalQtyError ? "text-destructive font-semibold" : ""
-                              }`}
                             />
                             <button
                               type="button"

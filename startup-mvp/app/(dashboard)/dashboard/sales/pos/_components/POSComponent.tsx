@@ -958,7 +958,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
 
   const effectiveDiscountAmount = (appliedPromo || discountAmount > 0 ? discountAmount : manualDiscountAmount) + membershipDiscountAmount;
 
-  const tax = (posSettings?.allowTax ?? true) ? (itemVatTotal + (subTotal - effectiveDiscountAmount) * (taxPercent / 100)) : 0;
+  const tax = (posSettings?.allowTax ?? false) ? (itemVatTotal + (subTotal - effectiveDiscountAmount) * (taxPercent / 100)) : 0;
   const grandTotal = subTotal + tax - effectiveDiscountAmount;
   const roundedGrandTotal = Math.round(grandTotal);
   const dueAmount = roundedGrandTotal - paidAmount;
@@ -1178,8 +1178,13 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     });
   };
 
+  const roundTo2Decimals = (num: number): number => {
+    return Number(Math.round(Number(num + "e2")) + "e-2");
+  };
+
   const handleCustomQuantitySet = (cartKey: string, qty: number) => {
     const isNegativeSaleAllowed = posSettings?.allowNegativeSale ?? false;
+    const precisionQty = isNaN(qty) ? 0 : roundTo2Decimals(qty);
 
     setCart((prev) => {
       const item = prev.find((i) => i.cartKey === cartKey);
@@ -1192,7 +1197,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
           availableStock = items.find(it => it.id === item.id)?.stocks?.find(s => s.warehouseId === selectedWarehouseId)?.quantity || 0;
         }
 
-        if (qty > availableStock) {
+        if (precisionQty > availableStock) {
           toast({
             title: "Stock Alert",
             description: `Cannot exceed available stock of ${availableStock} for ${item.description || item.name || "item"}. Setting to max available.`,
@@ -1204,7 +1209,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
 
       return prev.map((i) => {
         if (i.cartKey === cartKey) {
-          const newQ = Math.max(0, qty);
+          const newQ = Math.max(0, precisionQty);
           return { ...i, cartQuantity: newQ };
         }
         return i;
@@ -1321,9 +1326,13 @@ export default function POSComponent({ items, clients: initialClients, warehouse
 
       // Standard scale weight divisor: 5 digits is in grams (e.g. 00185 -> 0.185 kg, so divide by 1000)
       const divisor = qtyDigits.length === 5 ? 1000 : (qtyDigits.length === 6 ? 10000 : 100);
-      const parsedQty = parseFloat(qtyDigits) / divisor;
+      let parsedQty = parseFloat(qtyDigits) / divisor;
 
       if (isNaN(parsedQty) || parsedQty <= 0) return false;
+
+      // Auto-convert to max 2 decimal places precision (e.g. 0.145 kg -> 0.15 kg)
+      parsedQty = roundTo2Decimals(parsedQty);
+      if (parsedQty <= 0) return false;
 
       const isNegativeSaleAllowed = posSettings?.allowNegativeSale ?? false;
       if (!isNegativeSaleAllowed && targetItem.trackInventory) {
@@ -2674,7 +2683,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
 
   const activeScreenType = searchParams.get("screen") || posSettings?.posScreenType || "standard";
   const isNegativeSaleAllowed = posSettings?.allowNegativeSale ?? false;
-  const computedTaxAmount = (posSettings?.allowTax ?? true) ? ((subTotal - discountAmount) * (taxPercent / 100)) : 0;
+  const computedTaxAmount = (posSettings?.allowTax ?? false) ? ((subTotal - discountAmount) * (taxPercent / 100)) : 0;
 
   const getItemLineUnitPrice = (item: any) => {
     return item.unitPrice || 0;
@@ -3115,7 +3124,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                       )}
                     </div>
                   ) : <div></div>}
-                  {(posSettings?.allowTax ?? true) && (
+                  {(posSettings?.allowTax ?? false) && (
                     <div>
                       <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide mb-1 block">TAX</label>
                       <div className="text-sm font-medium text-foreground">৳{tax.toFixed(2)}</div>

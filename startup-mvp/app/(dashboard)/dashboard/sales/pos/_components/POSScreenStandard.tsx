@@ -23,6 +23,102 @@ import {
 } from "react-icons/fa";
 import POSBottomToolbar from "./POSBottomToolbar";
 
+const roundTo2Decimals = (num: number): number => {
+  return Number(Math.round(Number(num + "e2")) + "e-2");
+};
+
+function StandardCartQtyInput({
+  cartKey,
+  cartQuantity,
+  handleCustomQuantitySet,
+}: {
+  cartKey: string;
+  cartQuantity: number;
+  handleCustomQuantitySet: (cartKey: string, qty: number) => void;
+}) {
+  const [valStr, setValStr] = React.useState<string>(cartQuantity === 0 ? "0" : cartQuantity.toString());
+  const [isFocused, setIsFocused] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!isFocused) {
+      setValStr(cartQuantity === 0 ? "0" : cartQuantity.toString());
+    }
+  }, [cartQuantity, isFocused]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let raw = e.target.value;
+
+    // If user deletes everything (backspace), immediately make it "0"
+    if (raw === "") {
+      setValStr("0");
+      handleCustomQuantitySet(cartKey, 0);
+      return;
+    }
+
+    if (raw.startsWith(".")) {
+      raw = "0" + raw;
+    }
+    if (!/^\d*\.?\d*$/.test(raw)) return;
+
+    // Strip leading zeros before non-decimal digits (e.g. "05" -> "5", but preserve "0." or "0.5")
+    if (raw.length > 1 && raw.startsWith("0") && raw[1] !== ".") {
+      raw = raw.replace(/^0+/, "") || "0";
+    }
+
+    const parts = raw.split(".");
+    if (parts[1] && parts[1].length > 2) {
+      const num = parseFloat(raw);
+      if (!isNaN(num)) {
+        raw = roundTo2Decimals(num).toFixed(2);
+      }
+    }
+
+    setValStr(raw);
+
+    if (raw === "" || raw === "." || raw === "0.") {
+      handleCustomQuantitySet(cartKey, 0);
+    } else {
+      const parsed = parseFloat(raw);
+      if (!isNaN(parsed)) {
+        handleCustomQuantitySet(cartKey, roundTo2Decimals(parsed));
+      }
+    }
+  };
+
+  const handleBlur = () => {
+    setIsFocused(false);
+    if (valStr === "" || valStr === ".") {
+      setValStr("0");
+      handleCustomQuantitySet(cartKey, 0);
+    } else {
+      const parsed = parseFloat(valStr);
+      if (isNaN(parsed) || parsed < 0) {
+        setValStr("0");
+        handleCustomQuantitySet(cartKey, 0);
+      } else {
+        const finalVal = roundTo2Decimals(parsed);
+        setValStr(finalVal.toString());
+        handleCustomQuantitySet(cartKey, finalVal);
+      }
+    }
+  };
+
+  return (
+    <input
+      type="text"
+      inputMode="decimal"
+      value={valStr}
+      onFocus={(e) => {
+        setIsFocused(true);
+        e.target.select();
+      }}
+      onChange={handleChange}
+      onBlur={handleBlur}
+      className="text-sm font-semibold w-14 text-center text-foreground bg-background border border-border/80 rounded-md outline-none focus:border-primary/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none py-0.5 px-0.5 m-0"
+    />
+  );
+}
+
 export interface POSScreenStandardProps {
   // Config & Catalog Props
   items: any[];
@@ -511,25 +607,10 @@ export default function POSScreenStandard({
                       >
                         <FaMinus className="w-3 h-3" />
                       </button>
-                      <input
-                        type="number"
-                        step="any"
-                        min="0"
-                        value={item.cartQuantity === 0 ? "" : item.cartQuantity}
-                        onChange={(e) => {
-                          const val = parseFloat(e.target.value);
-                          handleCustomQuantitySet(
-                            item.cartKey,
-                            isNaN(val) ? 0 : val
-                          );
-                        }}
-                        onBlur={(e) => {
-                          const val = parseFloat(e.target.value);
-                          if (isNaN(val) || val < 0) {
-                            handleCustomQuantitySet(item.cartKey, 0);
-                          }
-                        }}
-                        className="text-sm font-semibold w-14 text-center text-foreground bg-background border border-border/80 rounded-md outline-none focus:border-primary/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none py-0.5 px-0.5 m-0"
+                      <StandardCartQtyInput
+                        cartKey={item.cartKey}
+                        cartQuantity={item.cartQuantity}
+                        handleCustomQuantitySet={handleCustomQuantitySet}
                       />
                       <button
                         type="button"
