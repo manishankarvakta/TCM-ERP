@@ -40,6 +40,7 @@ import { getMembershipSettingsAction, saveMembershipSettingsAction } from "../_a
 import { DEFAULT_MEMBERSHIP_SETTINGS, type MembershipSettings } from "../_actions/membership-settings.types";
 import MediaSelector from "@/components/MediaSelector";
 import ReceiptBarcode from "@/app/print/invoice/[id]/ReceiptBarcode";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 
 
 
@@ -353,7 +354,12 @@ export default function POSSettingsPanel() {
                       name="footerText"
                       control={posForm.control}
                       render={({ field }) => (
-                        <Textarea id="footerText" rows={3} {...field} />
+                        <RichTextEditor
+                          value={field.value || ""}
+                          onChange={field.onChange}
+                          placeholder="Thank you for shopping with us! (Return/Exchange policy, etc.)"
+                          minHeight="100px"
+                        />
                       )}
                     />
                   </div>
@@ -415,35 +421,17 @@ export default function POSSettingsPanel() {
 
                     <div className="flex items-center justify-between">
                       <div className="space-y-0.5">
-                        <Label htmlFor="allowNegativeSale">Allow Negative Sale</Label>
-                        <p className="text-xs text-muted-foreground">Show 0 stock items and SKUs in POS</p>
+                        <Label htmlFor="showCustomerPoints">Show Customer Points</Label>
+                        <p className="text-xs text-muted-foreground">Print customer's reward points on receipt</p>
                       </div>
                       <Controller
-                        name="allowNegativeSale"
+                        name="showCustomerPoints"
                         control={posForm.control}
                         render={({ field }) => (
                           <Switch
                             checked={field.value}
                             onCheckedChange={field.onChange}
-                            id="allowNegativeSale"
-                          />
-                        )}
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label htmlFor="allowDueSale">Allow Due Sale</Label>
-                        <p className="text-xs text-muted-foreground">Show credit/partial payment options in POS</p>
-                      </div>
-                      <Controller
-                        name="allowDueSale"
-                        control={posForm.control}
-                        render={({ field }) => (
-                          <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                            id="allowDueSale"
+                            id="showCustomerPoints"
                           />
                         )}
                       />
@@ -1254,10 +1242,10 @@ export default function POSSettingsPanel() {
               </CardHeader>
               <CardContent>
                 <div
-                  className={`bg-white text-black p-4 border rounded-md shadow-inner font-mono text-xs overflow-hidden mx-auto transition-all ${
+                  className={`bg-white text-black p-5 border border-border/80 rounded-lg shadow-sm font-sans text-xs overflow-hidden mx-auto transition-all ${
                     watchPOS.paperSize === "58mm"
-                      ? "max-w-[240px]"
-                      : "max-w-[280px]"
+                      ? "max-w-[260px]"
+                      : "max-w-[340px]"
                   }`}
                 >
                   {/* Logo Image */}
@@ -1270,7 +1258,7 @@ export default function POSSettingsPanel() {
                           className="max-h-12 object-contain"
                         />
                       ) : (
-                        <div className="border border-dashed border-gray-400 p-2 text-center text-[10px] w-full text-gray-500">
+                        <div className="border border-dashed border-gray-400 p-2 text-center text-[10px] w-full text-gray-500 rounded">
                           [ No Logo Selected ]
                         </div>
                       )}
@@ -1278,71 +1266,126 @@ export default function POSSettingsPanel() {
                   )}
 
                   {/* Header Text */}
-                  <div className="text-center font-bold text-sm uppercase">
-                    {watchPOS.headerText || "Ferrari Fashion"}
-                  </div>
-                  <div className="text-center text-[10px] text-gray-600 mb-2">
-                    {watchPOS.subHeaderText || "BIN 004601696-0102 | Mushak 6.3"}
+                  <div className="text-center mb-4">
+                    <h1 className="text-base font-bold uppercase tracking-tight">
+                      {watchPOS.headerText || "THE COMMUNITY MAGASIN (TCM)"}
+                    </h1>
+                    {watchPOS.subHeaderText && (
+                      <p className="text-[10px] text-gray-600 mt-0.5">{watchPOS.subHeaderText}</p>
+                    )}
+                    <p className="font-bold mt-1 text-xs">
+                      Invoice No: SAL-2026-0032
+                    </p>
                   </div>
 
-                  <div className="border-b border-dashed border-gray-300 pb-2 mb-2 text-[10px] text-gray-700">
-                    <div>Invoice: FF-POS-100231</div>
-                    <div>Date: {new Date().toLocaleDateString()}</div>
-                    {watchPOS.showBiller && <div>Biller: Admin User</div>}
+                  {/* Customer / Biller Metadata */}
+                  <div className="grid grid-cols-2 text-[10px] mb-3 leading-tight text-gray-800">
+                    <div className="space-y-0.5">
+                      <p>Phone: 00000000000</p>
+                      <p>Customer: Walkway Customer</p>
+                      {watchPOS.showBiller && <p>Biller: FARHAD</p>}
+                    </div>
+                    <div className="text-right space-y-0.5">
+                      <p>Date: {new Date().toLocaleDateString()}</p>
+                      <p>Time: {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</p>
+                      <p>Outlet: TCM UTTARA</p>
+                    </div>
                   </div>
 
-                  {/* Item Details */}
-                  <table className="w-full text-[10px] mb-2 border-b border-dashed border-gray-300 pb-2">
+                  {/* Section Divider */}
+                  <div className="text-center font-bold border-y border-dashed border-black py-1 mb-2 text-[11px] tracking-wide">
+                    ORDER DETAILS
+                  </div>
+
+                  {/* Item Details Table */}
+                  <table className="w-full text-[10px] mb-3">
                     <thead>
-                      <tr className="border-b border-gray-300 text-left">
-                        <th>Qty</th>
+                      <tr className="border-b border-dashed border-black text-left">
+                        <th className="py-1 w-6">SL</th>
                         <th>Item</th>
-                        <th className="text-right">Total</th>
+                        <th className="text-center w-8">Qty</th>
+                        <th className="text-right w-12">Rate</th>
+                        <th className="text-right w-14">Total</th>
                       </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="border-b border-dashed border-black">
                       <tr>
-                        <td>1</td>
-                        <td>Casual Slim Shirt (Blue / M)</td>
-                        <td className="text-right">1,200.00</td>
-                      </tr>
-                      <tr>
-                        <td>2</td>
-                        <td>Denim Skinny Jeans (Black)</td>
-                        <td className="text-right">3,000.00</td>
+                        <td className="py-1 align-top">1</td>
+                        <td className="align-top">YUPI Gummi Pizza 14gm</td>
+                        <td className="text-center align-top">2</td>
+                        <td className="text-right align-top">50.00</td>
+                        <td className="text-right align-top">100.00</td>
                       </tr>
                     </tbody>
                   </table>
 
-                  {/* Totals */}
-                  <div className="text-[10px] space-y-1 mb-3 text-gray-700">
+                  {/* Totals & Payments */}
+                  <div className="space-y-1 text-[10px] border-b border-dashed border-black pb-2 mb-3">
+                    <div className="flex justify-between text-gray-800">
+                      <span>Total Item: 1</span>
+                      <span>Total Qty: 2</span>
+                    </div>
                     <div className="flex justify-between">
-                      <span>Subtotal:</span>
-                      <span>4,200.00</span>
+                      <span>Total:</span>
+                      <span>100.00</span>
                     </div>
                     {watchPOS.showTaxDetails && (
                       <div className="flex justify-between">
                         <span>VAT (5%):</span>
-                        <span>210.00</span>
+                        <span>5.00</span>
                       </div>
                     )}
-                    <div className="flex justify-between font-bold border-t border-dashed border-gray-300 pt-1 text-black">
+                    <div className="flex justify-between font-bold border-t border-black border-dashed pt-1 mt-1">
                       <span>Net Amount:</span>
-                      <span>4,410.00</span>
+                      <span className="border border-black px-1 font-bold">100.00</span>
+                    </div>
+
+                    <div className="border-t border-dashed border-black pt-1 mt-1 space-y-1">
+                      <div className="flex justify-between">
+                        <span>Paid Cash:</span>
+                        <span>100.00</span>
+                      </div>
+                      <div className="flex justify-between font-semibold">
+                        <span>Previous Due:</span>
+                        <span>0.00</span>
+                      </div>
+                      <div className="flex justify-between font-bold text-[11px]">
+                        <span>Total Due:</span>
+                        <span>0.00</span>
+                      </div>
                     </div>
                   </div>
 
+                  {/* Customer Points Summary (3 lines before Return Policy) */}
+                  {watchPOS.showCustomerPoints && (
+                    <div className="space-y-1 text-[10px] border-b border-dashed border-black pb-2 mb-3">
+                      <div className="flex justify-between">
+                        <span>Previous Point:</span>
+                        <span>100</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Earned Point:</span>
+                        <span>50</span>
+                      </div>
+                      <div className="flex justify-between font-bold">
+                        <span>New Point:</span>
+                        <span>150</span>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Footer Message */}
                   {watchPOS.footerText && (
-                    <div className="text-center text-[10px] text-gray-500 border-t border-dashed border-gray-300 pt-2 whitespace-pre-line">
-                      {watchPOS.footerText}
-                    </div>
+                    <div 
+                      className="text-left text-[10px] text-gray-700 border-t border-dashed border-black pt-2 mt-3 [&_p]:m-0 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4"
+                      dangerouslySetInnerHTML={{ __html: watchPOS.footerText }}
+                    />
                   )}
 
                   {/* Real Barcode */}
                   {watchPOS.showBarcode && (
-                    <div className="mt-2 border-t border-dashed border-gray-300 pt-1">
-                      <ReceiptBarcode value="FF-POS-100231" />
+                    <div className="mt-3 pt-1 flex justify-center">
+                      <ReceiptBarcode value="SAL-2026-0032" />
                     </div>
                   )}
                 </div>

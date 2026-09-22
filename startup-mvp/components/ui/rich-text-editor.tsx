@@ -15,7 +15,11 @@ import {
   Plus,
   Trash2,
   Rows,
-  Columns
+  Columns,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  AlignJustify,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +30,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 interface RichTextEditorProps {
@@ -238,6 +249,29 @@ export function RichTextEditor({
     >
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-1 border-b bg-muted/40 p-1.5 rounded-t-md">
+        {/* Text Sizing Dropdown */}
+        <Select
+          onValueChange={(val) => {
+            if (val) executeCommand("fontSize", val);
+          }}
+          disabled={disabled}
+        >
+          <SelectTrigger className="h-8 w-[110px] text-xs px-2 gap-1 bg-background border-border/80 focus:ring-0">
+            <SelectValue placeholder="Font Size" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="1" className="text-xs">10px (XS)</SelectItem>
+            <SelectItem value="2" className="text-xs">12px (Small)</SelectItem>
+            <SelectItem value="3" className="text-xs">14px (Normal)</SelectItem>
+            <SelectItem value="4" className="text-xs">16px (Medium)</SelectItem>
+            <SelectItem value="5" className="text-xs">18px (Large)</SelectItem>
+            <SelectItem value="6" className="text-xs">24px (XL)</SelectItem>
+            <SelectItem value="7" className="text-xs">32px (Huge)</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <div className="h-4 w-[1px] bg-border mx-1" />
+
         <Button
           type="button"
           variant="ghost"
@@ -281,6 +315,54 @@ export function RichTextEditor({
           title="Strikethrough"
         >
           <Strikethrough className="h-4 w-4" />
+        </Button>
+
+        <div className="h-4 w-[1px] bg-border mx-1" />
+
+        {/* Text Alignment */}
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 p-0"
+          onClick={() => executeCommand("justifyLeft")}
+          disabled={disabled}
+          title="Align Left"
+        >
+          <AlignLeft className="h-4 w-4" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 p-0"
+          onClick={() => executeCommand("justifyCenter")}
+          disabled={disabled}
+          title="Align Center"
+        >
+          <AlignCenter className="h-4 w-4" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 p-0"
+          onClick={() => executeCommand("justifyRight")}
+          disabled={disabled}
+          title="Align Right"
+        >
+          <AlignRight className="h-4 w-4" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 p-0"
+          onClick={() => executeCommand("justifyFull")}
+          disabled={disabled}
+          title="Justify"
+        >
+          <AlignJustify className="h-4 w-4" />
         </Button>
 
         <div className="h-4 w-[1px] bg-border mx-1" />
@@ -522,7 +604,7 @@ export function RichTextEditor({
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
           style={{ minHeight }}
-          className="outline-none prose prose-sm max-w-none dark:prose-invert focus:outline-none text-foreground [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_h2]:text-lg [&_h2]:font-bold [&_h3]:text-base [&_h3]:font-semibold [&_table]:w-full [&_table]:border-collapse [&_table]:my-2 [&_th]:border [&_th]:border-muted-foreground/30 [&_th]:p-2 [&_th]:bg-muted/50 [&_td]:border [&_td]:border-muted-foreground/30 [&_td]:p-2"
+          className="outline-none prose prose-sm max-w-none dark:prose-invert focus:outline-none text-foreground [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_h2]:text-lg [&_h2]:font-bold [&_h3]:text-base [&_h3]:font-semibold [&_table]:w-full [&_table]:border-collapse [&_table]:my-2 [&_th]:border [&_th]:border-muted-foreground/30 [&_th]:p-2 [&_th]:bg-muted/50 [&_td]:border [&_td]:border-muted-foreground/30 [&_td]:p-2 [&_font[size='1']]:text-[10px] [&_font[size='2']]:text-[12px] [&_font[size='3']]:text-[14px] [&_font[size='4']]:text-[16px] [&_font[size='5']]:text-[18px] [&_font[size='6']]:text-[24px] [&_font[size='7']]:text-[32px] [&_div[align='center']]:text-center [&_div[align='right']]:text-right [&_div[align='left']]:text-left [&_div[align='justify']]:text-justify [&_p[align='center']]:text-center [&_p[align='right']]:text-right [&_p[align='left']]:text-left [&_p[align='justify']]:text-justify"
         />
       </div>
     </div>

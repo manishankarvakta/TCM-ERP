@@ -7,7 +7,7 @@ import ReceiptBarcode from "./ReceiptBarcode";
 
 export default async function InvoicePrintPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = await params;
-  const [sale, posSettingsRaw] = await Promise.all([
+  const [sale, posSettingsRaw, membershipSettingsRaw] = await Promise.all([
     prisma.sale.findUnique({
       where: { id: resolvedParams.id },
       include: {
@@ -28,6 +28,17 @@ export default async function InvoicePrintPage({ params }: { params: Promise<{ i
     prisma.settings.findFirst({
       where: {
         code: "pos_settings",
+        userId: null,
+        isGlobal: true,
+        isActive: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    }),
+    prisma.settings.findFirst({
+      where: {
+        code: "membership_settings",
         userId: null,
         isGlobal: true,
         isActive: true,
@@ -135,6 +146,18 @@ export default async function InvoicePrintPage({ params }: { params: Promise<{ i
         showBiller: true,
         showTaxDetails: true,
       };
+
+  const membershipSettings = membershipSettingsRaw?.settings as any;
+  const pointsSpentRatio = Number(membershipSettings?.pointsSpentRatio) > 0 ? Number(membershipSettings.pointsSpentRatio) : 100;
+  
+  const paymentDetails = sale.paymentDetails as any;
+  const pointsRedeemed = Number(paymentDetails?.pointsRedeemed || 0);
+  const earnedPoints = (sale.client?.membershipStatus === "ACTIVE" || sale.client?.membershipStatus) && sale.grandTotal.toNumber() > 0 
+    ? Math.floor(sale.grandTotal.toNumber() / pointsSpentRatio) 
+    : 0;
+  const currentTotalPoints = Number(sale.client?.membershipPoints || 0);
+  const previousPoints = Math.max(0, currentTotalPoints - earnedPoints + pointsRedeemed);
+  const newPoints = previousPoints + earnedPoints;
 
   const isReturn = sale.grandTotal.toNumber() < 0;
 
@@ -363,10 +386,29 @@ export default async function InvoicePrintPage({ params }: { params: Promise<{ i
         )}
       </div>
 
-      {posSettings.footerText && (
-        <div className="text-center text-[10px] text-gray-500 border-t border-dashed border-black pt-2 whitespace-pre-line mt-4">
-          {posSettings.footerText}
+      {/* Customer Points Summary (3 lines before Return Policy) */}
+      {posSettings.showCustomerPoints && (
+        <div className="space-y-1 text-[10px] border-b border-dashed border-black pb-2 mb-2">
+          <div className="flex justify-between">
+            <span>Previous Point:</span>
+            <span>{previousPoints}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Earned Point:</span>
+            <span>{earnedPoints}</span>
+          </div>
+          <div className="flex justify-between font-bold">
+            <span>New Point:</span>
+            <span>{newPoints}</span>
+          </div>
         </div>
+      )}
+
+      {posSettings.footerText && (
+        <div 
+          className="text-left text-[10px] text-gray-500 border-t border-dashed border-black pt-2 mt-4 [&_p]:m-0 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4"
+          dangerouslySetInnerHTML={{ __html: posSettings.footerText }}
+        />
       )}
 
       {posSettings.showBarcode && (

@@ -251,9 +251,12 @@ export default async function DueReceiptPrintPage({ params }: { params: Promise<
       </div>
 
       {/* Footer */}
-      <div className="text-center text-[10px] pt-4 border-t border-dashed border-gray-300">
-        <p className="font-medium text-gray-700">{posSettings.footerText || "Thank you for shopping with us!"}</p>
-        <p className="text-[8px] text-gray-400 italic mt-1">Software by ffERP</p>
+      <div className="text-left text-[10px] pt-4 border-t border-dashed border-gray-300">
+        <div 
+          className="font-medium text-gray-700 [&_p]:m-0 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4"
+          dangerouslySetInnerHTML={{ __html: posSettings.footerText || "Thank you for shopping with us!" }}
+        />
+        <p className="text-[8px] text-gray-400 italic mt-1 text-center">Software by ffERP</p>
       </div>
     </div>
   );
