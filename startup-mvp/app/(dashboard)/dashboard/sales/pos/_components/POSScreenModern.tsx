@@ -578,9 +578,19 @@ export default function POSScreenModern({
       return;
     }
     const payableTotal = Math.max(0, roundedGrandTotal - pointsDiscountAmount);
-    if (!allowDueSale && totalPaid < payableTotal) {
-      toast.error("Due Sale Disabled: Due / credit sales are disabled in POS settings. Total paid must equal or exceed total amount.");
-      return;
+    if (totalPaid < payableTotal) {
+      if (isWalkwayCustomer) {
+        toast.error("Due sales are strictly prohibited for Walkway Customers. Full payment is required.");
+        return;
+      }
+      if (!allowDueSale) {
+        toast.error("Due Sale Disabled: Due / credit sales are disabled in POS settings. Total paid must equal or exceed total amount.");
+        return;
+      }
+      if (!isDueBill) {
+        toast.error(`Full payment of ৳${payableTotal.toFixed(2)} is required. Enable the 'Due Bill' checkbox above to allow credit/due sale.`);
+        return;
+      }
     }
     setIsPrintConfirmOpen(true);
   };
@@ -1694,14 +1704,19 @@ export default function POSScreenModern({
               </div>
             </div>
 
-            {/* Real-time Change / Remaining Due Status Card */}
+            {/* Real-time Change / Remaining Due / Amount Short Status Card */}
             <div className="pt-2">
               {cart.length === 0 ? (
                 <div className="bg-muted/30 border border-border/60 text-muted-foreground rounded-lg p-2.5 flex justify-between items-center text-xs font-medium">
                   <span>Payment Status:</span>
                   <span className="font-semibold text-foreground">No Items</span>
                 </div>
-              ) : isDueBill || totalPaid < roundedGrandTotal ? (
+              ) : totalPaid >= roundedGrandTotal ? (
+                <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 rounded-lg p-2.5 flex justify-between items-center shadow-sm">
+                  <span className="text-xs font-bold uppercase tracking-wide">Change to Return:</span>
+                  <span className="text-base font-black">৳{(totalPaid - roundedGrandTotal).toFixed(2)}</span>
+                </div>
+              ) : isDueBill && !isWalkwayCustomer ? (
                 <div className="bg-amber-500/10 border border-amber-500/20 text-amber-600 rounded-lg p-2.5 space-y-1 shadow-sm">
                   <div className="flex justify-between items-center">
                     <span className="text-xs font-bold uppercase tracking-wide">
@@ -1725,9 +1740,20 @@ export default function POSScreenModern({
                   )}
                 </div>
               ) : (
-                <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 rounded-lg p-2.5 flex justify-between items-center shadow-sm">
-                  <span className="text-xs font-bold uppercase tracking-wide">Change to Return:</span>
-                  <span className="text-base font-black">৳{(totalPaid - roundedGrandTotal).toFixed(2)}</span>
+                <div className="bg-rose-500/10 border border-rose-500/25 text-rose-600 rounded-lg p-2.5 space-y-0.5 shadow-sm">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-bold uppercase tracking-wide">
+                      Amount Short:
+                    </span>
+                    <span className="text-base font-black text-destructive dark:text-rose-400">
+                      ৳{Math.max(0, roundedGrandTotal - totalPaid).toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="text-[10px] font-medium text-rose-700/80 dark:text-rose-300/80">
+                    {isWalkwayCustomer
+                      ? "Walkway Customer requires full payment."
+                      : "Full payment required. Check 'Due Bill' to allow credit sale."}
+                  </div>
                 </div>
               )}
             </div>
@@ -1751,7 +1777,9 @@ export default function POSScreenModern({
                   ? "bg-slate-700 text-muted-foreground opacity-60 cursor-not-allowed"
                   : totalPaid >= roundedGrandTotal
                   ? "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/15"
-                  : "bg-amber-600 hover:bg-amber-700 shadow-amber-500/15"
+                  : isDueBill && !isWalkwayCustomer
+                  ? "bg-amber-600 hover:bg-amber-700 shadow-amber-500/15"
+                  : "bg-slate-600 hover:bg-slate-700 opacity-90 shadow-slate-500/15"
               }`}
               disabled={cart.length === 0 || !!discountLimitError}
               onClick={handlePrintBillClick}
@@ -1761,7 +1789,9 @@ export default function POSScreenModern({
                 ? "Print Bill"
                 : totalPaid >= roundedGrandTotal
                 ? "Print Bill & Complete"
-                : "Print Bill (Due Sale)"}
+                : isDueBill && !isWalkwayCustomer
+                ? "Print Bill (Due Sale)"
+                : `Incomplete Payment (Short: ৳${Math.max(0, roundedGrandTotal - totalPaid).toFixed(2)})`}
             </Button>
 
             <div className="text-center text-[11px] text-muted-foreground font-medium pt-1">

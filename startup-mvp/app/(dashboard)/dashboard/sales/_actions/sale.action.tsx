@@ -1973,6 +1973,7 @@ export async function createSale(input: z.infer<typeof saleSchema>) {
         select: {
           name: true,
           email: true,
+          phone: true,
           company: true,
           clientCode: true,
           membershipTier: true,
@@ -2118,6 +2119,21 @@ export async function createSale(input: z.infer<typeof saleSchema>) {
         const totalPaid = cashAmt + cardAmt + mfsAmt;
         const changeAmt = totalPaid > grandTotal ? (totalPaid - grandTotal) : 0;
         
+        const isWalkwayClient = client
+          ? !!(
+              client.name?.toLowerCase().includes("walkway") ||
+              client.name?.toLowerCase().includes("walk-in") ||
+              client.phone === "0000000000" ||
+              client.phone === "00000000000" ||
+              (client as any).clientType === "walkway"
+            )
+          : false;
+
+        // Enforce strict zero-due policy for Walkway Customer
+        if (validated.status === SaleStatus.COMPLETED && isWalkwayClient && totalPaid < (grandTotal - 0.01)) {
+          throw new Error("Due / Credit sale is strictly prohibited for Walkway Customer. Full payment is required.");
+        }
+
         paymentDetailsDb = {
           ...paymentDetailsDb,
           changeAmount: changeAmt > 0 ? Number(changeAmt.toFixed(2)) : 0,

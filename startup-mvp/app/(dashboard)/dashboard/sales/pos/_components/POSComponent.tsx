@@ -2235,8 +2235,17 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     const effectivePermittedById = overrides?.permittedById || undefined;
 
     // Due sale customer checks
-    const walkwayCustomer = clients.find(c => c.name?.toLowerCase() === "walkway customer");
-    if (effectiveIsDueSale && (!selectedClientId || selectedClientId === walkwayCustomer?.id)) {
+    const selectedClientObj = clients.find(c => c.id === selectedClientId);
+    const isWalkway = !selectedClientId ||
+      !selectedClientObj ||
+      selectedClientId === walkwayCustomerId ||
+      selectedClientObj.name?.toLowerCase().includes("walkway") ||
+      selectedClientObj.name?.toLowerCase().includes("walk-in") ||
+      selectedClientObj.phone === "0000000000" ||
+      selectedClientObj.phone === "00000000000" ||
+      (selectedClientObj as any).clientType === "walkway";
+
+    if (effectiveIsDueSale && isWalkway) {
       toast({
         title: "Validation Error",
         description: "Due Sales are not allowed for Walkway Customer. Please select a registered customer.",
@@ -2256,6 +2265,15 @@ export default function POSComponent({ items, clients: initialClients, warehouse
 
     // Payment validation
     const totalPaid = effectiveCashAmount + effectiveCardAmount + effectiveMfsAmount;
+    if (isWalkway && totalPaid < (roundedGrandTotal - 0.01)) {
+      toast({
+        title: "Validation Error",
+        description: `Full payment of ৳${roundedGrandTotal.toFixed(2)} is required for Walkway Customer. Current paid amount is ৳${totalPaid.toFixed(2)}.`,
+        variant: "destructive"
+      });
+      return;
+    }
+
     if (!effectiveIsDueSale && totalPaid < roundedGrandTotal) {
       toast({
         title: "Validation Error",
