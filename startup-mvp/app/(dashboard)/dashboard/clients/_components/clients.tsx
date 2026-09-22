@@ -601,9 +601,9 @@ export default function ClientsListClient({
               <TableHead className="print:w-[15%] whitespace-nowrap">Phone</TableHead>
               <TableHead className="print:w-[15%]">Company</TableHead>
               <TableHead className="print:hidden">Warehouse</TableHead>
-              <TableHead className="print:w-[10%] whitespace-nowrap">Type</TableHead>
               <TableHead className="print:hidden">Membership</TableHead>
               <TableHead className="print:hidden">Status</TableHead>
+              <TableHead className="text-right print:w-[10%] whitespace-nowrap">Points</TableHead>
               <TableHead className="text-right print:w-[10%] whitespace-nowrap">Due</TableHead>
               <TableHead className="text-right print:hidden">Actions</TableHead>
             </TableRow>
@@ -653,32 +653,11 @@ export default function ClientsListClient({
                         <span className="text-muted-foreground text-xs">-</span>
                       )}
                     </TableCell>
-                    <TableCell className="print:text-black print:whitespace-nowrap">
-                      <div className="print:hidden">
-                        {client.clientType?.toLowerCase() === "wholesale" ? (
-                          <Badge className="bg-purple-100 text-purple-800 hover:bg-purple-100 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800">
-                            Wholesale
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-muted-foreground">
-                            Regular
-                          </Badge>
-                        )}
-                      </div>
-                      <span className="hidden print:inline text-black">
-                        {client.clientType?.toLowerCase() === "wholesale" ? "Wholesale" : "Regular"}
-                      </span>
-                    </TableCell>
                     <TableCell className="print:hidden">
                       {client.membershipTier && client.membershipTier !== "NONE" ? (
-                        <div className="flex flex-col gap-0.5">
-                          <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800 w-fit text-[10px] font-bold">
-                            {client.membershipTier}
-                          </Badge>
-                          <span className="text-[11px] text-muted-foreground font-medium">
-                            Points: {client.membershipPoints ?? 0}
-                          </span>
-                        </div>
+                        <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800 w-fit text-[10px] font-bold">
+                          {client.membershipTier}
+                        </Badge>
                       ) : (
                         <span className="text-muted-foreground text-xs">-</span>
                       )}
@@ -691,6 +670,9 @@ export default function ClientsListClient({
                       ) : (
                         <Badge variant="default">Active</Badge>
                       )}
+                    </TableCell>
+                    <TableCell className="text-right whitespace-nowrap print:text-black font-medium">
+                      {client.membershipPoints ?? 0}
                     </TableCell>
                     <TableCell className="text-right whitespace-nowrap print:text-black print:font-bold">
                       <span

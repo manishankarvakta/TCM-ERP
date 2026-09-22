@@ -102,6 +102,61 @@ function safeParseNumber(val: any): number | null {
 }
 
 /**
+ * Safely parse phone input from string or number.
+ * Preserves exact CSV representation (e.g. +8801..., 8801..., 01...).
+ * If input was a number or Excel stripped leading 0 (e.g. 10 digits starting with 1: 1711223344),
+ * restores leading 0 (e.g. 01711223344).
+ */
+function safeParsePhone(val: any): string {
+  if (val === undefined || val === null) return "";
+  const rawStr = String(val).trim();
+  if (!rawStr) return "";
+
+  // If already starts with +, 0, or 88, preserve as provided in CSV
+  if (rawStr.startsWith("+") || rawStr.startsWith("0") || rawStr.startsWith("88")) {
+    return rawStr;
+  }
+
+  // If Excel/CSV stripped leading 0 (e.g. 10-digit number starting with 1 like 17XXXXXXXX)
+  const digitsOnly = rawStr.replace(/[^0-9]/g, "");
+  if (digitsOnly.length === 10 && digitsOnly.startsWith("1")) {
+    return `0${digitsOnly}`;
+  }
+
+  return rawStr;
+}
+
+/**
+ * Generate standard variations (+8801..., 8801..., 01...) for duplicate phone matching
+ */
+function getPhoneVariations(phone?: string | null): string[] {
+  if (!phone) return [];
+  const clean = String(phone).replace(/[^0-9+]/g, "").trim();
+  if (!clean) return [];
+
+  // Extract core subscriber digits by stripping +880, 880, +88, or leading 0
+  let core = clean;
+  if (core.startsWith("+880")) core = core.slice(4);
+  else if (core.startsWith("880")) core = core.slice(3);
+  else if (core.startsWith("+88")) core = core.slice(3);
+  else if (core.startsWith("0")) core = core.slice(1);
+
+  // If core represents a valid mobile subscriber number (starts with 1, 9-11 digits)
+  if (core.startsWith("1") && core.length >= 9 && core.length <= 11) {
+    const variations = [
+      `0${core}`,
+      `+880${core}`,
+      `880${core}`,
+      core,
+      clean,
+    ];
+    return Array.from(new Set(variations.filter(Boolean)));
+  }
+
+  return [clean];
+}
+
+/**
  * Clean string for header matching (strips UTF-8 BOM and leading/trailing whitespace)
  */
 function cleanHeaderStr(str: any): string {
@@ -375,7 +430,11 @@ export async function parseAndValidateCsvAction(
         const csvHeader = fieldMapping[field.key] || Object.keys(fieldMapping).find((k) => fieldMapping[k] === field.key);
         const rawVal = csvHeader ? getRawRowValue(rawRow, csvHeader) : undefined;
         if (rawVal !== undefined && rawVal !== null) {
-          mappedData[field.key] = String(rawVal).trim();
+          if (field.type === "phone") {
+            mappedData[field.key] = safeParsePhone(rawVal);
+          } else {
+            mappedData[field.key] = String(rawVal).trim();
+          }
         } else {
           mappedData[field.key] = "";
         }
@@ -421,6 +480,9 @@ export async function parseAndValidateCsvAction(
             } else {
               mappedData[field.key] = cleanNum;
             }
+          } else if (field.type === "phone") {
+            const parsedPhone = safeParsePhone(val);
+            mappedData[field.key] = parsedPhone;
           } else if (field.type === "email") {
             const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
             if (!emailRegex.test(String(val))) {
@@ -571,18 +633,142 @@ export async function executeImportAction(
 
       try {
         if (config.targetModel === "Client") {
-          if (row.email) {
-            const existing = await prisma.client.findUnique({ where: { email: row.email } });
-            if (existing) {
-              if (duplicateStrategy === "skip") {
-                skippedCount++;
-                skippedRows.push({
-                  rowIndex,
-                  reason: `Duplicate client email '${row.email}' already exists in database`,
-                  data: row,
-                });
-                continue;
+          const parsedPhone = row.phone ? safeParsePhone(row.phone) : "";
+          const phoneVariations = getPhoneVariations(row.phone);
+          const clientOrConditions: Prisma.ClientWhereInput[] = [];
+
+          if (row.email && String(row.email).trim() !== "") {
+            clientOrConditions.push({ email: String(row.email).trim() });
+          }
+          if (row.clientCode && String(row.clientCode).trim() !== "") {
+            clientOrConditions.push({ clientCode: String(row.clientCode).trim() });
+          }
+          if (row.membershipNumber && String(row.membershipNumber).trim() !== "") {
+            clientOrConditions.push({ membershipNumber: String(row.membershipNumber).trim() });
+          }
+          if (phoneVariations.length > 0) {
+            clientOrConditions.push({ phone: { in: phoneVariations } });
+          }
+
+          const existing = clientOrConditions.length > 0
+            ? await prisma.client.findFirst({
+                where: { OR: clientOrConditions },
+                include: { ChartOfAccount: true },
+              })
+            : null;
+
+          if (existing) {
+            if (duplicateStrategy === "skip") {
+              let matchReason = "duplicate client record";
+              if (existing.phone && phoneVariations.includes(existing.phone)) {
+                matchReason = `phone '${existing.phone}'`;
+              } else if (existing.email && row.email && existing.email.toLowerCase() === String(row.email).toLowerCase()) {
+                matchReason = `email '${existing.email}'`;
+              } else if (existing.clientCode && row.clientCode && existing.clientCode === row.clientCode) {
+                matchReason = `client code '${existing.clientCode}'`;
+              } else if (existing.membershipNumber && row.membershipNumber && existing.membershipNumber === row.membershipNumber) {
+                matchReason = `membership number '${existing.membershipNumber}'`;
               }
+
+              skippedCount++;
+              skippedRows.push({
+                rowIndex,
+                reason: `Duplicate client found matching ${matchReason} already exists in database`,
+                data: row,
+              });
+              continue;
+            }
+
+            // Resolve warehouse if provided in CSV
+            let targetWarehouseId: string | null = null;
+            const whIdentifier = row.warehouseName || row.warehouse;
+            if (whIdentifier && String(whIdentifier).trim() !== "") {
+              const cleanWh = String(whIdentifier).trim();
+              const wh = await prisma.warehouse.findFirst({
+                where: {
+                  OR: [
+                    { code: { equals: cleanWh, mode: "insensitive" } },
+                    { name: { equals: cleanWh, mode: "insensitive" } },
+                  ],
+                  status: { not: "trash" },
+                },
+                select: { id: true },
+              });
+              if (wh) {
+                targetWarehouseId = wh.id;
+              }
+            }
+
+            // Update duplicate strategy
+            let membershipTierId = existing.membershipTierId;
+            if (row.membershipTier && row.membershipTier !== "NONE") {
+              const mt = await prisma.membershipTier.findFirst({
+                where: { name: row.membershipTier, isTrash: false }
+              });
+              if (mt) {
+                membershipTierId = mt.id;
+              }
+            }
+
+            const targetPhone = parsedPhone || existing.phone;
+            const targetName = row.name || existing.name;
+
+            await prisma.client.update({
+              where: { id: existing.id },
+              data: {
+                name: targetName,
+                phone: targetPhone,
+                email: row.email !== undefined && row.email !== "" ? row.email : existing.email,
+                company: row.company !== undefined && row.company !== "" ? row.company : existing.company,
+                address: row.address !== undefined && row.address !== "" ? row.address : existing.address,
+                city: row.city !== undefined && row.city !== "" ? row.city : existing.city,
+                state: row.state !== undefined && row.state !== "" ? row.state : existing.state,
+                zip: row.zip !== undefined && row.zip !== "" ? row.zip : existing.zip,
+                country: row.country !== undefined && row.country !== "" ? row.country : existing.country,
+                warehouseId: targetWarehouseId !== null ? targetWarehouseId : existing.warehouseId,
+                image: row.image !== undefined && row.image !== "" ? row.image : existing.image,
+                clientType: row.clientType ? (row.clientType.toLowerCase() === "wholesale" ? "wholesale" : "regular") : existing.clientType,
+                status: row.status === "inactive" ? "inactive" : (row.status === "active" ? "active" : existing.status),
+                membershipTier: row.membershipTier ? row.membershipTier.toUpperCase() : existing.membershipTier,
+                membershipTierId: membershipTierId,
+                membershipStatus: row.membershipStatus ? row.membershipStatus.toUpperCase() : existing.membershipStatus,
+                membershipPoints: row.membershipPoints !== undefined && row.membershipPoints !== "" ? Number(row.membershipPoints) : existing.membershipPoints,
+                membershipExpiry: row.membershipExpiry ? safeParseDate(row.membershipExpiry) : existing.membershipExpiry,
+              },
+            });
+
+            // If name changed and client has linked ChartOfAccount, sync the COA name
+            if (row.name && row.name !== existing.name && existing.chartOfAccountId) {
+              await prisma.chartOfAccount.update({
+                where: { id: existing.chartOfAccountId },
+                data: {
+                  name: `AR - ${row.name}`,
+                  description: `Accounts Receivable account for customer: ${row.name}`,
+                },
+              });
+            }
+
+            updatedCount++;
+            continue;
+          }
+
+          // Resolve warehouse for new client
+          let newClientWarehouseId: string | null = null;
+          const newWhIdentifier = row.warehouseName || row.warehouse;
+          if (newWhIdentifier && String(newWhIdentifier).trim() !== "") {
+            const cleanWh = String(newWhIdentifier).trim();
+            const wh = await prisma.warehouse.findFirst({
+              where: {
+                OR: [
+                  { code: { equals: cleanWh, mode: "insensitive" } },
+                  { name: { equals: cleanWh, mode: "insensitive" } },
+                ],
+                status: { not: "trash" },
+              },
+              select: { id: true },
+            });
+            if (wh) {
+              newClientWarehouseId = wh.id;
             }
           }
 
@@ -590,13 +776,14 @@ export async function executeImportAction(
             name: row.name,
             clientCode: row.clientCode || undefined,
             email: row.email || null,
-            phone: row.phone || "",
+            phone: parsedPhone || "",
             company: row.company || "",
             address: row.address || "",
             city: row.city || "",
             state: row.state || "",
             zip: row.zip || "",
             country: row.country || "",
+            warehouseId: newClientWarehouseId || undefined,
             image: row.image || "",
             clientType: row.clientType?.toLowerCase() === "wholesale" ? "wholesale" : "regular",
             openingBalance: row.openingBalance ? Number(row.openingBalance) : 0,
@@ -634,7 +821,7 @@ export async function executeImportAction(
             name: row.name,
             supplierCode: row.supplierCode || undefined,
             email: row.email || null,
-            phone: row.phone || "",
+            phone: row.phone ? safeParsePhone(row.phone) : "",
             company: row.company || "",
             address: row.address || "",
             city: row.city || "",
