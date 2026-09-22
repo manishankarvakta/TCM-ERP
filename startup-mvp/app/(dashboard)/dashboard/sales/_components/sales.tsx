@@ -805,7 +805,10 @@ export default function SalesListClient({
                       {sale.salesAssistant?.name || "-"}
                     </TableCell>
                     <TableCell className="text-muted-foreground print:text-black print:whitespace-nowrap">
-                      {format(new Date(sale.date), "MMM d, yyyy")}
+                      <div className="flex flex-col">
+                        <span className="leading-tight">{format(new Date(sale.date), "MMM d, yyyy")}</span>
+                        <span className="text-[11px] text-muted-foreground/80 leading-tight print:text-black">{format(new Date(sale.date), "h:mm a")}</span>
+                      </div>
                     </TableCell>
                     <TableCell className="text-right font-mono text-muted-foreground print:text-black print:whitespace-nowrap">
                       {sale._count?.items ?? 0}
