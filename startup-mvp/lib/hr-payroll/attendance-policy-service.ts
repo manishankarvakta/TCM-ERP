@@ -95,6 +95,23 @@ export interface DailyAttendancePolicyOutput {
 export function calculateDailyAttendancePolicyValues(input: DailyAttendancePolicyInput): DailyAttendancePolicyOutput {
   const { attendance, employeeTypePolicies, shift, isWeekend, isPublicHoliday, workedOnHoliday, grossSalary } = input;
   
+  if (attendance.status === "ABSENT") {
+    return {
+      status: "ABSENT",
+      workHours: 0,
+      otHours: 0,
+      lateMinutes: 0,
+      lateCountValue: 0,
+      breakLateMinutes: 0,
+      breakLateCountValue: 0,
+      tiffinBillAmount: 0,
+      nightBillAmount: 0,
+      holidayBillAmount: 0,
+      calculatedOvertimeAmount: 0,
+      policyCalculationNote: "Marked as Absent",
+    };
+  }
+
   let resolvedStatus = attendance.status;
   let workHours = (attendance as any).workHours ? Number((attendance as any).workHours) : 0;
   let otHours = attendance.otHours ? Number(attendance.otHours) : 0;

@@ -19,6 +19,7 @@ interface AttendancePageProps {
     warehouseId?: string;
     deviceId?: string;
     employeeId?: string;
+    date?: string;
     fromDate?: string;
     toDate?: string;
     status?: string;
@@ -47,8 +48,8 @@ export default async function AttendancePage({ searchParams }: AttendancePagePro
   
   // Set default date range if not provided (e.g. today in app timezone)
   const today = getTodayInTimezone();
-  const fromDate = params.fromDate || today;
-  const toDate = params.toDate || today;
+  const fromDate = params.fromDate || params.date || today;
+  const toDate = params.toDate || params.date || today;
   const status = params.status || undefined;
 
   const session = await auth();

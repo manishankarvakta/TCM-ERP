@@ -20,6 +20,7 @@ import { startOfDay, endOfDay } from "date-fns";
 import { getPayrollSettings, isConfiguredWeekend } from "@/lib/payroll-settings";
 import { applyDailyAttendancePolicyValues } from "@/lib/hr-payroll/attendance-policy-service";
 import { syncTimezoneFromDb } from "@/lib/hr/shift-utils";
+import { serializeDecimalAndDate } from "@/lib/utils/serialization";
 
 /**
  * Resolves effective shift for an employee on a target date using the Roster Overlay Architecture.
@@ -75,7 +76,7 @@ export async function logAttendancePunch(employeeId: string, timestamp: Date, so
       }
     });
 
-    return { success: true, log };
+    return { success: true, log: serializeDecimalAndDate(log) };
   } catch (error) {
     console.error("logAttendancePunch error:", error);
     return { success: false, error: "Failed to log punch" };
@@ -88,6 +89,7 @@ export async function logAttendancePunch(employeeId: string, timestamp: Date, so
 export async function processManualAttendance(input: {
   employeeId: string;
   date: string;
+  isAbsent?: boolean;
   checkIn?: string | null;
   checkOut?: string | null;
   breakCheckOut?: string | null;
@@ -147,56 +149,65 @@ export async function processManualAttendance(input: {
       return { success: false, error: "Attendance is locked for payroll processing" };
     }
 
-    // Merge with existing if only one side is provided
+    // Merge with existing if only one side is provided or if marking absent to preserve forensic timestamps
     if (attendance) {
-      if (input.checkIn === undefined) checkInDate = attendance.checkIn;
-      if (input.checkOut === undefined) checkOutDate = attendance.checkOut;
-      if (input.breakCheckOut === undefined) breakCheckOutDate = attendance.breakCheckOut;
-      if (input.breakCheckIn === undefined) breakCheckInDate = attendance.breakCheckIn;
+      if (input.checkIn === undefined || (input.isAbsent && !input.checkIn)) checkInDate = attendance.checkIn;
+      if (input.checkOut === undefined || (input.isAbsent && !input.checkOut)) checkOutDate = attendance.checkOut;
+      if (input.breakCheckOut === undefined || (input.isAbsent && !input.breakCheckOut)) breakCheckOutDate = attendance.breakCheckOut;
+      if (input.breakCheckIn === undefined || (input.isAbsent && !input.breakCheckIn)) breakCheckInDate = attendance.breakCheckIn;
     }
 
     // Calculations using Roster Overlay Shift
     const { isOffDay: rosterIsOff, shift: activeShift, shiftId: activeShiftId } = await resolveEffectiveShift(input.employeeId, targetDate, employee.shift);
 
-    const shiftPolicy: ShiftPolicy | null = activeShift ? {
-      startTime: activeShift.startTime,
-      endTime: activeShift.endTime,
-      graceMinutes: activeShift.graceMinutes,
-      lateAfter: activeShift.lateAfter,
-      halfDayAfter: activeShift.halfDayAfter,
-      otStartAfter: activeShift.otStartAfter,
-      breakStartTime: activeShift.breakStartTime,
-      breakEndTime: activeShift.breakEndTime,
-      breakGraceMinutes: activeShift.breakGraceMinutes,
-      breakLateAfter: activeShift.breakLateAfter
-    } : null;
-
-    let breakDurationMins = 0;
-    if (shiftPolicy?.breakStartTime && shiftPolicy?.breakEndTime) {
-      const { breakStartDateTime, breakEndDateTime } = getShiftWindow(targetDate, shiftPolicy);
-      if (breakStartDateTime && breakEndDateTime) {
-        breakDurationMins = Math.abs(breakEndDateTime.getTime() - breakStartDateTime.getTime()) / 60000;
-      } else {
-        breakDurationMins = 60; // 1 hour fallback
-      }
-    }
-
-    let workHours = calculateWorkHoursWithBreak(
-      checkInDate,
-      checkOutDate,
-      breakCheckOutDate,
-      breakCheckInDate,
-      breakDurationMins
-    );
-
+    let workHours = 0;
     let otHours = 0;
-    if (checkOutDate && shiftPolicy) {
-      otHours = calculateOTHours(checkOutDate, targetDate, shiftPolicy as any, workHours);
-    }
+    let status: "PRESENT" | "LATE" | "HALF_DAY" | "ABSENT" = "ABSENT";
 
-    let status = determineAttendanceStatus(checkInDate as any, targetDate, shiftPolicy as any, breakCheckInDate);
-    if (rosterIsOff && !checkInDate) {
+    if (input.isAbsent) {
+      workHours = 0;
+      otHours = 0;
       status = "ABSENT";
+    } else {
+      const shiftPolicy: ShiftPolicy | null = activeShift ? {
+        startTime: activeShift.startTime,
+        endTime: activeShift.endTime,
+        graceMinutes: activeShift.graceMinutes,
+        lateAfter: activeShift.lateAfter,
+        halfDayAfter: activeShift.halfDayAfter,
+        otStartAfter: activeShift.otStartAfter,
+        breakStartTime: activeShift.breakStartTime,
+        breakEndTime: activeShift.breakEndTime,
+        breakGraceMinutes: activeShift.breakGraceMinutes,
+        breakLateAfter: activeShift.breakLateAfter
+      } : null;
+
+      let breakDurationMins = 0;
+      if (shiftPolicy?.breakStartTime && shiftPolicy?.breakEndTime) {
+        const { breakStartDateTime, breakEndDateTime } = getShiftWindow(targetDate, shiftPolicy);
+        if (breakStartDateTime && breakEndDateTime) {
+          breakDurationMins = Math.abs(breakEndDateTime.getTime() - breakStartDateTime.getTime()) / 60000;
+        } else {
+          breakDurationMins = 60; // 1 hour fallback
+        }
+      }
+
+      workHours = calculateWorkHoursWithBreak(
+        checkInDate,
+        checkOutDate,
+        breakCheckOutDate,
+        breakCheckInDate,
+        breakDurationMins
+      );
+
+      if (checkOutDate && shiftPolicy) {
+        otHours = calculateOTHours(checkOutDate, targetDate, shiftPolicy as any, workHours);
+      }
+
+      status = determineAttendanceStatus(checkInDate as any, targetDate, shiftPolicy as any, breakCheckInDate);
+      if (rosterIsOff && !checkInDate) {
+        status = "ABSENT";
+      }
     }
 
     if (attendance) {
@@ -258,7 +269,7 @@ export async function processManualAttendance(input: {
     }
 
     revalidateBothPaths("hr/attendance");
-    return { success: true, attendance };
+    return { success: true, attendance: serializeDecimalAndDate(attendance) };
 
   } catch (error) {
     console.error("processManualAttendance error:", error);
@@ -284,7 +295,7 @@ export async function getAttendanceRecord(employeeId: string, date: string) {
       }
     });
 
-    return { success: true, record };
+    return { success: true, record: record ? serializeDecimalAndDate(record) : null };
   } catch (error) {
     console.error("getAttendanceRecord error:", error);
     return { success: false, error: "Failed to fetch attendance record" };
@@ -328,7 +339,7 @@ export async function getAttendances(startDate: Date, endDate: Date, employeeId?
       orderBy: [{ date: 'desc' }, { employee: { name: 'asc' } }]
     });
 
-    return { success: true, attendances };
+    return { success: true, attendances: serializeDecimalAndDate(attendances) };
   } catch (error) {
     console.error("getAttendances error:", error);
     return { success: false, error: "Failed to fetch attendances", attendances: [] };
@@ -734,7 +745,7 @@ export async function getAttendanceRecordsPaginated({
 
     return {
       success: true,
-      attendances,
+      attendances: serializeDecimalAndDate(attendances),
       pagination: {
         total,
         pages: Math.ceil(total / limit),

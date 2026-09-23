@@ -17,7 +17,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { FiAlertCircle, FiClock, FiCalendar, FiUser } from "react-icons/fi";
+import { Switch } from "@/components/ui/switch";
+import { FiAlertCircle, FiClock, FiCalendar, FiUser, FiUserX } from "react-icons/fi";
 import { processManualAttendance, getAttendanceRecord } from "../_actions/attendance.action";
 import { getEmployees } from "../../../employees/_actions/employee.action";
 import { useToast } from "@/hooks/use-toast";
@@ -29,6 +30,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 const punchFormSchema = z.object({
   employeeId: z.string().min(1, "Employee is required"),
   date: z.string().min(1, "Date is required"),
+  isAbsent: z.boolean().optional(),
   checkIn: z.string().optional().or(z.literal("")),
   checkOut: z.string().optional().or(z.literal("")),
   breakCheckOut: z.string().optional().or(z.literal("")),
@@ -44,7 +46,7 @@ export default function ManualPunchForm() {
   const { toast } = useToast();
   
   const initialEmployeeId = searchParams.get("employeeId") || "";
-  const initialDate = searchParams.get("date") || format(new Date(), "yyyy-MM-dd");
+  const initialDate = searchParams.get("date") || searchParams.get("fromDate") || format(new Date(), "yyyy-MM-dd");
 
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(false);
@@ -80,6 +82,7 @@ export default function ManualPunchForm() {
     defaultValues: {
       employeeId: initialEmployeeId,
       date: initialDate,
+      isAbsent: false,
       checkIn: "",
       checkOut: "",
       breakCheckOut: "",
@@ -90,6 +93,7 @@ export default function ManualPunchForm() {
 
   const selectedEmployeeId = watch("employeeId");
   const selectedDate = watch("date");
+  const isAbsent = watch("isAbsent");
 
   useEffect(() => {
     async function loadExistingAttendance() {
@@ -103,12 +107,14 @@ export default function ManualPunchForm() {
             if (!dateStr) return "";
             return formatInTimeZone(new Date(dateStr), "Asia/Dhaka", "HH:mm");
           };
+          setValue("isAbsent", res.record.status === "ABSENT");
           setValue("checkIn", formatTime(res.record.checkIn));
           setValue("checkOut", formatTime(res.record.checkOut));
           setValue("breakCheckOut", formatTime(res.record.breakCheckOut));
           setValue("breakCheckIn", formatTime(res.record.breakCheckIn));
           setValue("notes", res.record.notes || "");
         } else {
+          setValue("isAbsent", false);
           setValue("checkIn", "");
           setValue("checkOut", "");
           setValue("breakCheckOut", "");
@@ -130,19 +136,20 @@ export default function ManualPunchForm() {
       setLoading(true);
       setError("");
 
-      if (!data.checkIn && !data.checkOut) {
-        throw new Error("You must provide either Check-in or Check-out time.");
+      if (!data.isAbsent && !data.checkIn && !data.checkOut) {
+        throw new Error("You must provide either Check-in or Check-out time, or toggle 'Mark as Absent'.");
       }
 
-      // Combine date and time
-      const checkInDateTime = data.checkIn ? `${data.date}T${data.checkIn}:00` : null;
-      const checkOutDateTime = data.checkOut ? `${data.date}T${data.checkOut}:00` : null;
-      const breakCheckOutDateTime = data.breakCheckOut ? `${data.date}T${data.breakCheckOut}:00` : null;
-      const breakCheckInDateTime = data.breakCheckIn ? `${data.date}T${data.breakCheckIn}:00` : null;
+      // Combine date and time (use undefined for blank times to preserve existing values if editing)
+      const checkInDateTime = data.checkIn ? `${data.date}T${data.checkIn}:00` : undefined;
+      const checkOutDateTime = data.checkOut ? `${data.date}T${data.checkOut}:00` : undefined;
+      const breakCheckOutDateTime = data.breakCheckOut ? `${data.date}T${data.breakCheckOut}:00` : undefined;
+      const breakCheckInDateTime = data.breakCheckIn ? `${data.date}T${data.breakCheckIn}:00` : undefined;
 
       const result = await processManualAttendance({
         employeeId: data.employeeId,
         date: data.date,
+        isAbsent: data.isAbsent,
         checkIn: checkInDateTime,
         checkOut: checkOutDateTime,
         breakCheckOut: breakCheckOutDateTime,
@@ -156,10 +163,13 @@ export default function ManualPunchForm() {
 
       toast({
         title: "Success",
-        description: "Attendance processed successfully",
+        description: data.isAbsent 
+          ? "Employee successfully recorded as Absent" 
+          : "Attendance processed successfully",
       });
 
-      router.push(`/dashboard/hr/attendance?date=${data.date}`);
+      router.push(`/dashboard/hr/attendance?fromDate=${data.date}&toDate=${data.date}`);
+      router.refresh();
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "An unexpected error occurred.";
       setError(errorMessage);
@@ -229,7 +239,29 @@ export default function ManualPunchForm() {
                   )}
                 </div>
 
-                <div className="space-y-2">
+                <div className="col-span-1 md:col-span-2">
+                  <div className="flex items-center justify-between rounded-lg border p-3.5 shadow-sm bg-muted/20">
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2">
+                        <FiUserX className={`h-4 w-4 ${isAbsent ? "text-destructive" : "text-muted-foreground"}`} />
+                        <Label htmlFor="isAbsent" className="font-medium cursor-pointer">
+                          Mark as Absent
+                        </Label>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Explicitly designate this employee as Absent. Work hours, OT, and daily allowances will be set to zero.
+                      </p>
+                    </div>
+                    <Switch
+                      id="isAbsent"
+                      checked={!!isAbsent}
+                      onCheckedChange={(checked) => setValue("isAbsent", checked)}
+                      disabled={loading}
+                    />
+                  </div>
+                </div>
+
+                <div className={`space-y-2 ${isAbsent ? "opacity-50 pointer-events-none" : ""}`}>
                   <Label htmlFor="checkIn">Check In Time</Label>
                   <div className="relative">
                     <FiClock className="absolute left-3 top-3 text-emerald-500" />
@@ -238,13 +270,13 @@ export default function ManualPunchForm() {
                       type="time"
                       className="pl-10"
                       {...register("checkIn")}
-                      disabled={loading}
+                      disabled={loading || isAbsent}
                     />
                   </div>
                   <p className="text-xs text-muted-foreground">Leave blank to keep existing</p>
                 </div>
 
-                <div className="space-y-2">
+                <div className={`space-y-2 ${isAbsent ? "opacity-50 pointer-events-none" : ""}`}>
                   <Label htmlFor="checkOut">Check Out Time</Label>
                   <div className="relative">
                     <FiClock className="absolute left-3 top-3 text-amber-500" />
@@ -253,13 +285,13 @@ export default function ManualPunchForm() {
                       type="time"
                       className="pl-10"
                       {...register("checkOut")}
-                      disabled={loading}
+                      disabled={loading || isAbsent}
                     />
                   </div>
                   <p className="text-xs text-muted-foreground">Leave blank to keep existing</p>
                 </div>
 
-                <div className="space-y-2">
+                <div className={`space-y-2 ${isAbsent ? "opacity-50 pointer-events-none" : ""}`}>
                   <Label htmlFor="breakCheckOut">Break Check Out Time</Label>
                   <div className="relative">
                     <FiClock className="absolute left-3 top-3 text-rose-500" />
@@ -268,13 +300,13 @@ export default function ManualPunchForm() {
                       type="time"
                       className="pl-10"
                       {...register("breakCheckOut")}
-                      disabled={loading}
+                      disabled={loading || isAbsent}
                     />
                   </div>
                   <p className="text-xs text-muted-foreground">Leave blank to keep existing</p>
                 </div>
 
-                <div className="space-y-2">
+                <div className={`space-y-2 ${isAbsent ? "opacity-50 pointer-events-none" : ""}`}>
                   <Label htmlFor="breakCheckIn">Break Check In Time</Label>
                   <div className="relative">
                     <FiClock className="absolute left-3 top-3 text-blue-500" />
@@ -283,7 +315,7 @@ export default function ManualPunchForm() {
                       type="time"
                       className="pl-10"
                       {...register("breakCheckIn")}
-                      disabled={loading}
+                      disabled={loading || isAbsent}
                     />
                   </div>
                   <p className="text-xs text-muted-foreground">Leave blank to keep existing</p>
@@ -293,7 +325,7 @@ export default function ManualPunchForm() {
                   <Label htmlFor="notes">Notes / Reason</Label>
                   <Textarea
                     id="notes"
-                    placeholder="E.g., Forgot to punch, Client meeting..."
+                    placeholder={isAbsent ? "Reason for manual absence (e.g. Unapproved leave, Disciplinary, Forgot to punch)..." : "E.g., Forgot to punch, Client meeting..."}
                     {...register("notes")}
                     disabled={loading}
                     className="resize-none"
