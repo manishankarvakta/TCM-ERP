@@ -24,6 +24,7 @@ const accountingOperationSettingsSchema = z.object({
     finishedGoodsInventoryAccountId: z.string(),
     couponDiscountAccountId: z.string().optional().default(""),
     salesDiscountAccountId: z.string().optional().default(""),
+    roundOffAccountId: z.string().optional().default(""),
   }),
   production: z.object({
     consumptionWipAccountId: z.string(),

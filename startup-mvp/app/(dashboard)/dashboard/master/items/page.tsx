@@ -7,6 +7,7 @@ import { FiPlus } from "react-icons/fi";
 import ItemsListClient from "./_components/items";
 import ExportItemsButton from "./_components/ExportItemsButton";
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import PrintHeader, { PrintStyle } from "../../procurements/_components/print-header";
 import { hasPermission } from "@/lib/permissions";
 import PageGuard from "@/components/permissions/page-guard";
@@ -36,13 +37,14 @@ export default async function ItemsPage({ searchParams }: ItemsPageProps) {
   const userId = session?.user?.id;
 
   // Check permissions on server side for better performance
-  const [result, suppliersResult, canView, canEdit, canMoveToTrash, canDeletePermanently] = await Promise.all([
+  const [result, suppliersResult, canView, canEdit, canMoveToTrash, canDeletePermanently, org] = await Promise.all([
     getItems(page, limit, search, tab === "trash" ? "trash" : "all", itemType, supplierId),
     getActiveSuppliers(),
     userId ? hasPermission(userId, "master.items", "view") : false,
     userId ? hasPermission(userId, "master.items", "edit") : false,
     userId ? hasPermission(userId, "master.items", "move-to-trash") : false,
     userId ? hasPermission(userId, "master.items", "delete-permanently") : false,
+    prisma.organization.findFirst({ where: { status: "active" } }).catch(() => null),
   ]);
 
   const suppliers = suppliersResult.success ? suppliersResult.suppliers : [];
@@ -72,7 +74,16 @@ export default async function ItemsPage({ searchParams }: ItemsPageProps) {
     <PageGuard permissionKey="master.items">
       <div className="space-y-6">
         <PrintStyle />
-        <PrintHeader docTitle="Items Catalog" docNumber="ITEMS-LIST" hideBarcode={true} />
+        <PrintHeader
+          docTitle="Items Catalog"
+          docNumber="ITEMS-LIST"
+          hideBarcode={true}
+          organizationName={org?.name}
+          organizationAddress={org?.address}
+          organizationEmail={org?.email}
+          organizationPhone={org?.phone}
+          organizationLogo={org?.logo}
+        />
         <div className="flex items-center justify-between print:hidden">
           <div>
             <h1 className="text-2xl font-semibold">Items</h1>

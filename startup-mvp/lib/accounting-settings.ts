@@ -185,6 +185,7 @@ function createDefaultSettings(): AccountingOperationSettings {
       finishedGoodsInventoryAccountId: "",
       couponDiscountAccountId: "",
       salesDiscountAccountId: "",
+      roundOffAccountId: "",
     },
     production: {
       consumptionWipAccountId: "",
@@ -244,6 +245,7 @@ function mergeWithDefaults(
       finishedGoodsInventoryAccountId: partial.sales?.finishedGoodsInventoryAccountId || defaults.sales.finishedGoodsInventoryAccountId,
       couponDiscountAccountId: partial.sales?.couponDiscountAccountId || defaults.sales.couponDiscountAccountId,
       salesDiscountAccountId: partial.sales?.salesDiscountAccountId || defaults.sales.salesDiscountAccountId,
+      roundOffAccountId: partial.sales?.roundOffAccountId || defaults.sales.roundOffAccountId,
     },
     production: {
       consumptionWipAccountId: partial.production?.consumptionWipAccountId || defaults.production.consumptionWipAccountId,

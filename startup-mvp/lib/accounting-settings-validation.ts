@@ -331,6 +331,9 @@ export async function validateOperationAccountSettings(
   if (settings.sales.salesDiscountAccountId) {
     accountIds.push(settings.sales.salesDiscountAccountId);
   }
+  if (settings.sales.roundOffAccountId) {
+    accountIds.push(settings.sales.roundOffAccountId);
+  }
   const accounts = await prisma.chartOfAccount.findMany({
     where: {
       id: { in: accountIds },
@@ -401,6 +404,18 @@ export async function validateOperationAccountSettings(
     if (salesAcct.type !== AccountType.REVENUE && salesAcct.type !== AccountType.EXPENSE) {
       throw new Error(
         `Sales General Discount account "${salesAcct.name}" must be a REVENUE or EXPENSE account, but is ${salesAcct.type}`
+      );
+    }
+  }
+
+  if (settings.sales.roundOffAccountId) {
+    const roundOffAcct = accountMap.get(settings.sales.roundOffAccountId);
+    if (!roundOffAcct) {
+      throw new AccountNotFoundValidationError(settings.sales.roundOffAccountId, "Sales Roundup/Round-off Adjustment");
+    }
+    if (roundOffAcct.type !== AccountType.REVENUE && roundOffAcct.type !== AccountType.EXPENSE) {
+      throw new Error(
+        `Sales Roundup/Round-off Adjustment account "${roundOffAcct.name}" must be a REVENUE or EXPENSE account, but is ${roundOffAcct.type}`
       );
     }
   }

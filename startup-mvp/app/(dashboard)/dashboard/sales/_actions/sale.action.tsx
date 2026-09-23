@@ -1252,24 +1252,25 @@ export async function createSaleAccountingVoucher(
     const roundOffDifference = Number((totalDebitsSoFar - totalCreditsSoFar).toFixed(2));
 
     if (roundOffDifference > 0.001) {
-      // Debit > Credit (e.g. 35.00 vs 34.65 -> +0.35) -> Credit Revenue/Round-off
+      // Debit > Credit (e.g. 35.00 vs 34.65 -> +0.35) -> Credit Round-off/Revenue
+      const roundOffCreditAcct = salesAccounts.roundOffAccountId || salesAccounts.revenueAccountId;
       voucherLines.push({
         lineNumber: lineNumber++,
         debitAmount: isReturn ? roundOffDifference : 0,
         creditAmount: isReturn ? 0 : roundOffDifference,
         description: `Round-off Adjustment - ${sale.saleNumber}`,
-        chartOfAccountId: salesAccounts.revenueAccountId,
+        chartOfAccountId: roundOffCreditAcct,
       });
     } else if (roundOffDifference < -0.001) {
-      // Credit > Debit (e.g. 35.20 vs 35.00 -> -0.20) -> Debit Discount/Round-off
-      const discountOrRevenueAcct = salesAccounts.salesDiscountAccountId || salesAccounts.revenueAccountId;
+      // Credit > Debit (e.g. 35.20 vs 35.00 -> -0.20) -> Debit Round-off/Discount
+      const roundOffDebitAcct = salesAccounts.roundOffAccountId || salesAccounts.salesDiscountAccountId || salesAccounts.revenueAccountId;
       const absDiff = Math.abs(roundOffDifference);
       voucherLines.push({
         lineNumber: lineNumber++,
         debitAmount: isReturn ? 0 : absDiff,
         creditAmount: isReturn ? absDiff : 0,
         description: `Round-off Discount - ${sale.saleNumber}`,
-        chartOfAccountId: discountOrRevenueAcct,
+        chartOfAccountId: roundOffDebitAcct,
       });
     }
 

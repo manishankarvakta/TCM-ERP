@@ -24,6 +24,7 @@ const operationSettingsSchema = z.object({
   salesFinishedGoodsInventoryAccountId: z.string().min(1, "Required"),
   salesCouponDiscountAccountId: z.string().optional(),
   salesSalesDiscountAccountId: z.string().optional(),
+  salesRoundOffAccountId: z.string().optional(),
   
   // Production
   productionConsumptionWipAccountId: z.string().min(1, "Required"),
@@ -115,6 +116,7 @@ export default function OperationAccountMappingForm() {
             salesFinishedGoodsInventoryAccountId: s.sales.finishedGoodsInventoryAccountId,
             salesCouponDiscountAccountId: s.sales.couponDiscountAccountId || "",
             salesSalesDiscountAccountId: s.sales.salesDiscountAccountId || "",
+            salesRoundOffAccountId: s.sales.roundOffAccountId || "",
             productionConsumptionWipAccountId: s.production.consumptionWipAccountId,
             productionConsumptionRawMaterialInventoryId: s.production.consumptionRawMaterialInventoryId,
             productionCompletionFinishedGoodsInventoryId: s.production.completionFinishedGoodsInventoryId,
@@ -169,6 +171,7 @@ export default function OperationAccountMappingForm() {
           finishedGoodsInventoryAccountId: data.salesFinishedGoodsInventoryAccountId,
           couponDiscountAccountId: data.salesCouponDiscountAccountId || "",
           salesDiscountAccountId: data.salesSalesDiscountAccountId || "",
+          roundOffAccountId: data.salesRoundOffAccountId || "",
         },
         production: {
           consumptionWipAccountId: data.productionConsumptionWipAccountId,
@@ -240,6 +243,7 @@ export default function OperationAccountMappingForm() {
       salesFinishedGoodsInventoryAccountId: findAccount(["Finished Goods", "Ready Product", "Inventory"], AccountType.ASSET),
       salesCouponDiscountAccountId: findAccount(["Coupon Discount", "Promo Discount", "Coupon"], AccountType.REVENUE) || findAccount(["Coupon Discount", "Promo Discount", "Coupon"], AccountType.EXPENSE),
       salesSalesDiscountAccountId: findAccount(["Sales Discount", "Discount"], AccountType.REVENUE, ["coupon", "promo"]) || findAccount(["Sales Discount", "Discount"], AccountType.EXPENSE, ["coupon", "promo"]),
+      salesRoundOffAccountId: findAccount(["Roundup", "Round-off", "Rounding"], AccountType.REVENUE) || findAccount(["Roundup", "Round-off", "Rounding"], AccountType.EXPENSE),
       productionConsumptionWipAccountId: findAccount(["WIP", "Work in Progress"], AccountType.ASSET),
       productionConsumptionRawMaterialInventoryId: findAccount(["Raw Material", "Inventory"], AccountType.ASSET),
       productionCompletionFinishedGoodsInventoryId: findAccount(["Finished Goods", "Ready Product", "Inventory"], AccountType.ASSET),
@@ -335,6 +339,15 @@ export default function OperationAccountMappingForm() {
               <AccountSelector
                 name="salesSalesDiscountAccountId"
                 label="DR - Sales Discount (Optional)"
+                types={[AccountType.REVENUE, AccountType.EXPENSE]}
+                accounts={accounts}
+                loadingAccounts={loadingAccounts}
+                control={control}
+                errors={errors}
+              />
+              <AccountSelector
+                name="salesRoundOffAccountId"
+                label="DR/CR - Roundup / Round-off Adjustment (Optional)"
                 types={[AccountType.REVENUE, AccountType.EXPENSE]}
                 accounts={accounts}
                 loadingAccounts={loadingAccounts}

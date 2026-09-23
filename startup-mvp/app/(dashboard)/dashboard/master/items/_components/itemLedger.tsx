@@ -103,6 +103,7 @@ interface ItemLedgerProps {
     address?: string | null;
     email?: string | null;
     phone?: string | null;
+    logo?: string | null;
   } | null;
 }
 
@@ -497,6 +498,7 @@ export default function ItemLedger({
             organizationAddress={organization?.address}
             organizationEmail={organization?.email}
             organizationPhone={organization?.phone}
+            organizationLogo={organization?.logo}
           />
 
           {/* Item Header Metadata Summary */}

@@ -10,6 +10,7 @@ interface PrintHeaderProps {
   organizationAddress?: string | null;
   organizationEmail?: string | null;
   organizationPhone?: string | null;
+  organizationLogo?: string | null;
   hideBarcode?: boolean;
 }
 
@@ -143,6 +144,7 @@ export default function PrintHeader({
   organizationAddress,
   organizationEmail,
   organizationPhone,
+  organizationLogo,
   hideBarcode = false,
 }: PrintHeaderProps) {
   return (
@@ -153,8 +155,8 @@ export default function PrintHeader({
         <div className="flex items-start gap-3">
           <div className="border border-slate-800 p-1 bg-white flex items-center justify-center w-16 h-16 shrink-0">
             <img
-              src="/main_logo.png"
-              alt="Ferrari Fashion Logo"
+              src={organizationLogo || "/main_logo.png"}
+              alt={organizationName || "Ferrari Fashion Logo"}
               className="max-h-full max-w-full object-contain"
             />
           </div>

@@ -27,6 +27,9 @@ export interface SalesAccounts {
   // Discount Entry
   couponDiscountAccountId?: string; // DR (Sales Coupon Discount - Optional)
   salesDiscountAccountId?: string;  // DR (Sales Discount - Optional)
+
+  // Round-off Entry
+  roundOffAccountId?: string;       // (Roundup / Round-off Adjustment Account - Optional)
 }
 
 /**
