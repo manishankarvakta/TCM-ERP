@@ -133,7 +133,7 @@ export async function getClients(
       const clientsWithDueAll = await Promise.all(
         allCandidateClients.map(async (client) => {
           const coaId = client.ChartOfAccount?.id;
-          if (!coaId) return { ...client, dueAmount: 0 };
+          if (!coaId) return { ...client, openingBalance: Number(client.openingBalance || 0), dueAmount: 0 };
 
           const balanceResult = await prisma.journalEntryLine.aggregate({
             where: { chartOfAccountId: coaId },
@@ -154,7 +154,7 @@ export async function getClients(
             due += Number(client.openingBalance || 0);
           }
 
-          return { ...client, dueAmount: Math.max(0, due) };
+          return { ...client, openingBalance: Number(client.openingBalance || 0), dueAmount: Math.max(0, due) };
         })
       );
 
@@ -203,7 +203,7 @@ export async function getClients(
     const clientsWithDue = await Promise.all(
       clients.map(async (client) => {
         const coaId = client.ChartOfAccount?.id;
-        if (!coaId) return { ...client, dueAmount: 0 };
+        if (!coaId) return { ...client, openingBalance: Number(client.openingBalance || 0), dueAmount: 0 };
 
         const balanceResult = await prisma.journalEntryLine.aggregate({
           where: { chartOfAccountId: coaId },
@@ -226,7 +226,7 @@ export async function getClients(
           due += Number(client.openingBalance || 0);
         }
 
-        return { ...client, dueAmount: Math.max(0, due) };
+        return { ...client, openingBalance: Number(client.openingBalance || 0), dueAmount: Math.max(0, due) };
       })
     );
 
@@ -366,7 +366,32 @@ export async function getClientById(clientId: string) {
 
     return {
       success: true,
-      client,
+      client: {
+        ...client,
+        openingBalance: Number(client.openingBalance || 0),
+        itemDiscounts: client.itemDiscounts?.map((d: any) => ({
+          ...d,
+          discountValue: Number(d.discountValue || 0),
+          item: d.item
+            ? {
+                ...d.item,
+                salesPrice: d.item.salesPrice !== null && d.item.salesPrice !== undefined ? Number(d.item.salesPrice) : null,
+              }
+            : null,
+          variant: d.variant
+            ? {
+                ...d.variant,
+                salesPrice: d.variant.salesPrice !== null && d.variant.salesPrice !== undefined ? Number(d.variant.salesPrice) : null,
+                item: d.variant.item
+                  ? {
+                      ...d.variant.item,
+                      salesPrice: d.variant.item.salesPrice !== null && d.variant.item.salesPrice !== undefined ? Number(d.variant.item.salesPrice) : null,
+                    }
+                  : null,
+              }
+            : null,
+        })),
+      },
     };
   } catch (error) {
     console.error("getClientById error:", error);
@@ -808,7 +833,14 @@ export async function createClient(input: {
 
     return {
       success: true,
-      client: result.client,
+      client: {
+        ...result.client,
+        openingBalance: Number(result.client.openingBalance || 0),
+        itemDiscounts: result.client.itemDiscounts?.map((d: any) => ({
+          ...d,
+          discountValue: Number(d.discountValue || 0),
+        })),
+      },
     };
   } catch (error) {
     console.error("createClient error:", error);
@@ -1190,7 +1222,14 @@ export async function updateClient(input: {
 
     return {
       success: true,
-      client,
+      client: {
+        ...client,
+        openingBalance: Number(client.openingBalance || 0),
+        itemDiscounts: client.itemDiscounts?.map((d: any) => ({
+          ...d,
+          discountValue: Number(d.discountValue || 0),
+        })),
+      },
     };
   } catch (error) {
     console.error("updateClient error:", error);
