@@ -34,6 +34,7 @@ const saleSchema = z.object({
     .or(z.literal("")),
   discount: z.coerce.number().min(0).optional().nullable(),
   tax: z.coerce.number().min(0).optional().nullable(),
+  roundOff: z.coerce.number().optional().nullable(),
   items: z.array(saleItemSchema).min(1, "At least one item is required"),
   couponCode: z.string().optional().nullable(),
   paymentMethod: z.string().optional().nullable(),
@@ -49,6 +50,7 @@ const saleSchema = z.object({
     changeAmount: z.number().optional().nullable(),
     pointsRedeemed: z.number().optional().nullable(),
     pointsDiscountAmount: z.number().optional().nullable(),
+    roundOff: z.number().optional().nullable(),
   }).optional().nullable(),
 });
 
@@ -1240,6 +1242,37 @@ export async function createSaleAccountingVoucher(
       chartOfAccountId: salesAccounts.revenueAccountId,
     });
 
+    // 2.5 Balancing Round-off difference if grandTotal was rounded
+    const totalDebitsSoFar = isReturn
+      ? (totalDiscount)
+      : (absGrandTotal + totalDiscount);
+    const totalCreditsSoFar = isReturn
+      ? (absGrandTotal + revenueCredit)
+      : (revenueCredit);
+    const roundOffDifference = Number((totalDebitsSoFar - totalCreditsSoFar).toFixed(2));
+
+    if (roundOffDifference > 0.001) {
+      // Debit > Credit (e.g. 35.00 vs 34.65 -> +0.35) -> Credit Revenue/Round-off
+      voucherLines.push({
+        lineNumber: lineNumber++,
+        debitAmount: isReturn ? roundOffDifference : 0,
+        creditAmount: isReturn ? 0 : roundOffDifference,
+        description: `Round-off Adjustment - ${sale.saleNumber}`,
+        chartOfAccountId: salesAccounts.revenueAccountId,
+      });
+    } else if (roundOffDifference < -0.001) {
+      // Credit > Debit (e.g. 35.20 vs 35.00 -> -0.20) -> Debit Discount/Round-off
+      const discountOrRevenueAcct = salesAccounts.salesDiscountAccountId || salesAccounts.revenueAccountId;
+      const absDiff = Math.abs(roundOffDifference);
+      voucherLines.push({
+        lineNumber: lineNumber++,
+        debitAmount: isReturn ? 0 : absDiff,
+        creditAmount: isReturn ? absDiff : 0,
+        description: `Round-off Discount - ${sale.saleNumber}`,
+        chartOfAccountId: discountOrRevenueAcct,
+      });
+    }
+
     // 3. COGS & Inventory (Only push if net COGS is non-zero, e.g. absAmount > 0.001)
     if (salesAccounts.cogsAccountId) {
       for (const [invAccountId, data] of Object.entries(cogsByAccount)) {
@@ -2092,7 +2125,9 @@ export async function createSale(input: z.infer<typeof saleSchema>) {
 
       const discount = validated.discount ?? 0;
       const tax = validated.tax ?? 0;
-      const grandTotal = calculatedSubTotal - discount + tax;
+      const roundOff = (validated as any).roundOff ? Number((validated as any).roundOff) : 0;
+      const rawGrandTotal = calculatedSubTotal - discount + tax;
+      const grandTotal = Number((rawGrandTotal + roundOff).toFixed(2));
 
       // Resolve coupon if a code was passed
       let resolvedCouponId: string | null = null;
@@ -2131,7 +2166,7 @@ export async function createSale(input: z.infer<typeof saleSchema>) {
         const totalDigitalPaid = cardAmt + mfsAmt;
         const changeAmt = totalPaid > grandTotal ? (totalPaid - grandTotal) : 0;
         
-        // Enforce digital payment limit (Card + MFS cannot exceed grand total)
+        // Enforce digital payment limit (Card + MFS cannot exceed rounded grand total)
         if (grandTotal > 0 && totalDigitalPaid > (grandTotal + 0.01)) {
           throw new Error(`Electronic payments (Card + MFS: ৳${totalDigitalPaid.toFixed(2)}) cannot exceed the payable bill total of ৳${grandTotal.toFixed(2)}.`);
         }
@@ -2154,6 +2189,7 @@ export async function createSale(input: z.infer<typeof saleSchema>) {
         paymentDetailsDb = {
           ...paymentDetailsDb,
           changeAmount: changeAmt > 0 ? Number(changeAmt.toFixed(2)) : 0,
+          roundOff: roundOff !== 0 ? roundOff : (paymentDetailsDb as any).roundOff,
         };
       }
 

@@ -151,6 +151,28 @@ export default async function InvoicePrintPage({ params }: { params: Promise<{ i
   const pointsSpentRatio = Number(membershipSettings?.pointsSpentRatio) > 0 ? Number(membershipSettings.pointsSpentRatio) : 100;
   
   const paymentDetails = sale.paymentDetails as any;
+  let cardAccountName = "Card";
+  let mfsAccountName = "MFS";
+  let cashAccountName = "Cash";
+
+  const accountIdsToFetch = [paymentDetails?.cardAccountId, paymentDetails?.mfsAccountId, paymentDetails?.cashAccountId].filter(Boolean);
+  if (accountIdsToFetch.length > 0) {
+    const coas = await prisma.chartOfAccount.findMany({
+      where: { id: { in: accountIdsToFetch } },
+      select: { id: true, name: true },
+    });
+    const coaMap = new Map(coas.map(c => [c.id, c.name]));
+    if (paymentDetails?.cardAccountId && coaMap.has(paymentDetails.cardAccountId)) {
+      cardAccountName = coaMap.get(paymentDetails.cardAccountId)!;
+    }
+    if (paymentDetails?.mfsAccountId && coaMap.has(paymentDetails.mfsAccountId)) {
+      mfsAccountName = coaMap.get(paymentDetails.mfsAccountId)!;
+    }
+    if (paymentDetails?.cashAccountId && coaMap.has(paymentDetails.cashAccountId)) {
+      cashAccountName = coaMap.get(paymentDetails.cashAccountId)!;
+    }
+  }
+
   const pointsRedeemed = Number(paymentDetails?.pointsRedeemed || 0);
   const earnedPoints = (sale.client?.membershipStatus === "ACTIVE" || sale.client?.membershipStatus) && sale.grandTotal.toNumber() > 0 
     ? Math.floor(sale.grandTotal.toNumber() / pointsSpentRatio) 
@@ -344,19 +366,19 @@ export default async function InvoicePrintPage({ params }: { params: Promise<{ i
               <div className="border-t border-dashed border-black pt-1 mt-1 space-y-1">
                 {cash > 0 && (
                   <div className="flex justify-between">
-                    <span>{change > 0.01 ? "Cash Received:" : "Paid Cash:"}</span>
+                    <span>{change > 0.01 ? `${cashAccountName} Received:` : `Paid ${cashAccountName}:`}</span>
                     <span>{cash.toFixed(2)}</span>
                   </div>
                 )}
                 {card > 0 && (
                   <div className="flex justify-between">
-                    <span>Paid Card:</span>
+                    <span>Paid {cardAccountName}:</span>
                     <span>{card.toFixed(2)}</span>
                   </div>
                 )}
                 {mfs > 0 && (
                   <div className="flex justify-between">
-                    <span>Paid MFS:</span>
+                    <span>Paid {mfsAccountName}:</span>
                     <span>{mfs.toFixed(2)}</span>
                   </div>
                 )}

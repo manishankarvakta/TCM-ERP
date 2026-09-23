@@ -2424,14 +2424,9 @@ export default function POSComponent({ items, clients: initialClients, warehouse
         return;
       }
 
-      // Automatically calculate round-off discount when rounding down (grandTotal > roundedGrandTotal)
-      const roundOffDiff = grandTotal > roundedGrandTotal
-        ? Number((grandTotal - roundedGrandTotal).toFixed(2))
-        : 0;
-      const totalDiscountWithRoundOff = Math.max(
-        0,
-        Number((effectiveDiscountAmount + effectivePointsDiscountAmount + roundOffDiff).toFixed(2))
-      );
+      // In POS, the final payable bill total is rounded to the nearest integer
+      const roundOffDiff = Number((roundedGrandTotal - grandTotal).toFixed(2));
+      const totalDiscount = Number((effectiveDiscountAmount + effectivePointsDiscountAmount).toFixed(2));
 
       const res = await createSale({
         clientId: selectedClientId,
@@ -2439,9 +2434,10 @@ export default function POSComponent({ items, clients: initialClients, warehouse
         date: new Date(),
         status: "COMPLETED",
         orderType: orderType as any,
-        notes: `POS Sale - Paid via Split Payment${membershipDiscountAmount > 0 ? ` (Includes Membership Discount of ৳${membershipDiscountAmount.toFixed(2)})` : ""}${roundOffDiff > 0 ? ` (Round-off: ৳${roundOffDiff.toFixed(2)})` : ""}`,
+        notes: `POS Sale - Paid via Split Payment${membershipDiscountAmount > 0 ? ` (Includes Membership Discount of ৳${membershipDiscountAmount.toFixed(2)})` : ""}${roundOffDiff !== 0 ? ` (Round-off: ৳${roundOffDiff > 0 ? `+${roundOffDiff.toFixed(2)}` : roundOffDiff.toFixed(2)})` : ""}`,
         tax: tax,
-        discount: totalDiscountWithRoundOff,
+        discount: totalDiscount,
+        roundOff: roundOffDiff,
         items: saleItems,
         couponCode: appliedPromo || undefined,
         paymentMethod: primaryPaymentMethod,
@@ -2456,6 +2452,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
           mfsAccountId: effectiveMfsAccountId || null,
           pointsRedeemed: effectivePointsRedeemed,
           pointsDiscountAmount: effectivePointsDiscountAmount,
+          roundOff: roundOffDiff,
         }
       });
 
