@@ -1316,8 +1316,19 @@ export async function createSaleAccountingVoucher(
         // Card and MFS payment amounts remain 100% exact as charged on POS card machine/wallet.
         let netCashAmt = Math.max(0, rawCashAmt - changeAmt);
 
-        // Cap total cash collected if total net payment exceeds grand total
-        const netNonCashTotal = cardAmt + mfsAmt;
+        // Ensure non-cash payments (Card/MFS) cannot exceed grand total
+        let effectiveCardAmt = cardAmt;
+        let effectiveMfsAmt = mfsAmt;
+        if (effectiveCardAmt + effectiveMfsAmt > absGrandTotal) {
+          if (effectiveCardAmt >= absGrandTotal) {
+            effectiveCardAmt = absGrandTotal;
+            effectiveMfsAmt = 0;
+          } else {
+            effectiveMfsAmt = Math.max(0, absGrandTotal - effectiveCardAmt);
+          }
+        }
+
+        const netNonCashTotal = effectiveCardAmt + effectiveMfsAmt;
         if (netNonCashTotal + netCashAmt > absGrandTotal) {
           netCashAmt = Math.max(0, absGrandTotal - netNonCashTotal);
         }
@@ -1334,19 +1345,19 @@ export async function createSaleAccountingVoucher(
             });
           }
         }
-        if (cardAmt > 0 && paymentDetails.cardAccountId) {
+        if (effectiveCardAmt > 0 && paymentDetails.cardAccountId) {
           paymentLines.push({
             accountId: paymentDetails.cardAccountId,
-            amount: Number(cardAmt.toFixed(2)),
+            amount: Number(effectiveCardAmt.toFixed(2)),
             description: isReturn
               ? `Card Refund Paid - ${sale.saleNumber} - ${sale.client.name}`
               : `Card Payment Received - ${sale.saleNumber} - ${sale.client.name}`,
           });
         }
-        if (mfsAmt > 0 && paymentDetails.mfsAccountId) {
+        if (effectiveMfsAmt > 0 && paymentDetails.mfsAccountId) {
           paymentLines.push({
             accountId: paymentDetails.mfsAccountId,
-            amount: Number(mfsAmt.toFixed(2)),
+            amount: Number(effectiveMfsAmt.toFixed(2)),
             description: isReturn
               ? `Digital Wallet Refund Paid - ${sale.saleNumber} - ${sale.client.name}`
               : `Digital Wallet/MFS Received - ${sale.saleNumber} - ${sale.client.name}`,
@@ -2117,8 +2128,14 @@ export async function createSale(input: z.infer<typeof saleSchema>) {
         const cardAmt = Number(paymentDetailsDb.cardAmount || 0);
         const mfsAmt = Number(paymentDetailsDb.mfsAmount || 0);
         const totalPaid = cashAmt + cardAmt + mfsAmt;
+        const totalDigitalPaid = cardAmt + mfsAmt;
         const changeAmt = totalPaid > grandTotal ? (totalPaid - grandTotal) : 0;
         
+        // Enforce digital payment limit (Card + MFS cannot exceed grand total)
+        if (grandTotal > 0 && totalDigitalPaid > (grandTotal + 0.01)) {
+          throw new Error(`Electronic payments (Card + MFS: ৳${totalDigitalPaid.toFixed(2)}) cannot exceed the payable bill total of ৳${grandTotal.toFixed(2)}.`);
+        }
+
         const isWalkwayClient = client
           ? !!(
               client.name?.toLowerCase().includes("walkway") ||

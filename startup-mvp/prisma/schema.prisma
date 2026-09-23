@@ -498,8 +498,8 @@ model Stock {
   itemId           String? // Optional for backward compatibility
   variantId        String? // New variant (SKU) relation
   warehouseId      String
-  quantity         Decimal         @default(0) @db.Decimal(12, 2)
-  reservedQuantity Decimal         @default(0) @db.Decimal(12, 2)
+  quantity         Decimal         @default(0) @db.Decimal(14, 3)
+  reservedQuantity Decimal         @default(0) @db.Decimal(14, 3)
   lastUpdated      DateTime        @default(now())
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
@@ -521,7 +521,7 @@ model StockLedger {
   variantId       String? // New variant relation
   warehouseId     String
   transactionType StockTransactionType
-  quantity        Decimal              @db.Decimal(12, 2)
+  quantity        Decimal              @db.Decimal(14, 3)
   referenceType   String?
   referenceId     String?
   notes           String?
@@ -587,7 +587,7 @@ model ProductionOrder {
   bomId            String
   itemId           String
   warehouseId      String
-  quantity         Decimal                  @db.Decimal(12, 2)
+  quantity         Decimal                  @db.Decimal(14, 3)
   status           ProductionOrderStatus    @default(PLANNED)
   notes            String?
   isTrash          Boolean                  @default(false)
@@ -775,9 +775,9 @@ model PurchaseItem {
   itemId           String?
   variantId        String?
   description      String
-  quantity         Decimal         @db.Decimal(10, 2)
-  receivedQuantity Decimal         @default(0) @db.Decimal(10, 2)
-  returnedQuantity Decimal         @default(0) @db.Decimal(10, 2)
+  quantity         Decimal         @db.Decimal(14, 3)
+  receivedQuantity Decimal         @default(0) @db.Decimal(14, 3)
+  returnedQuantity Decimal         @default(0) @db.Decimal(14, 3)
   unitPrice        Decimal         @db.Decimal(10, 2)
   amount           Decimal         @db.Decimal(12, 2)
   createdAt        DateTime        @default(now())
@@ -865,7 +865,7 @@ model SaleItem {
   itemId      String
   variantId   String?
   description String
-  quantity    Decimal         @db.Decimal(10, 2)
+  quantity    Decimal         @db.Decimal(14, 3)
   unitPrice   Decimal         @db.Decimal(10, 2)
   amount      Decimal         @db.Decimal(12, 2)
   isReturnItem Boolean        @default(false)
@@ -1173,7 +1173,7 @@ model InventoryAdjustmentItem {
   inventoryAdjustmentId String
   itemId                String
   variantId             String?
-  quantity              Decimal             @db.Decimal(12, 2)
+  quantity              Decimal             @db.Decimal(14, 3)
   unitRate              Decimal             @default(0) @db.Decimal(12, 2)
   amount                Decimal             @default(0) @db.Decimal(12, 2)
   createdAt             DateTime            @default(now())
@@ -1215,7 +1215,7 @@ model InventoryDamageItem {
   inventoryDamageId String
   itemId            String
   variantId         String?
-  quantity          Decimal         @db.Decimal(10, 2)
+  quantity          Decimal         @db.Decimal(14, 3)
   unitRate          Decimal         @db.Decimal(10, 2)
   amount            Decimal         @db.Decimal(10, 2)
   createdAt         DateTime        @default(now())
@@ -1235,7 +1235,7 @@ model InventoryCountEntry {
   variantId   String?
   barcode     String?
   warehouseId String
-  quantity    Decimal  @db.Decimal(12, 2) @default(1.00)
+  quantity    Decimal  @db.Decimal(14, 3) @default(1.000)
   status      String   @default("DRAFT")
   createdBy   String
   createdAt   DateTime @default(now())
@@ -1259,7 +1259,7 @@ model InventoryAddStockEntry {
   variantId   String?
   barcode     String?
   warehouseId String
-  quantity    Decimal  @db.Decimal(12, 2) @default(1.00)
+  quantity    Decimal  @db.Decimal(14, 3) @default(1.000)
   status      String   @default("DRAFT")
   createdBy   String
   createdAt   DateTime @default(now())
@@ -2304,7 +2304,7 @@ model ReturnToVendorItem {
   rtvId     String
   itemId    String
   variantId String?
-  quantity  Decimal @db.Decimal(10, 2)
+  quantity  Decimal @db.Decimal(14, 3)
   unitPrice Decimal @db.Decimal(10, 2)
   amount    Decimal @db.Decimal(12, 2)
   reason    String?
@@ -2359,7 +2359,7 @@ model TransferPurchaseNoteItem {
   tpnId     String
   itemId    String
   variantId String?
-  quantity  Decimal @db.Decimal(10, 2)
+  quantity  Decimal @db.Decimal(14, 3)
 
   tpn      TransferPurchaseNote @relation(fields: [tpnId], references: [id], onDelete: Cascade)
   item     Item                 @relation(fields: [itemId], references: [id])
@@ -2426,7 +2426,7 @@ model GRNItem {
   tpnItemId        String?
   itemId           String?
   variantId        String?
-  receivedQuantity Decimal  @db.Decimal(10, 2)
+  receivedQuantity Decimal  @db.Decimal(14, 3)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 

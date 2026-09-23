@@ -1190,13 +1190,13 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     });
   };
 
-  const roundTo2Decimals = (num: number): number => {
-    return Number(Math.round(Number(num + "e2")) + "e-2");
+  const roundTo3Decimals = (num: number): number => {
+    return Number(Math.round(Number(num + "e3")) + "e-3");
   };
 
   const handleCustomQuantitySet = (cartKey: string, qty: number) => {
     const isNegativeSaleAllowed = posSettings?.allowNegativeSale ?? false;
-    const precisionQty = isNaN(qty) ? 0 : roundTo2Decimals(qty);
+    const precisionQty = isNaN(qty) ? 0 : roundTo3Decimals(qty);
 
     setCart((prev) => {
       const item = prev.find((i) => i.cartKey === cartKey);
@@ -1342,8 +1342,8 @@ export default function POSComponent({ items, clients: initialClients, warehouse
 
       if (isNaN(parsedQty) || parsedQty <= 0) return false;
 
-      // Auto-convert to max 2 decimal places precision (e.g. 0.145 kg -> 0.15 kg)
-      parsedQty = roundTo2Decimals(parsedQty);
+      // Auto-convert to max 3 decimal places precision (e.g. 0.145 kg stays 0.145 kg)
+      parsedQty = roundTo3Decimals(parsedQty);
       if (parsedQty <= 0) return false;
 
       const isNegativeSaleAllowed = posSettings?.allowNegativeSale ?? false;
@@ -2283,10 +2283,12 @@ export default function POSComponent({ items, clients: initialClients, warehouse
       return;
     }
 
-    if (effectiveIsDueSale && totalPaid > roundedGrandTotal) {
+    // Digital payment limits validation (Card + MFS cannot exceed payable total)
+    const totalDigitalPaid = effectiveCardAmount + effectiveMfsAmount;
+    if (roundedGrandTotal > 0 && totalDigitalPaid > roundedGrandTotal + 0.01) {
       toast({
-        title: "Validation Error",
-        description: `Paid amount (৳${totalPaid.toFixed(2)}) cannot exceed the Grand Total (৳${roundedGrandTotal.toFixed(2)}) for a Due Sale.`,
+        title: "Invalid Payment Amount",
+        description: `Electronic payments (Card + MFS: ৳${totalDigitalPaid.toFixed(2)}) cannot exceed the payable bill total of ৳${roundedGrandTotal.toFixed(2)}.`,
         variant: "destructive"
       });
       return;

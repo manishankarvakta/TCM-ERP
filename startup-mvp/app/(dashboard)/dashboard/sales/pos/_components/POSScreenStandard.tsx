@@ -23,8 +23,8 @@ import {
 } from "react-icons/fa";
 import POSBottomToolbar from "./POSBottomToolbar";
 
-const roundTo2Decimals = (num: number): number => {
-  return Number(Math.round(Number(num + "e2")) + "e-2");
+const roundTo3Decimals = (num: number): number => {
+  return Number(Math.round(Number(num + "e3")) + "e-3");
 };
 
 function StandardCartQtyInput({
@@ -66,10 +66,10 @@ function StandardCartQtyInput({
     }
 
     const parts = raw.split(".");
-    if (parts[1] && parts[1].length > 2) {
+    if (parts[1] && parts[1].length > 3) {
       const num = parseFloat(raw);
       if (!isNaN(num)) {
-        raw = roundTo2Decimals(num).toFixed(2);
+        raw = roundTo3Decimals(num).toFixed(3);
       }
     }
 
@@ -80,7 +80,7 @@ function StandardCartQtyInput({
     } else {
       const parsed = parseFloat(raw);
       if (!isNaN(parsed)) {
-        handleCustomQuantitySet(cartKey, roundTo2Decimals(parsed));
+        handleCustomQuantitySet(cartKey, roundTo3Decimals(parsed));
       }
     }
   };
@@ -96,7 +96,7 @@ function StandardCartQtyInput({
         setValStr("0");
         handleCustomQuantitySet(cartKey, 0);
       } else {
-        const finalVal = roundTo2Decimals(parsed);
+        const finalVal = roundTo3Decimals(parsed);
         setValStr(finalVal.toString());
         handleCustomQuantitySet(cartKey, finalVal);
       }

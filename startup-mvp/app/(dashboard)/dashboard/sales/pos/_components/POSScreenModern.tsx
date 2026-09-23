@@ -49,8 +49,8 @@ const isDiscreteUnit = (unit?: string | null): boolean => {
   return discreteUnits.includes(norm);
 };
 
-const roundTo2Decimals = (num: number): number => {
-  return Number(Math.round(Number(num + "e2")) + "e-2");
+const roundTo3Decimals = (num: number): number => {
+  return Number(Math.round(Number(num + "e3")) + "e-3");
 };
 
 interface ModernCartQtyInputProps {
@@ -124,12 +124,12 @@ function ModernCartQtyInput({
       raw = raw.replace(/^0+/, "") || "0";
     }
 
-    // If more than 2 decimal places are typed, auto-convert / clamp to 2 decimal places
+    // If more than 3 decimal places are typed, auto-convert / clamp to 3 decimal places
     const parts = raw.split(".");
-    if (parts[1] && parts[1].length > 2) {
+    if (parts[1] && parts[1].length > 3) {
       const num = parseFloat(raw);
       if (!isNaN(num)) {
-        raw = roundTo2Decimals(num).toFixed(2);
+        raw = roundTo3Decimals(num).toFixed(3);
       }
     }
 
@@ -140,7 +140,7 @@ function ModernCartQtyInput({
     } else {
       const parsed = parseFloat(raw);
       if (!isNaN(parsed)) {
-        handleCustomQuantitySet(cartKey, roundTo2Decimals(parsed));
+        handleCustomQuantitySet(cartKey, roundTo3Decimals(parsed));
       }
     }
   };
@@ -158,7 +158,7 @@ function ModernCartQtyInput({
       } else {
         const finalVal = isIntegerOnlyUnit
           ? Math.max(0, Math.floor(parsed))
-          : roundTo2Decimals(parsed);
+          : roundTo3Decimals(parsed);
         setValStr(finalVal.toString());
         handleCustomQuantitySet(cartKey, finalVal);
       }
@@ -427,6 +427,39 @@ export default function POSScreenModern({
     ? Math.floor(netGrandTotal / pointsSpentRatio) 
     : 0;
 
+  // Digital Payment (Card / MFS) Limits Validation
+  const payableTotal = Math.max(0, roundedGrandTotal - pointsDiscountAmount);
+  const numCardAmount = Number(cardAmount) || 0;
+  const numMfsAmount = Number(mfsAmount) || 0;
+  const totalDigitalPayment = numCardAmount + numMfsAmount;
+
+  const isCardOverpaid = numCardAmount > payableTotal && payableTotal > 0 && numCardAmount > 0;
+  const isMfsOverpaid = numMfsAmount > payableTotal && payableTotal > 0 && numMfsAmount > 0;
+  const isDigitalOverpaid = totalDigitalPayment > payableTotal && payableTotal > 0 && totalDigitalPayment > 0;
+
+  const digitalPaymentError = React.useMemo(() => {
+    if (cart.length === 0) return null;
+    if (payableTotal <= 0) {
+      if (numCardAmount > 0 || numMfsAmount > 0) {
+        return "Bill amount is ৳0.00. Electronic payments (Card/MFS) cannot be charged.";
+      }
+      return null;
+    }
+    if (isDigitalOverpaid) {
+      if (numCardAmount > 0 && numMfsAmount > 0) {
+        return `Combined Card & MFS payment (৳${totalDigitalPayment.toFixed(2)}) cannot exceed payable bill total of ৳${payableTotal.toFixed(2)}.`;
+      }
+      if (numCardAmount > payableTotal) {
+        return `Card payment (৳${numCardAmount.toFixed(2)}) cannot exceed payable bill total of ৳${payableTotal.toFixed(2)}.`;
+      }
+      if (numMfsAmount > payableTotal) {
+        return `MFS payment (৳${numMfsAmount.toFixed(2)}) cannot exceed payable bill total of ৳${payableTotal.toFixed(2)}.`;
+      }
+      return `Digital payment (৳${totalDigitalPayment.toFixed(2)}) cannot exceed payable bill total of ৳${payableTotal.toFixed(2)}.`;
+    }
+    return null;
+  }, [cart.length, payableTotal, numCardAmount, numMfsAmount, isDigitalOverpaid, totalDigitalPayment]);
+
   // Reset points input if cart is emptied or customer changed
   React.useEffect(() => {
     if (cart.length === 0 || !selectedClientId) {
@@ -575,6 +608,10 @@ export default function POSScreenModern({
     if (cart.length === 0) return;
     if (discountLimitError) {
       toast.error(discountLimitError);
+      return;
+    }
+    if (digitalPaymentError) {
+      toast.error(digitalPaymentError);
       return;
     }
     const payableTotal = Math.max(0, roundedGrandTotal - pointsDiscountAmount);
@@ -1376,7 +1413,11 @@ export default function POSScreenModern({
               {/* Card Dropdown & Input */}
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-1 shrink-0">
-                  <span className="text-xs font-semibold text-foreground shrink-0">Card:</span>
+                  <span className={`text-xs font-semibold shrink-0 ${
+                    isCardOverpaid || (isDigitalOverpaid && numCardAmount > 0)
+                      ? "text-destructive font-bold"
+                      : "text-foreground"
+                  }`}>Card:</span>
                   <Select
                     value={selectedCardAccount}
                     onValueChange={setSelectedCardAccount}
@@ -1403,14 +1444,22 @@ export default function POSScreenModern({
                   onChange={(e) =>
                     setCardAmount(e.target.value === "" ? "" : Number(e.target.value))
                   }
-                  className="h-8 text-xs text-right font-bold bg-background border-border flex-1 min-w-0 shadow-sm"
+                  className={`h-8 text-xs text-right font-bold bg-background border-border flex-1 min-w-0 shadow-sm transition-colors ${
+                    isCardOverpaid || (isDigitalOverpaid && numCardAmount > 0)
+                      ? "border-destructive text-destructive focus-visible:ring-destructive font-black ring-1 ring-destructive bg-destructive/5"
+                      : ""
+                  }`}
                 />
               </div>
 
               {/* MFS Dropdown & Input */}
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-1 shrink-0">
-                  <span className="text-xs font-semibold text-foreground shrink-0">MFS:</span>
+                  <span className={`text-xs font-semibold shrink-0 ${
+                    isMfsOverpaid || (isDigitalOverpaid && numMfsAmount > 0)
+                      ? "text-destructive font-bold"
+                      : "text-foreground"
+                  }`}>MFS:</span>
                   <Select
                     value={selectedMfsAccount}
                     onValueChange={setSelectedMfsAccount}
@@ -1437,9 +1486,21 @@ export default function POSScreenModern({
                   onChange={(e) =>
                     setMfsAmount(e.target.value === "" ? "" : Number(e.target.value))
                   }
-                  className="h-8 text-xs text-right font-bold bg-background border-border flex-1 min-w-0 shadow-sm"
+                  className={`h-8 text-xs text-right font-bold bg-background border-border flex-1 min-w-0 shadow-sm transition-colors ${
+                    isMfsOverpaid || (isDigitalOverpaid && numMfsAmount > 0)
+                      ? "border-destructive text-destructive focus-visible:ring-destructive font-black ring-1 ring-destructive bg-destructive/5"
+                      : ""
+                  }`}
                 />
               </div>
+
+              {/* Digital Overpayment Warning Banner */}
+              {digitalPaymentError && (
+                <div className="flex items-start gap-1.5 p-2 rounded-md bg-destructive/10 border border-destructive/30 text-destructive text-[11px] font-semibold">
+                  <FaExclamationTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-destructive" />
+                  <span className="leading-tight">{digitalPaymentError}</span>
+                </div>
+              )}
 
               {/* Additional Discount Checkbox, Type Selector (% or ৳) & Input */}
               {allowDiscount && (
@@ -1773,7 +1834,7 @@ export default function POSScreenModern({
           <div className="pt-4 border-t border-border space-y-3 shrink-0">
             <Button
               className={`w-full h-11 text-sm font-bold text-white transition-all shadow-md flex items-center justify-center gap-2 rounded-md ${
-                cart.length === 0 || !!discountLimitError
+                cart.length === 0 || !!discountLimitError || !!digitalPaymentError
                   ? "bg-slate-700 text-muted-foreground opacity-60 cursor-not-allowed"
                   : totalPaid >= roundedGrandTotal
                   ? "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/15"
@@ -1781,12 +1842,14 @@ export default function POSScreenModern({
                   ? "bg-amber-600 hover:bg-amber-700 shadow-amber-500/15"
                   : "bg-slate-600 hover:bg-slate-700 opacity-90 shadow-slate-500/15"
               }`}
-              disabled={cart.length === 0 || !!discountLimitError}
+              disabled={cart.length === 0 || !!discountLimitError || !!digitalPaymentError}
               onClick={handlePrintBillClick}
             >
               <FaPrint className="w-4 h-4" />
               {cart.length === 0
                 ? "Print Bill"
+                : digitalPaymentError
+                ? "Invalid Card/MFS Amount"
                 : totalPaid >= roundedGrandTotal
                 ? "Print Bill & Complete"
                 : isDueBill && !isWalkwayCustomer
