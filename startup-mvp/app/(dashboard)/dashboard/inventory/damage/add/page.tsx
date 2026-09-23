@@ -1,6 +1,5 @@
 import React from "react";
-import { getWarehouses } from "../../../master/warehouses/_actions/warehouse.action";
-import { getActiveItems } from "../../stock/_actions/stock.action";
+import { getActiveItems, getActiveWarehouses } from "../../stock/_actions/stock.action";
 import DamageForm from "./_components/damage-form";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -23,7 +22,7 @@ export default async function AddDamagePage() {
   }
 
   const [warehousesRes, itemsRes] = await Promise.all([
-    getWarehouses(1, 100),
+    getActiveWarehouses(),
     getActiveItems()
   ]);
 

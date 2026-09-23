@@ -228,7 +228,7 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
   // Check if we're on a Damage detail page
   const isDamageDetailMatch = pathname.match(/^\/dashboard\/inventory\/damage\/([^\/]+)$/);
   const isDamageEditMatch = pathname.match(/^\/dashboard\/inventory\/damage\/([^\/]+)\/edit$/);
-  const damageId = isDamageDetailMatch?.[1] || isDamageEditMatch?.[1] || null;
+  const damageId = (isDamageDetailMatch?.[1] !== "add" ? isDamageDetailMatch?.[1] : null) || isDamageEditMatch?.[1] || null;
 
   // Fetch Damage number
   useEffect(() => {
@@ -972,7 +972,7 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
      }
   }
 
-  if (isDamageDetailMatch || isDamageEditMatch) {
+  if ((isDamageDetailMatch && isDamageDetailMatch[1] !== "add") || isDamageEditMatch) {
      const damageItem = items.find(item => item.path === "/dashboard/inventory/damage");
      if (damageItem) {
         parentItem = damageItem;

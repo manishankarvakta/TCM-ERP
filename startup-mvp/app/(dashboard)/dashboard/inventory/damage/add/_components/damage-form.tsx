@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Plus, Trash2, Search } from "lucide-react";
-import { createDamage } from "../../_actions/damage.action";
+import { createDamage, updateDamage } from "../../_actions/damage.action";
 import { getTodayInTimezone, formatDateToYYYYMMDDInTimezone } from "@/lib/timezone-utils";
 import { getStock, getWarehouseStocks } from "../../../stock/_actions/stock.action";
 import { getItemVariants } from "../../../../master/items/_actions/item.action";
@@ -32,6 +32,15 @@ import {
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from "@/components/ui/table";
+import { useToast } from "@/hooks/use-toast";
 
 const isDiscreteUnit = (unit?: string | null): boolean => {
   if (!unit) return false;
@@ -45,15 +54,6 @@ const isDiscreteUnit = (unit?: string | null): boolean => {
   ];
   return discreteUnits.includes(norm);
 };
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from "@/components/ui/table";
-import { useToast } from "@/hooks/use-toast";
 
 const damageSchema = z.object({
   warehouseId: z.string().min(1, "Warehouse is required"),
@@ -96,6 +96,7 @@ export default function DamageForm({ warehouses, items, userContext, initialData
   const [skuVariants, setSkuVariants] = useState<any[]>([]);
   const [skuLoading, setSkuLoading] = useState(false);
   const [selectedVariants, setSelectedVariants] = useState<Record<string, boolean>>({});
+  const [openRowIndex, setOpenRowIndex] = useState<number | null>(null);
 
   const form = useForm<DamageFormValues>({
     resolver: zodResolver(damageSchema),
@@ -134,6 +135,24 @@ export default function DamageForm({ warehouses, items, userContext, initialData
   const totalItems = watchedItems.filter((item: any) => !!item?.itemId && (Number(item?.quantity) || 0) > 0).length;
   const totalQuantity = watchedItems.reduce((sum: number, item: any) => sum + (Number(item?.quantity) || 0), 0);
   const totalLoss = watchedItems.reduce((sum: number, item: any) => sum + ((Number(item?.quantity) || 0) * (Number(item?.unitRate) || 0)), 0);
+
+  const itemsById = useMemo(() => {
+    const map = new Map<string, any>();
+    items.forEach((it) => map.set(it.id, it));
+    return map;
+  }, [items]);
+
+  const itemStockTotalMap = useMemo(() => {
+    const map: Record<string, number> = {};
+    items.forEach((item) => {
+      if (item.variants && item.variants.length > 0) {
+        map[item.id] = item.variants.reduce((sum: number, v: any) => sum + (stockMap[v.id] || 0), 0);
+      } else {
+        map[item.id] = stockMap[item.id] || 0;
+      }
+    });
+    return map;
+  }, [items, stockMap]);
 
   const filteredItems = useMemo(() => {
     if (!itemSearch) return items;
@@ -249,7 +268,6 @@ export default function DamageForm({ warehouses, items, userContext, initialData
 
       let res;
       if (initialData?.id) {
-        const { updateDamage } = await import("../../_actions/damage.action");
         res = await updateDamage(initialData.id, payload);
       } else {
         res = await createDamage(payload);
@@ -438,7 +456,7 @@ export default function DamageForm({ warehouses, items, userContext, initialData
                  </TableHeader>
                  <TableBody>
                     {fields.map((field, index) => {
-                      const selectedItem = items.find(i => i.id === form.getValues(`items.${index}.itemId`));
+                      const selectedItem = itemsById.get(form.getValues(`items.${index}.itemId`));
                       const watchedItems = form.watch("items") || [];
                       const itemUnit = (selectedItem as any)?.unit?.symbol || (selectedItem as any)?.unit;
                       const isIntegerOnlyUnit = isDiscreteUnit(itemUnit);
@@ -453,10 +471,12 @@ export default function DamageForm({ warehouses, items, userContext, initialData
                             defaultValue={form.getValues(`items.${index}.itemId`)}
                             onOpenChange={(open) => {
                                if (open) {
+                                 setOpenRowIndex(index);
                                  setTimeout(() => {
                                    searchInputRef.current?.focus();
                                  }, 0);
                                } else {
+                                 setOpenRowIndex(null);
                                  setItemSearch("");
                                }
                             }}
@@ -488,21 +508,29 @@ export default function DamageForm({ warehouses, items, userContext, initialData
                                    </div>
                                 </div>
                                 <div className="max-h-[200px] overflow-y-auto">
-                                  {filteredItems.length > 0 ? (
-                                     filteredItems.map((item) => (
-                                       <SelectItem key={item.id} value={item.id} className="text-left w-full">
-                                           <div className="flex justify-between items-center w-full gap-4">
-                                             <span>{item.name} ({item.code})</span>
-                                             <span className="text-xs text-muted-foreground whitespace-nowrap">
-                                                 Stock: {item.variants && item.variants.length > 0 ? item.variants.reduce((sum: number, v: any) => sum + (stockMap[v.id] || 0), 0) : (stockMap[item.id] || 0)}
-                                             </span>
-                                           </div>
-                                       </SelectItem>
-                                     ))
+                                  {openRowIndex === index ? (
+                                    filteredItems.slice(0, 50).length > 0 ? (
+                                       filteredItems.slice(0, 50).map((item) => (
+                                         <SelectItem key={item.id} value={item.id} className="text-left w-full">
+                                             <div className="flex justify-between items-center w-full gap-4">
+                                               <span>{item.name} ({item.code})</span>
+                                               <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                                   Stock: {itemStockTotalMap[item.id] ?? 0}
+                                               </span>
+                                             </div>
+                                         </SelectItem>
+                                       ))
+                                    ) : (
+                                       <div className="px-2 py-4 text-sm text-muted-foreground text-center">
+                                         No items found
+                                       </div>
+                                    )
                                   ) : (
-                                     <div className="px-2 py-4 text-sm text-muted-foreground text-center">
-                                       No items found
-                                     </div>
+                                    selectedItem && (
+                                      <SelectItem value={selectedItem.id}>
+                                        {selectedItem.name} ({selectedItem.code})
+                                      </SelectItem>
+                                    )
                                   )}
                                 </div>
                              </SelectContent>

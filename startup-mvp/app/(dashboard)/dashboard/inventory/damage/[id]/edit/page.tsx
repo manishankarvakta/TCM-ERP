@@ -1,6 +1,5 @@
 import React from "react";
-import { getWarehouses } from "../../../../master/warehouses/_actions/warehouse.action";
-import { getActiveItems } from "../../../stock/_actions/stock.action";
+import { getActiveItems, getActiveWarehouses } from "../../../stock/_actions/stock.action";
 import { getDamage } from "../../_actions/damage.action";
 import DamageForm from "../../add/_components/damage-form";
 import { auth } from "@/lib/auth";
@@ -36,7 +35,7 @@ export default async function EditDamagePage({ params }: { params: Promise<{ id:
   }
 
   const [warehousesRes, itemsRes] = await Promise.all([
-    getWarehouses(1, 100),
+    getActiveWarehouses(),
     getActiveItems()
   ]);
 

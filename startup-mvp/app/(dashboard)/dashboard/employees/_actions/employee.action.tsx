@@ -7,7 +7,6 @@ import { revalidateBothPaths } from "@/lib/route-utils-server";
 import { revalidatePath } from "next/cache";
 import { type Prisma, AccountType, VoucherType } from "@prisma/client";
 import { hasPermission } from "@/lib/permissions";
-import PageGuard from "@/components/permissions/page-guard";
 import { validateHRMAccountingSetup } from "@/lib/hr/payroll-settings-guard";
 
 /**
