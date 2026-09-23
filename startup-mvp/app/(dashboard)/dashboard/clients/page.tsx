@@ -1,9 +1,9 @@
 import React from "react";
-import { getClients, getWarehousesForClient } from "./_actions/client.action";
+import { getClients, getWarehousesForClient, getClientSummaryMetrics } from "./_actions/client.action";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from "next/link";
-import { FiPlus, FiBook } from "react-icons/fi";
+import { FiPlus, FiUsers, FiAward } from "react-icons/fi";
 import ClientsListClient from "./_components/clients";
 import ExportClientsButton from "./_components/ExportClientsButton";
 import PageGuard from "@/components/permissions/page-guard";
@@ -39,10 +39,11 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
 
   const status = tab === "trash" ? "trash" : "all";
   
-  // Check permissions on server side for better performance
-  const [result, warehousesResult, canView, canEdit, canMoveToTrash, canDeletePermanently, canViewLedger] = await Promise.all([
+  // Check permissions & fetch clients, warehouses, and summary metrics in parallel
+  const [result, warehousesResult, summaryResult, canView, canEdit, canMoveToTrash, canDeletePermanently, canViewLedger] = await Promise.all([
     getClients(page, limit, search, status, warehouse, due, clientType),
     getWarehousesForClient(),
+    getClientSummaryMetrics(warehouse, clientType, status),
     userId ? hasPermission(userId, "peoples.clients", "view") : false,
     userId ? hasPermission(userId, "peoples.clients", "edit") : false,
     userId ? hasPermission(userId, "peoples.clients", "move-to-trash") : false,
@@ -69,8 +70,6 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
     );
   }
 
-  const firstClientId = result.clients && result.clients.length > 0 ? result.clients[0].id : null;
-
   return (
     <PageGuard permissionKey="peoples.clients">
       <div className="space-y-6">
@@ -95,14 +94,64 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
         </div>
 
         <Tabs defaultValue={tab} className="w-full">
-          <TabsList className="print:hidden">
-            <TabsTrigger value="all" asChild>
-              <Link href="/dashboard/clients?tab=all&page=1">All Clients</Link>
-            </TabsTrigger>
-            <TabsTrigger value="trash" asChild>
-              <Link href="/dashboard/clients?tab=trash&page=1">Trash</Link>
-            </TabsTrigger>
-          </TabsList>
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 print:hidden">
+            {/* Tabs List */}
+            <TabsList>
+              <TabsTrigger value="all" asChild>
+                <Link href="/dashboard/clients?tab=all&page=1">All Clients</Link>
+              </TabsTrigger>
+              <TabsTrigger value="trash" asChild>
+                <Link href="/dashboard/clients?tab=trash&page=1">Trash</Link>
+              </TabsTrigger>
+            </TabsList>
+
+            {/* Client Summary Analytics Cards Inline */}
+            {tab !== "trash" && summaryResult.success && summaryResult.summary && (
+              <div className="flex flex-wrap items-center gap-2.5">
+                {/* Total Clients Card */}
+                <div className="bg-blue-50/70 dark:bg-blue-950/25 border border-blue-100/80 dark:border-blue-900/40 rounded-lg px-3 py-1.5 h-10 flex items-center gap-2.5 shadow-sm hover:shadow-md transition-all duration-300">
+                  <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                    <FiUsers className="h-3.5 w-3.5" />
+                  </div>
+                  <div>
+                    <p className="text-[9px] uppercase font-bold tracking-wider text-blue-600/80 dark:text-blue-400/80 leading-none mb-0.5">Total Clients</p>
+                    <p className="text-xs font-bold font-mono text-blue-700 dark:text-blue-300 leading-none">
+                      {summaryResult.summary.totalClients.toLocaleString()}{" "}
+                      <span className="text-[10px] font-normal text-muted-foreground font-sans">({summaryResult.summary.activeClients} Active)</span>
+                    </p>
+                  </div>
+                </div>
+
+                {/* Total Receivable / Outstanding Due Card */}
+                <div className="bg-amber-50/70 dark:bg-amber-950/25 border border-amber-100/80 dark:border-amber-900/40 rounded-lg px-3 py-1.5 h-10 flex items-center gap-2.5 shadow-sm hover:shadow-md transition-all duration-300">
+                  <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                    <span className="text-xs font-bold leading-none">৳</span>
+                  </div>
+                  <div>
+                    <p className="text-[9px] uppercase font-bold tracking-wider text-amber-600/80 dark:text-amber-400/80 leading-none mb-0.5">Total Receivable</p>
+                    <p className="text-xs font-bold font-mono text-amber-700 dark:text-amber-300 leading-none">
+                      ৳{summaryResult.summary.totalDue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{" "}
+                      <span className="text-[10px] font-normal text-muted-foreground font-sans">({summaryResult.summary.clientsWithDue} with due)</span>
+                    </p>
+                  </div>
+                </div>
+
+                {/* Total Customer Points Card */}
+                <div className="bg-emerald-50/70 dark:bg-emerald-950/25 border border-emerald-100/80 dark:border-emerald-900/40 rounded-lg px-3 py-1.5 h-10 flex items-center gap-2.5 shadow-sm hover:shadow-md transition-all duration-300">
+                  <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                    <FiAward className="h-3.5 w-3.5" />
+                  </div>
+                  <div>
+                    <p className="text-[9px] uppercase font-bold tracking-wider text-emerald-600/80 dark:text-emerald-400/80 leading-none mb-0.5">Customer Points</p>
+                    <p className="text-xs font-bold font-mono text-emerald-700 dark:text-emerald-300 leading-none">
+                      {summaryResult.summary.totalPoints.toLocaleString()}{" "}
+                      <span className="text-[10px] font-normal text-muted-foreground font-sans">pts</span>
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
           <TabsContent value="all" className="mt-4">
             <ClientsListClient
               initialClients={result.clients || []}

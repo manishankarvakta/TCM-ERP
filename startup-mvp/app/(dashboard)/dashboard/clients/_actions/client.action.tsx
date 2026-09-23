@@ -1840,5 +1840,159 @@ export async function getAllClientsForExport(
   }
 }
 
+/**
+ * Get client summary metrics (Total clients, active, wholesale, regular, total due, customer loyalty points)
+ */
+export async function getClientSummaryMetrics(
+  warehouseId: string = "all",
+  clientType: "all" | "regular" | "wholesale" = "all",
+  status: "active" | "inactive" | "trash" | "all" = "all"
+) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return {
+        success: false,
+        error: "Unauthorized",
+        summary: {
+          totalClients: 0,
+          activeClients: 0,
+          wholesaleClients: 0,
+          regularClients: 0,
+          totalPoints: 0,
+          totalDue: 0,
+          clientsWithDue: 0,
+        },
+      };
+    }
+
+    const where: Prisma.ClientWhereInput = {};
+    if (status === "trash") {
+      where.status = "trash";
+    } else if (status === "active") {
+      where.status = "active";
+    } else if (status === "inactive") {
+      where.status = "inactive";
+    } else {
+      where.status = { not: "trash" };
+    }
+
+    if (warehouseId && warehouseId !== "all") {
+      where.warehouseId = warehouseId;
+    }
+    if (clientType && clientType !== "all") {
+      where.clientType = clientType;
+    }
+
+    const clients = await prisma.client.findMany({
+      where,
+      select: {
+        id: true,
+        status: true,
+        clientType: true,
+        openingBalance: true,
+        membershipPoints: true,
+        ChartOfAccount: {
+          select: { id: true },
+        },
+      },
+    });
+
+    const totalClients = clients.length;
+    let activeClients = 0;
+    let wholesaleClients = 0;
+    let totalPoints = 0;
+    let totalDue = 0;
+    let clientsWithDue = 0;
+
+    const coaIds: string[] = [];
+    clients.forEach((c) => {
+      if (c.status === "active") activeClients++;
+      if (c.clientType?.toLowerCase() === "wholesale") wholesaleClients++;
+      totalPoints += Number(c.membershipPoints || 0);
+      if (c.ChartOfAccount?.id) {
+        coaIds.push(c.ChartOfAccount.id);
+      }
+    });
+
+    // Aggregate journal entry lines in batch for performance
+    const [journalAggregates, openingJournals] = await Promise.all([
+      coaIds.length > 0
+        ? prisma.journalEntryLine.groupBy({
+            by: ["chartOfAccountId"],
+            where: { chartOfAccountId: { in: coaIds } },
+            _sum: { debitAmount: true, creditAmount: true },
+          })
+        : [],
+      coaIds.length > 0
+        ? prisma.journalEntryLine.findMany({
+            where: {
+              chartOfAccountId: { in: coaIds },
+              description: { contains: "opening balance", mode: "insensitive" },
+            },
+            select: { chartOfAccountId: true },
+          })
+        : [],
+    ]);
+
+    const journalMap = new Map<string, { debit: number; credit: number }>();
+    journalAggregates.forEach((j) => {
+      if (j.chartOfAccountId) {
+        journalMap.set(j.chartOfAccountId, {
+          debit: Number(j._sum.debitAmount || 0),
+          credit: Number(j._sum.creditAmount || 0),
+        });
+      }
+    });
+
+    const openingJournalSet = new Set(openingJournals.map((o) => o.chartOfAccountId));
+
+    clients.forEach((c) => {
+      const coaId = c.ChartOfAccount?.id;
+      let due = 0;
+      if (coaId && journalMap.has(coaId)) {
+        const j = journalMap.get(coaId)!;
+        due = j.debit - j.credit;
+      }
+      if (Number(c.openingBalance || 0) > 0 && (!coaId || !openingJournalSet.has(coaId))) {
+        due += Number(c.openingBalance || 0);
+      }
+      const finalDue = Math.max(0, due);
+      if (finalDue > 0) {
+        totalDue += finalDue;
+        clientsWithDue++;
+      }
+    });
+
+    return {
+      success: true,
+      summary: {
+        totalClients,
+        activeClients,
+        wholesaleClients,
+        regularClients: totalClients - wholesaleClients,
+        totalPoints,
+        totalDue,
+        clientsWithDue,
+      },
+    };
+  } catch (error) {
+    console.error("getClientSummaryMetrics error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to compute client summary",
+      summary: {
+        totalClients: 0,
+        activeClients: 0,
+        wholesaleClients: 0,
+        regularClients: 0,
+        totalPoints: 0,
+        totalDue: 0,
+        clientsWithDue: 0,
+      },
+    };
+  }
+}
+
 
 
