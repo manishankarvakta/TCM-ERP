@@ -1017,6 +1017,23 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     return null;
   }, [posSettings, discountAmount, discountValue, manualDiscountAmount, discountType, effectiveDiscountAmount, subTotal, cart]);
 
+  const roundTo3Decimals = (num: number): number => {
+    return Number(Math.round(Number(num + "e3")) + "e-3");
+  };
+
+  const isDiscreteUnit = (unit?: string | null): boolean => {
+    if (!unit) return false;
+    const norm = unit.trim().toLowerCase();
+    const discreteUnits = [
+      "pcs", "pc", "pcs.", "pc.", "piece", "pieces",
+      "box", "boxes", "ctn", "carton", "cartons",
+      "pack", "packs", "packet", "packets", "pkt",
+      "bag", "bags", "set", "sets", "doz", "dozen",
+      "pair", "pairs", "roll", "rolls", "can", "cans", "bottle", "bottles"
+    ];
+    return discreteUnits.includes(norm);
+  };
+
   const handleAddToCart = (item: Item, quantity: number = 1) => {
     if (item.variants && item.variants.length > 0) {
       setSelectedItemForVariants(item);
@@ -1034,16 +1051,32 @@ export default function POSComponent({ items, clients: initialClients, warehouse
       }
     }
 
-    const delta = isReturnMode ? -quantity : quantity;
     const cartKey = item.id;
+    let actualQtyToAdd = quantity;
 
     // Stock check for simple item addition
     const isNegativeSaleAllowed = posSettings?.allowNegativeSale ?? false;
     if (!isNegativeSaleAllowed && item.trackInventory && !isReturnMode) {
-      const availableStock = item.stocks?.find(s => s.warehouseId === selectedWarehouseId)?.quantity || 0;
+      const availableStock = Number(item.stocks?.find(s => s.warehouseId === selectedWarehouseId)?.quantity || 0);
       const existing = cart.find((i) => i.cartKey === cartKey);
       const currentQty = existing ? existing.cartQuantity : 0;
-      if (currentQty + quantity > availableStock) {
+      const remainingStock = availableStock - currentQty;
+
+      if (remainingStock < 0.001) {
+        toast({
+          title: "Stock Alert",
+          description: `Cannot add more of: ${item.description || item.name || "item"}. Available stock: ${availableStock}.`,
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const itemUnitStr = (item.unit as any)?.symbol || (item.unit as any)?.details || (typeof item.unit === "string" ? item.unit : "");
+      const isDiscrete = isDiscreteUnit(itemUnitStr);
+
+      if (!isDiscrete && quantity === 1 && remainingStock < 1 && remainingStock >= 0.001) {
+        actualQtyToAdd = roundTo3Decimals(remainingStock);
+      } else if (currentQty + quantity > availableStock) {
         toast({
           title: "Stock Alert",
           description: `Cannot add more of: ${item.description || item.name || "item"}. Available stock: ${availableStock}.`,
@@ -1052,6 +1085,8 @@ export default function POSComponent({ items, clients: initialClients, warehouse
         return;
       }
     }
+
+    const delta = isReturnMode ? -actualQtyToAdd : actualQtyToAdd;
 
     const itemToAdd: CartItem = { 
       ...item, 
@@ -1107,16 +1142,32 @@ export default function POSComponent({ items, clients: initialClients, warehouse
       }
     }
 
-    const delta = isReturnMode ? -quantity : quantity;
     const cartKey = `${item.id}-${variant.id}`;
+    let actualQtyToAdd = quantity;
 
     // Stock check for variant item addition
     const isNegativeSaleAllowed = posSettings?.allowNegativeSale ?? false;
     if (!isNegativeSaleAllowed && item.trackInventory && !isReturnMode) {
-      const variantStock = variant.stocks?.find(s => s.warehouseId === selectedWarehouseId)?.quantity || 0;
+      const variantStock = Number(variant.stocks?.find(s => s.warehouseId === selectedWarehouseId)?.quantity || 0);
       const existing = cart.find((i) => i.cartKey === cartKey);
       const currentQty = existing ? existing.cartQuantity : 0;
-      if (currentQty + quantity > variantStock) {
+      const remainingStock = variantStock - currentQty;
+
+      if (remainingStock < 0.001) {
+        toast({
+          title: "Stock Alert",
+          description: `Cannot add more of: ${item.description || item.name || "item"} (${variant.color} / ${variant.size}). Available stock: ${variantStock}.`,
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const itemUnitStr = (item.unit as any)?.symbol || (item.unit as any)?.details || (typeof item.unit === "string" ? item.unit : "");
+      const isDiscrete = isDiscreteUnit(itemUnitStr);
+
+      if (!isDiscrete && quantity === 1 && remainingStock < 1 && remainingStock >= 0.001) {
+        actualQtyToAdd = roundTo3Decimals(remainingStock);
+      } else if (currentQty + quantity > variantStock) {
         toast({
           title: "Stock Alert",
           description: `Cannot add more of: ${item.description || item.name || "item"} (${variant.color} / ${variant.size}). Available stock: ${variantStock}.`,
@@ -1125,6 +1176,8 @@ export default function POSComponent({ items, clients: initialClients, warehouse
         return;
       }
     }
+
+    const delta = isReturnMode ? -actualQtyToAdd : actualQtyToAdd;
 
     const itemToAdd: CartItem = {
       ...item,
@@ -1188,10 +1241,6 @@ export default function POSComponent({ items, clients: initialClients, warehouse
         return i;
       });
     });
-  };
-
-  const roundTo3Decimals = (num: number): number => {
-    return Number(Math.round(Number(num + "e3")) + "e-3");
   };
 
   const handleCustomQuantitySet = (cartKey: string, qty: number) => {
@@ -1352,7 +1401,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
           ? targetItem.variants.reduce((acc, v) => acc + (v.stocks?.find(s => s.warehouseId === selectedWarehouseId)?.quantity || 0), 0)
           : (targetItem.stocks?.find(s => s.warehouseId === selectedWarehouseId)?.quantity || 0);
 
-        if (itemStock <= 0) {
+        if (itemStock < 0.001) {
           toast({
             title: "Stock Alert",
             description: `Cannot add: ${targetItem.description || targetItem.name || "Item"} is out of stock.`,
@@ -1405,7 +1454,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
           const isNegativeSaleAllowed = posSettings?.allowNegativeSale ?? false;
           if (!isNegativeSaleAllowed && item.trackInventory) {
             const variantStock = matchedVariant.stocks?.find(s => s.warehouseId === selectedWarehouseId)?.quantity || 0;
-            if (variantStock <= 0) {
+            if (variantStock < 0.001) {
               toast({
                 title: "Stock Alert",
                 description: `Cannot add: ${item.description} (${matchedVariant.color} / ${matchedVariant.size}) is out of stock.`,
@@ -1438,7 +1487,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
       const isNegativeSaleAllowed = posSettings?.allowNegativeSale ?? false;
       if (!isNegativeSaleAllowed && matchedItem.trackInventory) {
         const itemStock = matchedItem.stocks?.find(s => s.warehouseId === selectedWarehouseId)?.quantity || 0;
-        if (itemStock <= 0) {
+        if (itemStock < 0.001) {
           toast({
             title: "Stock Alert",
             description: `Cannot add: ${matchedItem.description} is out of stock.`,
