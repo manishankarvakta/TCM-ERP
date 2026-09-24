@@ -4,6 +4,7 @@ import { hasPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { arrayToCSV } from "@/lib/utils/export-csv";
 import * as XLSX from "xlsx";
+import { computeSalePaymentStatus } from "@/lib/sales-utils";
 
 export async function GET(req: NextRequest) {
   try {
@@ -26,6 +27,7 @@ export async function GET(req: NextRequest) {
     const type = searchParams.get("type");
     const startDate = searchParams.get("startDate");
     const endDate = searchParams.get("endDate");
+    const paymentStatus = searchParams.get("paymentStatus");
     const salesAssistantId = searchParams.get("salesAssistantId");
 
     const dbUser = await prisma.user.findUnique({
@@ -88,7 +90,11 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    const formattedData = sales.map((sale) => {
+    const filteredSales = (paymentStatus && paymentStatus !== "all")
+      ? sales.filter((s) => computeSalePaymentStatus(s as any) === paymentStatus)
+      : sales;
+
+    const formattedData = filteredSales.map((sale) => {
       const details = (sale.paymentDetails as any) || {};
       const cashAmount = Number(details.cashAmount || 0);
       const cardAmount = Number(details.cardAmount || 0);

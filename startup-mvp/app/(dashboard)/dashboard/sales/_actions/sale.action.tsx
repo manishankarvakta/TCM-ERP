@@ -9,6 +9,7 @@ import * as z from "zod";
 import { updateStockOnSale } from "@/app/(dashboard)/dashboard/inventory/stock/_actions/stock.action";
 import { createVoucher, postVoucher } from "@/app/(dashboard)/dashboard/accounts/vouchers/_actions/voucher.action";
 import { AccountType, VoucherType } from "@prisma/client";
+import { computeSalePaymentStatus, computeSaleDueAmount, computeSalePaidAmount } from "@/lib/sales-utils";
 
 const saleItemSchema = z.object({
   itemId: z.string().min(1, "Item is required"),
@@ -1494,6 +1495,7 @@ export async function getSales(
     startDate?: string;
     endDate?: string;
     salesAssistantId?: string;
+    paymentStatus?: string;
   }
 ) {
   try {
@@ -1543,7 +1545,110 @@ export async function getSales(
       ];
     }
 
-    const [sales, total, summaryResult, uniqueClientsCount, totalSoldItemsResult] = await Promise.all([
+    if (filters?.paymentStatus && filters.paymentStatus !== "all") {
+      const allSales = await prisma.sale.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          saleNumber: true,
+          date: true,
+          status: true,
+          orderType: true,
+          grandTotal: true,
+          isTrash: true,
+          paymentDetails: true,
+          _count: {
+            select: {
+              items: true,
+            },
+          },
+          client: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              company: true,
+            },
+          },
+          warehouse: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          createdByUser: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          salesAssistant: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+
+      const filteredSales = allSales.filter(
+        (s) => computeSalePaymentStatus(s) === filters.paymentStatus
+      );
+
+      const total = filteredSales.length;
+      const totalPages = Math.ceil(total / limit);
+      const pagedSales = filteredSales.slice(skip, skip + limit);
+
+      const filteredIds = filteredSales.map((s) => s.id);
+      const totalSoldItemsResult =
+        filteredIds.length > 0
+          ? await prisma.saleItem.aggregate({
+              where: {
+                saleId: { in: filteredIds },
+              },
+              _sum: {
+                quantity: true,
+              },
+            })
+          : { _sum: { quantity: null } };
+
+      const totalSale = filteredSales.reduce(
+        (acc, s) => acc + Number(s.grandTotal),
+        0
+      );
+      const totalDue = filteredSales.reduce(
+        (acc, s) => acc + computeSaleDueAmount(s),
+        0
+      );
+      const totalPaid = filteredSales.reduce(
+        (acc, s) => acc + computeSalePaidAmount(s),
+        0
+      );
+      const uniqueClients = new Set(
+        filteredSales.map((s) => s.client?.id).filter(Boolean)
+      ).size;
+
+      return {
+        success: true,
+        sales: pagedSales.map((sale) => ({
+          ...sale,
+          grandTotal: Number(sale.grandTotal),
+        })),
+        pagination: { page, limit, total, totalPages },
+        summary: {
+          totalSale: totalSale,
+          totalPaid: totalPaid,
+          totalDue: totalDue,
+          totalCustomers: uniqueClients,
+          totalSoldItems: Number(totalSoldItemsResult._sum.quantity || 0),
+        },
+      };
+    }
+
+    const [sales, total, summaryResult, uniqueClientsCount, totalSoldItemsResult, allMatchingSalesForSummary] = await Promise.all([
       prisma.sale.findMany({
         where,
         skip,
@@ -1611,10 +1716,26 @@ export async function getSales(
         _sum: {
           quantity: true
         }
+      }),
+      prisma.sale.findMany({
+        where,
+        select: {
+          grandTotal: true,
+          status: true,
+          paymentDetails: true,
+        }
       })
     ]);
 
     const totalPages = Math.ceil(total / limit);
+    const totalDue = allMatchingSalesForSummary.reduce(
+      (acc, s) => acc + computeSaleDueAmount(s),
+      0
+    );
+    const totalPaid = allMatchingSalesForSummary.reduce(
+      (acc, s) => acc + computeSalePaidAmount(s),
+      0
+    );
 
     return {
       success: true,
@@ -1625,6 +1746,8 @@ export async function getSales(
       pagination: { page, limit, total, totalPages },
       summary: {
         totalSale: Number(summaryResult._sum.grandTotal || 0),
+        totalPaid: totalPaid,
+        totalDue: totalDue,
         totalCustomers: uniqueClientsCount.length,
         totalSoldItems: Number(totalSoldItemsResult._sum.quantity || 0),
       }
@@ -3657,12 +3780,18 @@ export async function processSaleReturn(
             cashAmount: refundCashAmt,
             cardAmount: refundCardAmt,
             mfsAmount: refundMfsAmt,
+            cashAccountId: origCashAcctId,
+            cardAccountId: origCardAcctId,
+            mfsAccountId: origMfsAcctId,
             arOffsetAmount: arOffset,
             changeAmount: 0
           } : {
             cashAmount: 0,
             cardAmount: 0,
             mfsAmount: 0,
+            cashAccountId: origCashAcctId,
+            cardAccountId: origCardAcctId,
+            mfsAccountId: origMfsAcctId,
             arOffsetAmount: arOffset,
             changeAmount: 0
           },

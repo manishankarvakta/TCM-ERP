@@ -21,6 +21,7 @@ interface SalesPageProps {
     type?: string;
     startDate?: string;
     endDate?: string;
+    paymentStatus?: string;
     salesAssistantId?: string;
     limit?: string;
   }>;
@@ -35,6 +36,7 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
   const billerId = params.billerId || undefined;
   const warehouseId = params.warehouseId || undefined;
   const type = params.type as any || undefined;
+  const paymentStatus = params.paymentStatus || undefined;
   const salesAssistantId = params.salesAssistantId || undefined;
   
   let startDate = params.startDate;
@@ -75,7 +77,7 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
   }
 
   const [result, canView, canEdit, canMoveToTrash, canDeletePermanently, warehousesRes, users, salesmen] = await Promise.all([
-    getSales(page, limit, search, status, { billerId, warehouseId: effectiveWarehouseId !== "all" ? effectiveWarehouseId : undefined, type, startDate, endDate, salesAssistantId }),
+    getSales(page, limit, search, status, { billerId, warehouseId: effectiveWarehouseId !== "all" ? effectiveWarehouseId : undefined, type, startDate, endDate, paymentStatus, salesAssistantId }),
     userId ? hasPermission(userId, "sales.sales", "view") : false,
     userId ? hasPermission(userId, "sales.sales", "edit") : false,
     userId ? hasPermission(userId, "sales.sales", "move-to-trash") : false,
@@ -145,6 +147,7 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
               type,
               startDate,
               endDate,
+              paymentStatus,
               salesAssistantId,
             }}
           />
@@ -176,6 +179,14 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
               <div className="bg-card text-card-foreground border border-border/80 px-4 py-2 rounded-xl shadow-sm flex flex-col min-w-[120px]">
                 <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Total Sales</span>
                 <span className="text-sm font-black text-foreground">৳{result.summary.totalSale.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              </div>
+              <div className="bg-card text-card-foreground border border-border/80 px-4 py-2 rounded-xl shadow-sm flex flex-col min-w-[110px]">
+                <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Total Paid</span>
+                <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">৳{(result.summary.totalPaid ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              </div>
+              <div className="bg-card text-card-foreground border border-border/80 px-4 py-2 rounded-xl shadow-sm flex flex-col min-w-[110px]">
+                <span className="text-[9px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wider">Total Due</span>
+                <span className="text-sm font-black text-rose-600 dark:text-rose-400">৳{(result.summary.totalDue ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
               <div className="bg-card text-card-foreground border border-border/80 px-4 py-2 rounded-xl shadow-sm flex flex-col min-w-[100px]">
                 <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Customers</span>
@@ -219,6 +230,7 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
               type,
               startDate,
               endDate,
+              paymentStatus,
               salesAssistantId,
             }}
           />
@@ -254,6 +266,7 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
               type,
               startDate,
               endDate,
+              paymentStatus,
               salesAssistantId,
             }}
           />

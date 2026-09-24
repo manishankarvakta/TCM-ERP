@@ -21,6 +21,7 @@ interface ExportSalesButtonProps {
     type?: OrderType;
     startDate?: string;
     endDate?: string;
+    paymentStatus?: string;
     salesAssistantId?: string;
   };
 }
@@ -43,6 +44,7 @@ export default function ExportSalesButton({
       if (filters?.billerId && filters.billerId !== "all") params.set("billerId", filters.billerId);
       if (filters?.warehouseId && filters.warehouseId !== "all") params.set("warehouseId", filters.warehouseId);
       if (filters?.type && (filters.type as string) !== "all") params.set("type", filters.type);
+      if (filters?.paymentStatus && filters.paymentStatus !== "all") params.set("paymentStatus", filters.paymentStatus);
       if (filters?.startDate) params.set("startDate", filters.startDate);
       if (filters?.endDate) params.set("endDate", filters.endDate);
       if (filters?.salesAssistantId && filters.salesAssistantId !== "all") params.set("salesAssistantId", filters.salesAssistantId);

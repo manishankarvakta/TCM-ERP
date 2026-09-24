@@ -174,6 +174,7 @@ export default function SalesListClient({
     type?: string;
     startDate?: string | null;
     endDate?: string | null;
+    paymentStatus?: string;
     salesAssistantId?: string;
   };
 }) {
@@ -188,7 +189,7 @@ export default function SalesListClient({
   const [billerId, setBillerId] = useState(filters?.billerId || "all");
   const [warehouseId, setWarehouseId] = useState(filters?.warehouseId || "all");
   const [type, setType] = useState(filters?.type || "all");
-  const [salesAssistantId, setSalesAssistantId] = useState(filters?.salesAssistantId || "all");
+  const [paymentStatus, setPaymentStatus] = useState(filters?.paymentStatus || "all");
   
   const formatForInput = (isoString?: string | null) => {
     if (!isoString) return "";
@@ -211,9 +212,9 @@ export default function SalesListClient({
     const newBiller = updates.billerId !== undefined ? updates.billerId : billerId;
     const newWarehouse = updates.warehouseId !== undefined ? updates.warehouseId : warehouseId;
     const newType = updates.type !== undefined ? updates.type : type;
+    const newPaymentStatus = updates.paymentStatus !== undefined ? updates.paymentStatus : paymentStatus;
     const newStart = updates.startDate !== undefined ? updates.startDate : startDate;
     const newEnd = updates.endDate !== undefined ? updates.endDate : endDate;
-    const newSalesAssistant = updates.salesAssistantId !== undefined ? updates.salesAssistantId : salesAssistantId;
 
     if (newBiller && newBiller !== "all") params.set("billerId", newBiller);
     else params.delete("billerId");
@@ -224,8 +225,8 @@ export default function SalesListClient({
     if (newType && newType !== "all") params.set("type", newType);
     else params.delete("type");
 
-    if (newSalesAssistant && newSalesAssistant !== "all") params.set("salesAssistantId", newSalesAssistant);
-    else params.delete("salesAssistantId");
+    if (newPaymentStatus && newPaymentStatus !== "all") params.set("paymentStatus", newPaymentStatus);
+    else params.delete("paymentStatus");
 
     if (newStart) {
        const [year, month, day] = newStart.split('-');
@@ -609,16 +610,16 @@ export default function SalesListClient({
         </div>
 
         <div className="space-y-1.5">
-          <Label className="text-xs font-medium text-muted-foreground">Sales Assistant</Label>
-          <Select value={salesAssistantId} onValueChange={(val) => { setSalesAssistantId(val); applyFilters({ salesAssistantId: val }); }}>
+          <Label className="text-xs font-medium text-muted-foreground">Payment Status</Label>
+          <Select value={paymentStatus} onValueChange={(val) => { setPaymentStatus(val); applyFilters({ paymentStatus: val }); }}>
             <SelectTrigger className="h-9">
-              <SelectValue placeholder="All Assistants" />
+              <SelectValue placeholder="All Payments" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Assistants</SelectItem>
-              {salesmen.map((s) => (
-                <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-              ))}
+              <SelectItem value="all">All Payments</SelectItem>
+              <SelectItem value="PAID">Paid</SelectItem>
+              <SelectItem value="PARTIAL">Partial Paid</SelectItem>
+              <SelectItem value="DUE">Due</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -657,10 +658,10 @@ export default function SalesListClient({
               const resetWarehouseId = isAdmin ? "all" : (userWarehouseId || "all");
               setWarehouseId(resetWarehouseId);
               setType("all");
+              setPaymentStatus("all");
               setStartDate("");
               setEndDate("");
-              setSalesAssistantId("all");
-              applyFilters({ billerId: "all", warehouseId: resetWarehouseId, type: "all", startDate: "", endDate: "", salesAssistantId: "all" });
+              applyFilters({ billerId: "all", warehouseId: resetWarehouseId, type: "all", paymentStatus: "all", startDate: "", endDate: "" });
             }}
             title="Clear Filters"
           >
@@ -688,7 +689,6 @@ export default function SalesListClient({
               <TableHead className="print:w-[10%] whitespace-nowrap">Type</TableHead>
               <TableHead className="print:hidden">Warehouse</TableHead>
               <TableHead className="print:w-[15%] whitespace-nowrap">Biller</TableHead>
-              <TableHead className="print:hidden">Assistant</TableHead>
               <TableHead className="print:w-[15%] whitespace-nowrap">Date</TableHead>
               <TableHead className="text-right print:w-[5%] whitespace-nowrap">Items</TableHead>
               <TableHead className="text-right print:w-[10%] whitespace-nowrap">Total</TableHead>
@@ -698,7 +698,7 @@ export default function SalesListClient({
           <TableBody>
             {initialSales.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
                   {isTrash ? "No trashed sales found" : "No sales found"}
                 </TableCell>
               </TableRow>
@@ -800,9 +800,6 @@ export default function SalesListClient({
                     </TableCell>
                     <TableCell className="text-muted-foreground print:text-black print:whitespace-nowrap">
                       {sale.createdByUser?.name || "System"}
-                    </TableCell>
-                    <TableCell className="print:hidden">
-                      {sale.salesAssistant?.name || "-"}
                     </TableCell>
                     <TableCell className="text-muted-foreground print:text-black print:whitespace-nowrap">
                       <div className="flex flex-col">

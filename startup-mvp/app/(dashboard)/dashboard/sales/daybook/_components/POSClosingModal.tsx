@@ -55,7 +55,6 @@ export default function POSClosingModal({
   // Cashier inputs
   const [openingCash, setOpeningCash] = useState<number>(savedSession?.openingCash || 0);
   const [cashOut, setCashOut] = useState<number>(savedSession?.cashOut || 0);
-  const [officeBill, setOfficeBill] = useState<number>(savedSession?.officeBill || 0);
   const [notes, setNotes] = useState<string>(savedSession?.notes || "");
   
   // Declared total received mapping by account name/method
@@ -93,7 +92,6 @@ export default function POSClosingModal({
             const saved = res.savedSession;
             setOpeningCash(saved.openingCash);
             setCashOut(saved.cashOut);
-            setOfficeBill(saved.officeBill);
             setNotes(saved.notes || "");
             
             if (saved.denominations) {
@@ -117,7 +115,6 @@ export default function POSClosingModal({
           } else {
             setOpeningCash(0);
             setCashOut(0);
-            setOfficeBill(0);
             setNotes("");
             setDenominations({
               note1000: 0, note500: 0, note200: 0, note100: 0, note50: 0,
@@ -149,7 +146,6 @@ export default function POSClosingModal({
       if (savedSession) {
         setOpeningCash(savedSession.openingCash || 0);
         setCashOut(savedSession.cashOut || 0);
-        setOfficeBill(savedSession.officeBill || 0);
         setNotes(savedSession.notes || "");
         setSelectedBillerId(savedSession.billerId);
         if (savedSession.denominations) {
@@ -170,7 +166,6 @@ export default function POSClosingModal({
         setSelectedBillerId(currentUserId);
         setOpeningCash(0);
         setCashOut(0);
-        setOfficeBill(0);
         setNotes("");
         setDenominations({
           note1000: 0, note500: 0, note200: 0, note100: 0, note50: 0,
@@ -209,13 +204,11 @@ export default function POSClosingModal({
     }));
   };
 
-  // Available Cash calculation: Opening Cash + Cash Sales + Due Collection (Cash) - Cash out - Office Bill
+  // Available Cash calculation: Opening Cash + Cash Sales + Due Collection (Cash) - Cash out
   const availableCashInDrawer = 
     Number(openingCash) + 
     Number(getCashSalesSystemExpected()) - 
-    Number(cashOut) - 
-    // We deduct office bill (expenses) from the available cash float
-    Number(officeBill);
+    Number(cashOut);
 
   const cashDiscrepancy = totalCashCounted - availableCashInDrawer;
 
@@ -277,7 +270,7 @@ export default function POSClosingModal({
         status,
         openingCash: Number(openingCash),
         cashOut: Number(cashOut),
-        officeBill: Number(officeBill),
+        officeBill: 0,
         cashInHand: totalCashCounted,
         availableCash: availableCashInDrawer,
         difference: cashDiscrepancy,
@@ -514,18 +507,6 @@ export default function POSClosingModal({
                         type="number"
                         value={cashOut || ""}
                         onChange={(e) => setCashOut(Number(e.target.value) || 0)}
-                        className="h-7 text-right font-bold text-xs border border-slate-300 focus:border-indigo-600 rounded-none w-full"
-                      />
-                    </TableCell>
-                  </TableRow>
-
-                  <TableRow className="hover:bg-transparent h-9">
-                    <TableCell className="font-bold border border-slate-200 py-1.5 px-3 bg-slate-50/30">Office Bill</TableCell>
-                    <TableCell className="border border-slate-200 py-0.5 px-2">
-                      <Input
-                        type="number"
-                        value={officeBill || ""}
-                        onChange={(e) => setOfficeBill(Number(e.target.value) || 0)}
                         className="h-7 text-right font-bold text-xs border border-slate-300 focus:border-indigo-600 rounded-none w-full"
                       />
                     </TableCell>

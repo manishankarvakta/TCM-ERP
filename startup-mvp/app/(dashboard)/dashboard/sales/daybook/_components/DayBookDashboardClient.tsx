@@ -395,10 +395,12 @@ export default function DayBookDashboardClient({
                       <span>Cash Out / Drops:</span>
                       <span className="font-medium">-{formatNumber(selectedClosing.cashOut)}</span>
                     </div>
-                    <div className="flex justify-between text-rose-600">
-                      <span>Office Bill / Expenses:</span>
-                      <span className="font-medium">-{formatNumber(selectedClosing.officeBill)}</span>
-                    </div>
+                    {selectedClosing.officeBill > 0 && (
+                      <div className="flex justify-between text-rose-600">
+                        <span>Office Bill / Expenses:</span>
+                        <span className="font-medium">-{formatNumber(selectedClosing.officeBill)}</span>
+                      </div>
+                    )}
                     <div className="border-t pt-1.5 flex justify-between font-bold text-slate-800 dark:text-slate-200">
                       <span>Expected Cash in Drawer:</span>
                       <span>{formatNumber(selectedClosing.availableCash)}</span>

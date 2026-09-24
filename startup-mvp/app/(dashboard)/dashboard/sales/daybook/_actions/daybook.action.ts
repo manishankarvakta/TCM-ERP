@@ -146,6 +146,7 @@ export async function getPOSClosingData(billerId: string, warehouseId: string, d
     // A. Parse direct sales payments
     let todaysCreditSales = 0;
     let loyaltyPointsUsed = 0; 
+    const defaultCashAccount = paymentAccounts.find(a => a.type === "CASH");
 
     for (const sale of sales) {
       const isReturn = sale.orderType === "RETURN";
@@ -155,25 +156,49 @@ export async function getPOSClosingData(billerId: string, warehouseId: string, d
       const grandTotalNum = Number(sale.grandTotal);
       // Credit sales calculation (due amount)
       if (!isReturn && grandTotalNum > 0) {
-        const cashAmt = Number(paymentDetails?.cashAmount || 0);
+        const changeAmt = Number(paymentDetails?.changeAmount || 0);
+        const rawCash = Number(paymentDetails?.cashAmount || 0);
+        const netCash = Math.max(0, rawCash - changeAmt);
         const cardAmt = Number(paymentDetails?.cardAmount || 0);
         const mfsAmt = Number(paymentDetails?.mfsAmount || 0);
-        const paidAmount = cashAmt + cardAmt + mfsAmt;
+        const pointsDisc = Number(paymentDetails?.pointsDiscountAmount || 0);
+        const paidAmount = netCash + cardAmt + mfsAmt + pointsDisc;
         if (grandTotalNum > paidAmount) {
           todaysCreditSales += (grandTotalNum - paidAmount);
         }
       }
 
       if (paymentDetails) {
-        const cashAmt = Number(paymentDetails.cashAmount || 0) * factor;
-        const cardAmt = Number(paymentDetails.cardAmount || 0) * factor;
-        const mfsAmt = Number(paymentDetails.mfsAmount || 0) * factor;
+        const changeAmt = Number(paymentDetails.changeAmount || 0);
+        let rawCash = Number(paymentDetails.cashAmount || 0);
+        let rawCard = Number(paymentDetails.cardAmount || 0);
+        let rawMfs = Number(paymentDetails.mfsAmount || 0);
+
+        // If a return was processed with zero cash refund payout (e.g. AR offset) but reverses a sale
+        // recorded earlier in the shift, reverse the original payment method so the drawer reconciles automatically
+        if (isReturn && rawCash === 0 && rawCard === 0 && rawMfs === 0 && sale.notes && sale.notes.startsWith("Return for sale ")) {
+          const origSaleNumber = sale.notes.replace("Return for sale ", "").trim();
+          const origSale = sales.find(s => s.saleNumber === origSaleNumber);
+          if (origSale) {
+            const origPd = origSale.paymentDetails as any;
+            const origChange = Number(origPd?.changeAmount || 0);
+            rawCash = Math.max(0, Number(origPd?.cashAmount || 0) - origChange);
+            rawCard = Number(origPd?.cardAmount || 0);
+            rawMfs = Number(origPd?.mfsAmount || 0);
+          }
+        }
+
+        const netCash = isReturn ? rawCash : Math.max(0, rawCash - changeAmt);
+        const cashAmt = netCash * factor;
+        const cardAmt = rawCard * factor;
+        const mfsAmt = rawMfs * factor;
         if (paymentDetails.pointsRedeemed) {
           loyaltyPointsUsed += Number(paymentDetails.pointsRedeemed || 0) * factor;
         }
 
-        if (cashAmt !== 0 && paymentDetails.cashAccountId && collectionsMap[paymentDetails.cashAccountId]) {
-          collectionsMap[paymentDetails.cashAccountId].regularCollection += cashAmt;
+        const cashAccId = paymentDetails.cashAccountId || defaultCashAccount?.id;
+        if (cashAmt !== 0 && cashAccId && collectionsMap[cashAccId]) {
+          collectionsMap[cashAccId].regularCollection += cashAmt;
         }
         if (cardAmt !== 0 && paymentDetails.cardAccountId && collectionsMap[paymentDetails.cardAccountId]) {
           collectionsMap[paymentDetails.cardAccountId].regularCollection += cardAmt;
