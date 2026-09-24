@@ -2786,6 +2786,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     isDueBill: directIsDueBill,
     pointsRedeemed: directPointsRedeemed = 0,
     pointsDiscountAmount: directPointsDiscountAmount = 0,
+    permittedById: directPermittedById,
   }: {
     cashAmount?: number;
     cardAmount?: number;
@@ -2796,6 +2797,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     isDueBill?: boolean;
     pointsRedeemed?: number;
     pointsDiscountAmount?: number;
+    permittedById?: string;
   } = {}) => {
     if (cart.length === 0) {
       toast({
@@ -2839,6 +2841,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
       isDueSale: directIsDueBill ?? isDueSale,
       pointsRedeemed: directPointsRedeemed,
       pointsDiscountAmount: directPointsDiscountAmount,
+      permittedById: directPermittedById,
     });
   };
 

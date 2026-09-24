@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { format } from "date-fns";
+import { useReactToPrint } from "react-to-print";
 import { 
   Calendar as CalendarIcon, 
   RefreshCw, 
@@ -15,7 +16,8 @@ import {
   User, 
   DollarSign, 
   TrendingUp, 
-  FileText 
+  FileText,
+  Printer 
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,6 +31,7 @@ import {
   getBillersForWarehouse 
 } from "../_actions/daybook.action";
 import POSClosingModal from "./POSClosingModal";
+import POSDaybookPrintTemplate from "./POSDaybookPrintTemplate";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
   AlertDialog,
@@ -68,6 +71,37 @@ export default function DayBookDashboardClient({
   const [error, setError] = useState<string | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{ open: boolean; title: string; description: string; onConfirm: () => void }>({ open: false, title: "", description: "", onConfirm: () => {} });
   const [alertDialog, setAlertDialog] = useState<{ open: boolean; title: string; description: string }>({ open: false, title: "", description: "" });
+
+  const printRef = useRef<HTMLDivElement>(null);
+  const [printData, setPrintData] = useState<{
+    mode: "single" | "consolidated";
+    closing: any | null;
+  }>({ mode: "consolidated", closing: null });
+
+  const triggerPrint = useReactToPrint({
+    contentRef: printRef,
+    documentTitle: `POS-Daybook-${date}`,
+  });
+
+  const selectedWarehouseName = React.useMemo(() => {
+    if (selectedWarehouseId === "all") return "All Warehouses";
+    const found = (warehouses || []).find(w => w.id === selectedWarehouseId);
+    return found ? found.name : "Main Branch";
+  }, [warehouses, selectedWarehouseId]);
+
+  const handlePrintDailyReport = () => {
+    setPrintData({ mode: "consolidated", closing: null });
+    setTimeout(() => {
+      triggerPrint();
+    }, 150);
+  };
+
+  const handlePrintCashierReport = (closingItem: any) => {
+    setPrintData({ mode: "single", closing: closingItem });
+    setTimeout(() => {
+      triggerPrint();
+    }, 150);
+  };
 
   const warehouseOptions = React.useMemo(() => {
     const list = (warehouses || []).map((w) => ({
@@ -222,6 +256,17 @@ export default function DayBookDashboardClient({
           </Button>
 
           <Button 
+            onClick={handlePrintDailyReport} 
+            variant="outline" 
+            disabled={isLoading}
+            className="bg-white dark:bg-slate-950 shadow-sm flex items-center gap-1.5 font-semibold text-xs border border-slate-200 hover:bg-slate-50"
+            title="Print Consolidated Daily Report"
+          >
+            <Printer className="h-4 w-4 text-indigo-600" />
+            <span>Print Daily Report</span>
+          </Button>
+
+          <Button 
             onClick={() => {
               setSelectedClosing(null); // Clear selected closing when opening new form
               setIsClosingModalOpen(true);
@@ -303,6 +348,16 @@ export default function DayBookDashboardClient({
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
+
+                            <Button 
+                              variant="ghost" 
+                              size="icon"
+                              onClick={() => handlePrintCashierReport(c)}
+                              title="Print Cashier Report"
+                              className="text-slate-600 hover:text-indigo-600"
+                            >
+                              <Printer className="h-4 w-4" />
+                            </Button>
                             
                             {c.status === "CLOSED" && (
                               <Button 
@@ -362,7 +417,19 @@ export default function DayBookDashboardClient({
                   <CardTitle className="text-md font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
                     <User className="h-4 w-4 text-indigo-500" /> Closing Audit details
                   </CardTitle>
-                  {getStatusBadge(selectedClosing.status)}
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handlePrintCashierReport(selectedClosing)}
+                      className="h-7 text-xs flex items-center gap-1 px-2 font-semibold bg-white dark:bg-slate-900 shadow-sm"
+                      title="Print Cashier Report"
+                    >
+                      <Printer className="h-3.5 w-3.5 text-indigo-600" />
+                      <span>Print</span>
+                    </Button>
+                    {getStatusBadge(selectedClosing.status)}
+                  </div>
                 </div>
                 <CardDescription className="mt-1">
                   Reconciled by {selectedClosing.biller.name}
@@ -542,6 +609,18 @@ export default function DayBookDashboardClient({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Hidden Printable Daybook Template */}
+      <div style={{ display: "none" }}>
+        <POSDaybookPrintTemplate
+          ref={printRef}
+          mode={printData.mode}
+          dateStr={date}
+          warehouseName={selectedWarehouseName}
+          closing={printData.closing}
+          closings={closings}
+        />
+      </div>
     </div>
   );
 }

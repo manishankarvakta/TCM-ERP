@@ -283,6 +283,12 @@ export default function SaleDetailsClient({
                     {paymentStatus === "PAID" ? "Paid" : paymentStatus === "PARTIAL" ? "Partial Paid" : "Due"}
                   </span>
                 </p>
+                {sale.permittedByUser && (
+                  <p className="print:hidden">
+                    <span className="text-muted-foreground">Authorized By: </span>
+                    <span className="font-medium text-slate-900">{sale.permittedByUser.name || sale.permittedByUser.email}</span>
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -372,6 +378,15 @@ export default function SaleDetailsClient({
                 <div className="space-y-1">
                   <p className="text-sm font-medium text-muted-foreground">Sales Assistant</p>
                   <p className="text-sm font-semibold text-primary">{sale.salesAssistant.name}</p>
+                </div>
+              </>
+            )}
+            {sale.permittedByUser && (
+              <>
+                <Separator />
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-muted-foreground">Authorized User</p>
+                  <p className="text-sm font-semibold text-primary">{sale.permittedByUser.name || sale.permittedByUser.email}</p>
                 </div>
               </>
             )}
@@ -919,6 +934,20 @@ export default function SaleDetailsClient({
                 <Separator />
               </>
             )}
+            {sale.permittedByUser && (
+              <>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                    <FiUser className="h-4 w-4" />
+                    Authorized By
+                  </p>
+                  <p className="font-medium">
+                    {sale.permittedByUser.name || sale.permittedByUser.email}
+                  </p>
+                </div>
+                <Separator />
+              </>
+            )}
             <div className="space-y-1">
               <p className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                 <FiCalendar className="h-4 w-4" />
@@ -955,6 +984,11 @@ export default function SaleDetailsClient({
             </div>
           </div>
           <div className="flex-1 flex flex-col justify-end min-h-[50px]">
+            {sale.permittedByUser && (
+              <p className="text-xs font-medium mb-1 text-slate-700">
+                {sale.permittedByUser.name || sale.permittedByUser.email}
+              </p>
+            )}
             <div className="border-t border-slate-300 w-3/4 mx-auto pt-2">
               <p className="text-[10px] font-semibold uppercase text-slate-500">Approved By</p>
             </div>

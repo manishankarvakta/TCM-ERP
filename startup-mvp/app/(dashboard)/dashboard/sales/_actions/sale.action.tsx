@@ -1854,6 +1854,14 @@ export async function getSaleById(saleId: string) {
             email: true,
           },
         },
+        permittedById: true,
+        permittedByUser: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
         createdAt: true,
         updatedAt: true,
         completedAt: true,
@@ -1862,6 +1870,20 @@ export async function getSaleById(saleId: string) {
 
     if (!sale) {
       return { success: false, error: "Sale not found", sale: null };
+    }
+
+    let resolvedPermittedByUser = sale.permittedByUser;
+    const paymentDetailsObj = sale.paymentDetails as any;
+    const fallbackPermittedById = sale.permittedById || paymentDetailsObj?.permittedById || paymentDetailsObj?.authorizedById || paymentDetailsObj?.duePermittedById;
+    if (!resolvedPermittedByUser && fallbackPermittedById) {
+      resolvedPermittedByUser = await prisma.user.findUnique({
+        where: { id: fallbackPermittedById },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      });
     }
 
     return {
@@ -1890,6 +1912,8 @@ export async function getSaleById(saleId: string) {
         warehouse: sale.warehouse,
         createdByUser: sale.createdByUser,
         salesAssistant: sale.salesAssistant,
+        permittedById: sale.permittedById || fallbackPermittedById || null,
+        permittedByUser: resolvedPermittedByUser,
         createdAt: sale.createdAt,
         updatedAt: sale.updatedAt,
         completedAt: sale.completedAt,

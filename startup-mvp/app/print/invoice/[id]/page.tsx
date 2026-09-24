@@ -17,6 +17,7 @@ export default async function InvoicePrintPage({ params }: { params: Promise<{ i
           },
         },
         createdByUser: true,
+        permittedByUser: true,
         warehouse: true,
         items: {
           include: {

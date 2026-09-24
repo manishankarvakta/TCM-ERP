@@ -481,6 +481,13 @@ export async function getDailyWarehouseClosings(dateStr: string, warehouseId: st
             name: true
           }
         },
+        warehouse: {
+          select: {
+            id: true,
+            name: true,
+            code: true
+          }
+        },
         collections: true,
         denominations: true
       },
