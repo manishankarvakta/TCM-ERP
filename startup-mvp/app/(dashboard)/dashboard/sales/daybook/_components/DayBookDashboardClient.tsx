@@ -212,12 +212,12 @@ export default function DayBookDashboardClient({
   return (
     <div className="space-y-6">
       {/* Top Action Bar */}
-      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 border-b pb-4">
-        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1.5 sm:gap-3">
-          <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white flex items-center gap-2 whitespace-nowrap">
-            <FileText className="text-indigo-600 h-6 w-6" /> POS Daybook
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4">
+        <div>
+          <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+            <FileText className="text-indigo-600 h-7 w-7" /> POS Daybook
           </h1>
-          <p className="text-xs text-slate-500 whitespace-nowrap">Daily register closing & reconciliation</p>
+          <p className="text-xs text-slate-500 mt-0.5">Daily register closing & reconciliation</p>
         </div>
         
         <div className="flex flex-wrap items-center gap-2">
