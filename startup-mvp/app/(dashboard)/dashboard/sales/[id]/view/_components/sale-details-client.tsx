@@ -381,15 +381,6 @@ export default function SaleDetailsClient({
                 </div>
               </>
             )}
-            {sale.permittedByUser && (
-              <>
-                <Separator />
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-muted-foreground">Authorized User</p>
-                  <p className="text-sm font-semibold text-primary">{sale.permittedByUser.name || sale.permittedByUser.email}</p>
-                </div>
-              </>
-            )}
           </CardContent>
         </Card>
 

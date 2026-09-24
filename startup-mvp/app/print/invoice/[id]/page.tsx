@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import PrintButton from "./PrintButton";
 import ReceiptBarcode from "./ReceiptBarcode";
+import { computeSaleDueAmount } from "@/lib/sales-utils";
 
 
 export default async function InvoicePrintPage({ params }: { params: Promise<{ id: string }> }) {
@@ -203,6 +204,13 @@ export default async function InvoicePrintPage({ params }: { params: Promise<{ i
     return 0;
   });
 
+  const currentSaleDue = computeSaleDueAmount({
+    grandTotal: sale.grandTotal,
+    status: sale.status,
+    paymentDetails: sale.paymentDetails,
+  });
+  const isDueSale = currentSaleDue > 0.01;
+
   const paperSize = posSettings.paperSize || "80mm";
   const widthClass = 
     paperSize === "58mm" 
@@ -364,42 +372,55 @@ export default async function InvoicePrintPage({ params }: { params: Promise<{ i
             const change = Number((totalPaid - sale.grandTotal.toNumber()).toFixed(2));
 
             return (
-              <div className="border-t border-dashed border-black pt-1 mt-1 space-y-1">
+              <div className="relative border-t border-dashed border-black pt-1 mt-1 space-y-1">
+                {isDueSale && (
+                  <div
+                    className="pointer-events-none absolute inset-0 flex items-center justify-center z-0 select-none overflow-visible"
+                    style={{ opacity: 0.18 }}
+                    aria-hidden="true"
+                  >
+                    <img
+                      src="/Payment-due.svg"
+                      alt="Payment Due"
+                      className="w-4/5 max-w-[210px] object-contain transform -rotate-12"
+                    />
+                  </div>
+                )}
                 {cash > 0 && (
-                  <div className="flex justify-between">
+                  <div className="relative z-10 flex justify-between">
                     <span>{change > 0.01 ? `${cashAccountName} Received:` : `Paid ${cashAccountName}:`}</span>
                     <span>{cash.toFixed(2)}</span>
                   </div>
                 )}
                 {card > 0 && (
-                  <div className="flex justify-between">
+                  <div className="relative z-10 flex justify-between">
                     <span>Paid {cardAccountName}:</span>
                     <span>{card.toFixed(2)}</span>
                   </div>
                 )}
                 {mfs > 0 && (
-                  <div className="flex justify-between">
+                  <div className="relative z-10 flex justify-between">
                     <span>Paid {mfsAccountName}:</span>
                     <span>{mfs.toFixed(2)}</span>
                   </div>
                 )}
                 {due > 0.01 && (
-                  <div className="flex justify-between font-semibold">
+                  <div className="relative z-10 flex justify-between font-semibold">
                     <span>Due Amount:</span>
                     <span>{due.toFixed(2)}</span>
                   </div>
                 )}
                 {change > 0.01 && (
-                  <div className="flex justify-between font-semibold">
+                  <div className="relative z-10 flex justify-between font-semibold">
                     <span>Change Amount:</span>
                     <span>{change.toFixed(2)}</span>
                   </div>
                 )}
-                <div className="flex justify-between font-semibold border-t border-dashed border-black pt-1 mt-1">
+                <div className="relative z-10 flex justify-between font-semibold border-t border-dashed border-black pt-1 mt-1">
                   <span>Previous Due:</span>
                   <span>{previousDue.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between font-bold text-[11px]">
+                <div className="relative z-10 flex justify-between font-bold text-[11px]">
                   <span>Total Due:</span>
                   <span>{(previousDue + (due > 0 ? due : 0)).toFixed(2)}</span>
                 </div>
