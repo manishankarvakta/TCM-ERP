@@ -212,36 +212,36 @@ export default function DayBookDashboardClient({
   return (
     <div className="space-y-6">
       {/* Top Action Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-5">
-        <div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
-            <FileText className="text-indigo-600 h-8 w-8" /> POS Daybook
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 border-b pb-4">
+        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1.5 sm:gap-3">
+          <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white flex items-center gap-2 whitespace-nowrap">
+            <FileText className="text-indigo-600 h-6 w-6" /> POS Daybook
           </h1>
-          <p className="text-slate-500 mt-1">Daily register closing and drawer reconciliation logs.</p>
+          <p className="text-xs text-slate-500 whitespace-nowrap">Daily register closing & reconciliation</p>
         </div>
         
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           {/* Warehouse Selector */}
-          <div className="flex items-center gap-2 bg-white dark:bg-slate-950 p-1 rounded-lg border shadow-sm">
-            <MapPin className="text-slate-400 h-4 w-4 ml-1" />
+          <div className="flex items-center gap-1.5 bg-white dark:bg-slate-950 p-1 rounded-lg border shadow-sm">
+            <MapPin className="text-slate-400 h-3.5 w-3.5 ml-1" />
             <SearchableSelect
               options={warehouseOptions}
               value={selectedWarehouseId}
               onValueChange={(val) => setSelectedWarehouseId(val || "all")}
               disabled={!isAdmin}
-              className="w-56 h-8 text-xs font-semibold bg-transparent border-none shadow-none focus:ring-0"
+              className="w-48 h-8 text-xs font-semibold bg-transparent border-none shadow-none focus:ring-0"
               placeholder="Select Warehouse..."
             />
           </div>
 
           {/* Date Picker */}
-          <div className="flex items-center gap-2 bg-white dark:bg-slate-950 p-2 rounded-lg border shadow-sm">
-            <CalendarIcon className="text-slate-400 h-4 w-4" />
+          <div className="flex items-center gap-1.5 bg-white dark:bg-slate-950 px-2 py-1 rounded-lg border shadow-sm h-8">
+            <CalendarIcon className="text-slate-400 h-3.5 w-3.5" />
             <input
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className="bg-transparent text-sm font-semibold border-none focus:outline-none cursor-pointer"
+              className="bg-transparent text-xs font-semibold border-none focus:outline-none cursor-pointer"
             />
           </div>
 
@@ -250,20 +250,21 @@ export default function DayBookDashboardClient({
             variant="outline" 
             size="icon"
             disabled={isLoading}
-            className="bg-white dark:bg-slate-950 shadow-sm"
+            className="h-8 w-8 bg-white dark:bg-slate-950 shadow-sm"
           >
-            <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+            <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} />
           </Button>
 
           <Button 
             onClick={handlePrintDailyReport} 
             variant="outline" 
             disabled={isLoading}
-            className="bg-white dark:bg-slate-950 shadow-sm flex items-center gap-1.5 font-semibold text-xs border border-slate-200 hover:bg-slate-50"
+            className="h-8 bg-white dark:bg-slate-950 shadow-sm flex items-center gap-1.5 font-semibold text-xs border border-slate-200 hover:bg-slate-50 px-2.5"
             title="Print Consolidated Daily Report"
           >
-            <Printer className="h-4 w-4 text-indigo-600" />
-            <span>Print Daily Report</span>
+            <Printer className="h-3.5 w-3.5 text-indigo-600" />
+            <span className="hidden sm:inline">Print Daily Report</span>
+            <span className="sm:hidden">Print</span>
           </Button>
 
           <Button 
@@ -271,9 +272,9 @@ export default function DayBookDashboardClient({
               setSelectedClosing(null); // Clear selected closing when opening new form
               setIsClosingModalOpen(true);
             }} 
-            className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold shadow-md flex items-center gap-2"
+            className="h-8 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs shadow-md flex items-center gap-1.5 px-3"
           >
-            <Plus className="h-4 w-4" /> POS Closing
+            <Plus className="h-3.5 w-3.5" /> POS Closing
           </Button>
         </div>
       </div>
