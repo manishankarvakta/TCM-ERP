@@ -222,26 +222,26 @@ export default function DayBookDashboardClient({
         
         <div className="flex flex-wrap items-center gap-2">
           {/* Warehouse Selector */}
-          <div className="flex items-center gap-1.5 bg-white dark:bg-slate-950 p-1 rounded-lg border shadow-sm">
-            <MapPin className="text-slate-400 h-3.5 w-3.5 ml-1" />
+          <div className="h-9 flex items-center gap-1.5 bg-white dark:bg-slate-950 px-2.5 rounded-lg border shadow-sm">
+            <MapPin className="text-slate-400 h-3.5 w-3.5 shrink-0" />
             <SearchableSelect
               options={warehouseOptions}
               value={selectedWarehouseId}
               onValueChange={(val) => setSelectedWarehouseId(val || "all")}
               disabled={!isAdmin}
-              className="w-48 h-8 text-xs font-semibold bg-transparent border-none shadow-none focus:ring-0"
+              className="w-48 h-full text-xs font-semibold bg-transparent border-none shadow-none focus:ring-0 px-0 py-0"
               placeholder="Select Warehouse..."
             />
           </div>
 
           {/* Date Picker */}
-          <div className="flex items-center gap-1.5 bg-white dark:bg-slate-950 px-2 py-1 rounded-lg border shadow-sm h-8">
-            <CalendarIcon className="text-slate-400 h-3.5 w-3.5" />
+          <div className="h-9 flex items-center gap-1.5 bg-white dark:bg-slate-950 px-2.5 rounded-lg border shadow-sm">
+            <CalendarIcon className="text-slate-400 h-3.5 w-3.5 shrink-0" />
             <input
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className="bg-transparent text-xs font-semibold border-none focus:outline-none cursor-pointer"
+              className="bg-transparent text-xs font-semibold border-none focus:outline-none cursor-pointer h-full"
             />
           </div>
 
@@ -250,7 +250,7 @@ export default function DayBookDashboardClient({
             variant="outline" 
             size="icon"
             disabled={isLoading}
-            className="h-8 w-8 bg-white dark:bg-slate-950 shadow-sm"
+            className="h-9 w-9 bg-white dark:bg-slate-950 shadow-sm rounded-lg"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} />
           </Button>
@@ -259,7 +259,7 @@ export default function DayBookDashboardClient({
             onClick={handlePrintDailyReport} 
             variant="outline" 
             disabled={isLoading}
-            className="h-8 bg-white dark:bg-slate-950 shadow-sm flex items-center gap-1.5 font-semibold text-xs border border-slate-200 hover:bg-slate-50 px-2.5"
+            className="h-9 bg-white dark:bg-slate-950 shadow-sm rounded-lg flex items-center gap-1.5 font-semibold text-xs border border-slate-200 hover:bg-slate-50 px-3"
             title="Print Consolidated Daily Report"
           >
             <Printer className="h-3.5 w-3.5 text-indigo-600" />
@@ -272,7 +272,7 @@ export default function DayBookDashboardClient({
               setSelectedClosing(null); // Clear selected closing when opening new form
               setIsClosingModalOpen(true);
             }} 
-            className="h-8 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs shadow-md flex items-center gap-1.5 px-3"
+            className="h-9 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs shadow-md rounded-lg flex items-center gap-1.5 px-3.5"
           >
             <Plus className="h-3.5 w-3.5" /> POS Closing
           </Button>
