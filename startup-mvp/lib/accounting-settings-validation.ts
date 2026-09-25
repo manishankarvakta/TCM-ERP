@@ -331,6 +331,9 @@ export async function validateOperationAccountSettings(
   if (settings.sales.salesDiscountAccountId) {
     accountIds.push(settings.sales.salesDiscountAccountId);
   }
+  if (settings.sales.loyaltyDiscountAccountId) {
+    accountIds.push(settings.sales.loyaltyDiscountAccountId);
+  }
   if (settings.sales.roundOffAccountId) {
     accountIds.push(settings.sales.roundOffAccountId);
   }
@@ -404,6 +407,18 @@ export async function validateOperationAccountSettings(
     if (salesAcct.type !== AccountType.REVENUE && salesAcct.type !== AccountType.EXPENSE) {
       throw new Error(
         `Sales General Discount account "${salesAcct.name}" must be a REVENUE or EXPENSE account, but is ${salesAcct.type}`
+      );
+    }
+  }
+
+  if (settings.sales.loyaltyDiscountAccountId) {
+    const loyaltyAcct = accountMap.get(settings.sales.loyaltyDiscountAccountId);
+    if (!loyaltyAcct) {
+      throw new AccountNotFoundValidationError(settings.sales.loyaltyDiscountAccountId, "Sales Loyalty Points Discount");
+    }
+    if (loyaltyAcct.type !== AccountType.REVENUE && loyaltyAcct.type !== AccountType.EXPENSE) {
+      throw new Error(
+        `Sales Loyalty Points Discount account "${loyaltyAcct.name}" must be a REVENUE or EXPENSE account, but is ${loyaltyAcct.type}`
       );
     }
   }

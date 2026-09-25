@@ -1177,8 +1177,12 @@ export async function createSaleAccountingVoucher(
     const absTotalSaleAmount = Math.abs(Number(totalSaleAmount));
     const absGrandTotal = Math.abs(Number(sale.grandTotal));
 
-    // Calculate coupon portion and other portion of the discount
+    // Calculate coupon portion, loyalty points portion, and other general portion of the discount
     const totalDiscount = Number(sale.discount || 0);
+    const paymentDetails = (sale.paymentDetails || {}) as any;
+    const rawPointsDiscount = Number(paymentDetails?.pointsDiscountAmount || 0);
+    const pointsRedeemedCount = Number(paymentDetails?.pointsRedeemed || 0);
+
     let couponDiscount = 0;
     if (sale.coupon && totalDiscount > 0) {
       const couponVal = Number(sale.coupon.value);
@@ -1189,7 +1193,10 @@ export async function createSaleAccountingVoucher(
       }
       couponDiscount = Math.min(couponDiscount, totalDiscount);
     }
-    const generalDiscount = Number((totalDiscount - couponDiscount).toFixed(2));
+
+    const remainingDiscountAfterCoupon = Math.max(0, totalDiscount - couponDiscount);
+    const pointsDiscount = Math.min(rawPointsDiscount, remainingDiscountAfterCoupon);
+    const generalDiscount = Number((remainingDiscountAfterCoupon - pointsDiscount).toFixed(2));
 
     // 1. Debit/Credit AR always for the full grand total on the primary SALES voucher
     voucherLines.push({
@@ -1203,10 +1210,10 @@ export async function createSaleAccountingVoucher(
       clientId: sale.clientId,
     });
 
-    // 1.5 Debit/Credit Coupon/Sales Discount if discount > 0
+    // 1.5 Debit/Credit Coupon/Loyalty/Sales Discount if discount > 0
     if (totalDiscount > 0) {
       if (couponDiscount > 0) {
-        const couponAcctId = salesAccounts.couponDiscountAccountId || salesAccounts.revenueAccountId;
+        const couponAcctId = salesAccounts.couponDiscountAccountId || salesAccounts.salesDiscountAccountId || salesAccounts.revenueAccountId;
         voucherLines.push({
           lineNumber: lineNumber++,
           debitAmount: isReturn ? 0 : couponDiscount,
@@ -1215,6 +1222,18 @@ export async function createSaleAccountingVoucher(
             ? `Reverse Coupon Discount (${sale.coupon?.code || 'Coupon'}) - ${sale.saleNumber}`
             : `Coupon Discount (${sale.coupon?.code || 'Coupon'}) - ${sale.saleNumber}`,
           chartOfAccountId: couponAcctId,
+        });
+      }
+      if (pointsDiscount > 0) {
+        const loyaltyAcctId = salesAccounts.loyaltyDiscountAccountId || salesAccounts.salesDiscountAccountId || salesAccounts.revenueAccountId;
+        voucherLines.push({
+          lineNumber: lineNumber++,
+          debitAmount: isReturn ? 0 : pointsDiscount,
+          creditAmount: isReturn ? pointsDiscount : 0,
+          description: isReturn
+            ? `Reverse Loyalty Points Discount (${pointsRedeemedCount > 0 ? `${pointsRedeemedCount} pts` : 'Points'}) - ${sale.saleNumber}`
+            : `Loyalty Points Discount (${pointsRedeemedCount > 0 ? `${pointsRedeemedCount} pts` : 'Points'}) - ${sale.saleNumber}`,
+          chartOfAccountId: loyaltyAcctId,
         });
       }
       if (generalDiscount > 0) {
@@ -1336,7 +1355,6 @@ export async function createSaleAccountingVoucher(
     }
 
     // Create a second voucher for immediate payments / refunds if applicable
-    const paymentDetails = sale.paymentDetails as any;
     const paymentLines: Array<{ accountId: string; amount: number; description: string }> = [];
 
     if (paymentDetails) {

@@ -15,6 +15,7 @@ async function seedSettings() {
     // Add default Purchase/Sales/Payment accounts to provide a complete robust seed if needed
     { code: "5020", name: "Cost of Goods Sold", type: "EXPENSE", accountGroup: "Direct Expenses" },
     { code: "4000", name: "Sales Revenue", type: "REVENUE", accountGroup: "Sales Accounts" },
+    { code: "4140", name: "Loyalty Points Redemption Discount", type: "REVENUE", accountGroup: "Sales Accounts" },
     { code: "1001", name: "Cash on Hand", type: "ASSET", accountGroup: "Cash & Bank" },
   ];
 
@@ -63,6 +64,10 @@ async function seedSettings() {
       receivableAccountId: "",
       cogsAccountId: accountIds["Cost of Goods Sold"],
       finishedGoodsInventoryAccountId: accountIds["Ready Products Inventory"],
+      couponDiscountAccountId: "",
+      salesDiscountAccountId: "",
+      loyaltyDiscountAccountId: accountIds["Loyalty Points Redemption Discount"],
+      roundOffAccountId: "",
     },
     production: {
        // Placeholder IDs if we don't have WIP accounts yet

@@ -24,6 +24,7 @@ const operationSettingsSchema = z.object({
   salesFinishedGoodsInventoryAccountId: z.string().min(1, "Required"),
   salesCouponDiscountAccountId: z.string().optional(),
   salesSalesDiscountAccountId: z.string().optional(),
+  salesLoyaltyDiscountAccountId: z.string().optional(),
   salesRoundOffAccountId: z.string().optional(),
   
   // Production
@@ -116,6 +117,7 @@ export default function OperationAccountMappingForm() {
             salesFinishedGoodsInventoryAccountId: s.sales.finishedGoodsInventoryAccountId,
             salesCouponDiscountAccountId: s.sales.couponDiscountAccountId || "",
             salesSalesDiscountAccountId: s.sales.salesDiscountAccountId || "",
+            salesLoyaltyDiscountAccountId: s.sales.loyaltyDiscountAccountId || "",
             salesRoundOffAccountId: s.sales.roundOffAccountId || "",
             productionConsumptionWipAccountId: s.production.consumptionWipAccountId,
             productionConsumptionRawMaterialInventoryId: s.production.consumptionRawMaterialInventoryId,
@@ -171,6 +173,7 @@ export default function OperationAccountMappingForm() {
           finishedGoodsInventoryAccountId: data.salesFinishedGoodsInventoryAccountId,
           couponDiscountAccountId: data.salesCouponDiscountAccountId || "",
           salesDiscountAccountId: data.salesSalesDiscountAccountId || "",
+          loyaltyDiscountAccountId: data.salesLoyaltyDiscountAccountId || "",
           roundOffAccountId: data.salesRoundOffAccountId || "",
         },
         production: {
@@ -242,7 +245,8 @@ export default function OperationAccountMappingForm() {
       salesCogsAccountId: findAccount(["COGS", "Cost of Goods Sold", "Cost of Sales"], AccountType.EXPENSE),
       salesFinishedGoodsInventoryAccountId: findAccount(["Finished Goods", "Ready Product", "Inventory"], AccountType.ASSET),
       salesCouponDiscountAccountId: findAccount(["Coupon Discount", "Promo Discount", "Coupon"], AccountType.REVENUE) || findAccount(["Coupon Discount", "Promo Discount", "Coupon"], AccountType.EXPENSE),
-      salesSalesDiscountAccountId: findAccount(["Sales Discount", "Discount"], AccountType.REVENUE, ["coupon", "promo"]) || findAccount(["Sales Discount", "Discount"], AccountType.EXPENSE, ["coupon", "promo"]),
+      salesSalesDiscountAccountId: findAccount(["Sales Discount", "Discount"], AccountType.REVENUE, ["coupon", "promo", "loyalty", "point"]) || findAccount(["Sales Discount", "Discount"], AccountType.EXPENSE, ["coupon", "promo", "loyalty", "point"]),
+      salesLoyaltyDiscountAccountId: findAccount(["Loyalty Discount", "Points Discount", "Loyalty", "Point Redemption", "Points"], AccountType.REVENUE) || findAccount(["Loyalty Discount", "Points Discount", "Loyalty", "Point Redemption", "Points"], AccountType.EXPENSE),
       salesRoundOffAccountId: findAccount(["Roundup", "Round-off", "Rounding"], AccountType.REVENUE) || findAccount(["Roundup", "Round-off", "Rounding"], AccountType.EXPENSE),
       productionConsumptionWipAccountId: findAccount(["WIP", "Work in Progress"], AccountType.ASSET),
       productionConsumptionRawMaterialInventoryId: findAccount(["Raw Material", "Inventory"], AccountType.ASSET),
@@ -331,6 +335,7 @@ export default function OperationAccountMappingForm() {
                 name="salesCouponDiscountAccountId"
                 label="DR - Coupon Discount (Optional)"
                 types={[AccountType.REVENUE, AccountType.EXPENSE]}
+                required={false}
                 accounts={accounts}
                 loadingAccounts={loadingAccounts}
                 control={control}
@@ -340,6 +345,17 @@ export default function OperationAccountMappingForm() {
                 name="salesSalesDiscountAccountId"
                 label="DR - Sales Discount (Optional)"
                 types={[AccountType.REVENUE, AccountType.EXPENSE]}
+                required={false}
+                accounts={accounts}
+                loadingAccounts={loadingAccounts}
+                control={control}
+                errors={errors}
+              />
+              <AccountSelector
+                name="salesLoyaltyDiscountAccountId"
+                label="DR - Loyalty Points Discount (Optional)"
+                types={[AccountType.REVENUE, AccountType.EXPENSE, AccountType.LIABILITY]}
+                required={false}
                 accounts={accounts}
                 loadingAccounts={loadingAccounts}
                 control={control}
@@ -349,6 +365,7 @@ export default function OperationAccountMappingForm() {
                 name="salesRoundOffAccountId"
                 label="DR/CR - Roundup / Round-off Adjustment (Optional)"
                 types={[AccountType.REVENUE, AccountType.EXPENSE]}
+                required={false}
                 accounts={accounts}
                 loadingAccounts={loadingAccounts}
                 control={control}
@@ -703,6 +720,7 @@ const AccountSelector = ({
               value={field.value as string}
               onValueChange={field.onChange}
               disabled={loadingAccounts}
+              allowClear={!required}
               placeholder="Select account..."
               searchPlaceholder="Search accounts..."
             />

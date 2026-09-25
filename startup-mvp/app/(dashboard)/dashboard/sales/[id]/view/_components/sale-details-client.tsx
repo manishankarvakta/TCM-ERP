@@ -72,7 +72,11 @@ export default function SaleDetailsClient({
     }
     couponDiscount = Math.min(couponDiscount, totalDiscount);
   }
-  const generalDiscount = Number((totalDiscount - couponDiscount).toFixed(2));
+  const pointsDiscount = Number((sale.paymentDetails as any)?.pointsDiscountAmount || 0);
+  const roundOff = (sale.paymentDetails as any)?.roundOff !== undefined && (sale.paymentDetails as any)?.roundOff !== null
+    ? Number((sale.paymentDetails as any).roundOff)
+    : Number((Number(sale.grandTotal || 0) - (Number(sale.subTotal || 0) - Number(sale.discount || 0) + Number(sale.tax || 0))).toFixed(2));
+  const generalDiscount = Number(Math.max(0, totalDiscount - couponDiscount - pointsDiscount - extractedMembershipDiscount).toFixed(2));
 
   const getStatusBadgeVariant = (status: SaleStatus) => {
     switch (status) {
@@ -483,10 +487,28 @@ export default function SaleDetailsClient({
                   </span>
                 </div>
               )}
+              {pointsDiscount > 0 && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">
+                    Points Redemption
+                  </span>
+                  <span className="font-medium text-indigo-600">
+                    -{formatCurrency(pointsDiscount)}
+                  </span>
+                </div>
+              )}
               {sale.tax && sale.tax > 0 && (
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Tax</span>
                   <span className="font-medium">{formatCurrency(sale.tax)}</span>
+                </div>
+              )}
+              {Math.abs(roundOff) > 0.001 && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Round Off</span>
+                  <span className="font-medium text-muted-foreground">
+                    {roundOff > 0 ? `+${formatCurrency(roundOff)}` : `-${formatCurrency(Math.abs(roundOff))}`}
+                  </span>
                 </div>
               )}
               {totalReceived > 0 && (
@@ -553,6 +575,14 @@ export default function SaleDetailsClient({
                             <span className="font-semibold shrink-0">{formatCurrency(Number(paymentDetails.mfsAmount))}</span>
                           </div>
                         )}
+                        {pointsDiscount > 0 && (
+                          <div className="flex justify-between items-start text-xs gap-2">
+                            <span className="text-muted-foreground text-left leading-normal">
+                              Points Redemption
+                            </span>
+                            <span className="font-semibold shrink-0 text-indigo-600">-{formatCurrency(pointsDiscount)}</span>
+                          </div>
+                        )}
                         {couponDiscount > 0 && (
                           <div className="flex justify-between items-start text-xs gap-2">
                             <span className="text-muted-foreground text-left leading-normal">
@@ -567,6 +597,16 @@ export default function SaleDetailsClient({
                               Sales Discount {salesDiscountAccount ? `(${salesDiscountAccount.code} - ${salesDiscountAccount.name})` : ""}
                             </span>
                             <span className="font-semibold shrink-0 text-green-600">-{formatCurrency(generalDiscount)}</span>
+                          </div>
+                        )}
+                        {Math.abs(roundOff) > 0.001 && (
+                          <div className="flex justify-between items-start text-xs gap-2">
+                            <span className="text-muted-foreground text-left leading-normal">
+                              Round-off Adjustment
+                            </span>
+                            <span className="font-semibold shrink-0">
+                              {roundOff > 0 ? `+${formatCurrency(roundOff)}` : `-${formatCurrency(Math.abs(roundOff))}`}
+                            </span>
                           </div>
                         )}
                         {remainingDue > 0.01 && (

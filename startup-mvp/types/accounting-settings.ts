@@ -25,8 +25,9 @@ export interface SalesAccounts {
   finishedGoodsInventoryAccountId: string; // CR (Ready Products Inventory)
   
   // Discount Entry
-  couponDiscountAccountId?: string; // DR (Sales Coupon Discount - Optional)
-  salesDiscountAccountId?: string;  // DR (Sales Discount - Optional)
+  couponDiscountAccountId?: string;  // DR (Sales Coupon Discount - Optional)
+  salesDiscountAccountId?: string;   // DR (Sales Discount - Optional)
+  loyaltyDiscountAccountId?: string; // DR (Loyalty Points Discount - Optional)
 
   // Round-off Entry
   roundOffAccountId?: string;       // (Roundup / Round-off Adjustment Account - Optional)

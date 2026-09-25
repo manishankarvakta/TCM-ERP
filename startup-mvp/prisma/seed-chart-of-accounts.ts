@@ -464,6 +464,15 @@ async function main() {
       isControl: false,
     },
     {
+      code: "4140",
+      name: "Loyalty Points Redemption Discount",
+      type: "REVENUE" as AccountType,
+      parentCode: "4000",
+      description: "Customer loyalty points redemption discount",
+      isPostable: true,
+      isControl: false,
+    },
+    {
       code: "4190",
       name: "Other Income",
       type: "REVENUE" as AccountType,

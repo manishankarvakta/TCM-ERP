@@ -391,7 +391,27 @@ export default function POSScreenModern({
   );
   const [isPrintConfirmOpen, setIsPrintConfirmOpen] = useState(false);
 
-  // Auto-update cash amount when cart/totals or split payment methods change
+  const selectedClientObj = clients.find((c) => c.id === selectedClientId);
+  const clientPoints = Number((selectedClientObj as any)?.membershipPoints) || 0;
+
+  const effectivePointsToRedeem = enablePointsRedeem ? (Number(pointsToRedeem) || 0) : 0;
+
+  // Maximum points client can redeem against grand total
+  const maxRedeemablePoints = Math.min(
+    clientPoints,
+    Math.floor((grandTotal + effectivePointsToRedeem * pointValue) / (pointValue || 1))
+  );
+
+  const pointsDiscountAmount = effectivePointsToRedeem * pointValue;
+  const rawNetPayable = Math.max(0, grandTotal - pointsDiscountAmount);
+  const payableTotal = Math.round(rawNetPayable);
+  const roundOffAmount = Number((payableTotal - rawNetPayable).toFixed(2));
+
+  const pointsEarnedThisSale = (selectedClientObj as any)?.membershipStatus === "ACTIVE" 
+    ? Math.floor(payableTotal / pointsSpentRatio) 
+    : 0;
+
+  // Auto-update cash amount when cart/totals, split payment methods, or points redemption change
   React.useEffect(() => {
     if (cart.length === 0) {
       setCashAmount(0);
@@ -403,32 +423,12 @@ export default function POSScreenModern({
       setDiscountAmount(0);
     } else if (!isDueBill) {
       const otherPayments = (Number(cardAmount) || 0) + (Number(mfsAmount) || 0);
-      const remainingNeeded = Math.max(0, Math.round(grandTotal) - otherPayments);
+      const remainingNeeded = Math.max(0, payableTotal - otherPayments);
       setCashAmount(remainingNeeded);
     }
-  }, [cart.length, grandTotal, cardAmount, mfsAmount, isDueBill, setDiscountAmount]);
-
-  const roundedGrandTotal = Math.round(grandTotal);
-
-  const selectedClientObj = clients.find((c) => c.id === selectedClientId);
-  const clientPoints = Number((selectedClientObj as any)?.membershipPoints) || 0;
-
-  const effectivePointsToRedeem = enablePointsRedeem ? (Number(pointsToRedeem) || 0) : 0;
-
-  // Maximum points client can redeem against rounded grand total
-  const maxRedeemablePoints = Math.min(
-    clientPoints,
-    Math.floor((roundedGrandTotal + effectivePointsToRedeem * pointValue) / (pointValue || 1))
-  );
-
-  const pointsDiscountAmount = effectivePointsToRedeem * pointValue;
-  const netGrandTotal = Math.max(0, roundedGrandTotal - pointsDiscountAmount);
-  const pointsEarnedThisSale = (selectedClientObj as any)?.membershipStatus === "ACTIVE" 
-    ? Math.floor(netGrandTotal / pointsSpentRatio) 
-    : 0;
+  }, [cart.length, payableTotal, cardAmount, mfsAmount, isDueBill, setDiscountAmount]);
 
   // Digital Payment (Card / MFS) Limits Validation
-  const payableTotal = Math.max(0, roundedGrandTotal - pointsDiscountAmount);
   const numCardAmount = Number(cardAmount) || 0;
   const numMfsAmount = Number(mfsAmount) || 0;
   const totalDigitalPayment = numCardAmount + numMfsAmount;
@@ -473,7 +473,7 @@ export default function POSScreenModern({
     (Number(cardAmount) || 0) +
     (Number(mfsAmount) || 0);
 
-  const changeAmount = Math.max(0, totalPaid - roundedGrandTotal);
+  const changeAmount = Math.max(0, totalPaid - payableTotal);
 
   const isWalkwayCustomer =
     !selectedClientId ||
@@ -614,7 +614,6 @@ export default function POSScreenModern({
       toast.error(digitalPaymentError);
       return;
     }
-    const payableTotal = Math.max(0, roundedGrandTotal - pointsDiscountAmount);
     if (totalPaid < payableTotal) {
       if (isWalkwayCustomer) {
         toast.error("Due sales are strictly prohibited for Walkway Customers. Full payment is required.");
@@ -1356,9 +1355,21 @@ export default function POSScreenModern({
                 <span>Gross Total:</span>
                 <span className="font-bold">{grandTotal.toFixed(2)}BDT</span>
               </div>
-              <div className="flex justify-between items-center text-foreground font-bold text-sm pt-1 border-t border-border/50">
-                <span>Gross Total(Round):</span>
-                <span>{roundedGrandTotal.toFixed(2)}BDT</span>
+              {enablePointsRedeem && effectivePointsToRedeem > 0 && (
+                <div className="flex justify-between items-center text-amber-600 dark:text-amber-400 font-semibold text-xs pt-0.5">
+                  <span>Points Currency ({effectivePointsToRedeem} pts):</span>
+                  <span>-৳{pointsDiscountAmount.toFixed(2)}</span>
+                </div>
+              )}
+              {roundOffAmount !== 0 && (
+                <div className="flex justify-between items-center text-muted-foreground text-xs pt-0.5">
+                  <span>Round Off:</span>
+                  <span>{roundOffAmount > 0 ? `+৳${roundOffAmount.toFixed(2)}` : `-৳${Math.abs(roundOffAmount).toFixed(2)}`}</span>
+                </div>
+              )}
+              <div className="flex justify-between items-center text-foreground font-black text-sm pt-1 border-t border-border/50">
+                <span>Net Payable:</span>
+                <span className="text-primary font-black">৳{payableTotal.toFixed(2)}</span>
               </div>
               {effectivePreviousDue > 0 && (
                 <>
@@ -1368,7 +1379,7 @@ export default function POSScreenModern({
                   </div>
                   <div className="flex justify-between items-center text-destructive font-bold text-xs">
                     <span>Total Combined Due:</span>
-                    <span>{(effectivePreviousDue + Math.max(0, roundedGrandTotal - totalPaid)).toFixed(2)}BDT</span>
+                    <span>{(effectivePreviousDue + Math.max(0, payableTotal - totalPaid)).toFixed(2)}BDT</span>
                   </div>
                 </>
               )}
@@ -1743,7 +1754,7 @@ export default function POSScreenModern({
                     onClick={() => {
                       setCardAmount(0);
                       setMfsAmount(0);
-                      setCashAmount(Math.round(grandTotal));
+                      setCashAmount(payableTotal);
                     }}
                   >
                     Exact
@@ -1772,10 +1783,10 @@ export default function POSScreenModern({
                   <span>Payment Status:</span>
                   <span className="font-semibold text-foreground">No Items</span>
                 </div>
-              ) : totalPaid >= roundedGrandTotal ? (
+              ) : totalPaid >= payableTotal ? (
                 <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 rounded-lg p-2.5 flex justify-between items-center shadow-sm">
                   <span className="text-xs font-bold uppercase tracking-wide">Change to Return:</span>
-                  <span className="text-base font-black">৳{(totalPaid - roundedGrandTotal).toFixed(2)}</span>
+                  <span className="text-base font-black">৳{(totalPaid - payableTotal).toFixed(2)}</span>
                 </div>
               ) : isDueBill && !isWalkwayCustomer ? (
                 <div className="bg-amber-500/10 border border-amber-500/20 text-amber-600 rounded-lg p-2.5 space-y-1 shadow-sm">
@@ -1784,7 +1795,7 @@ export default function POSScreenModern({
                       {totalPaid > 0 ? "Remaining Due:" : "Amount to Due:"}
                     </span>
                     <span className="text-base font-black">
-                      ৳{Math.max(0, roundedGrandTotal - totalPaid).toFixed(2)}
+                      ৳{Math.max(0, payableTotal - totalPaid).toFixed(2)}
                     </span>
                   </div>
                   {effectivePreviousDue > 0 && (
@@ -1795,7 +1806,7 @@ export default function POSScreenModern({
                       </div>
                       <div className="flex justify-between items-center text-xs font-black text-destructive dark:text-rose-400">
                         <span>Total Combined Due:</span>
-                        <span>৳{(effectivePreviousDue + Math.max(0, roundedGrandTotal - totalPaid)).toFixed(2)}</span>
+                        <span>৳{(effectivePreviousDue + Math.max(0, payableTotal - totalPaid)).toFixed(2)}</span>
                       </div>
                     </>
                   )}
@@ -1807,7 +1818,7 @@ export default function POSScreenModern({
                       Amount Short:
                     </span>
                     <span className="text-base font-black text-destructive dark:text-rose-400">
-                      ৳{Math.max(0, roundedGrandTotal - totalPaid).toFixed(2)}
+                      ৳{Math.max(0, payableTotal - totalPaid).toFixed(2)}
                     </span>
                   </div>
                   <div className="text-[10px] font-medium text-rose-700/80 dark:text-rose-300/80">
@@ -1836,7 +1847,7 @@ export default function POSScreenModern({
               className={`w-full h-11 text-sm font-bold text-white transition-all shadow-md flex items-center justify-center gap-2 rounded-md ${
                 cart.length === 0 || !!discountLimitError || !!digitalPaymentError
                   ? "bg-slate-700 text-muted-foreground opacity-60 cursor-not-allowed"
-                  : totalPaid >= roundedGrandTotal
+                  : totalPaid >= payableTotal
                   ? "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/15"
                   : isDueBill && !isWalkwayCustomer
                   ? "bg-amber-600 hover:bg-amber-700 shadow-amber-500/15"
@@ -1850,11 +1861,11 @@ export default function POSScreenModern({
                 ? "Print Bill"
                 : digitalPaymentError
                 ? "Invalid Card/MFS Amount"
-                : totalPaid >= roundedGrandTotal
+                : totalPaid >= payableTotal
                 ? "Print Bill & Complete"
                 : isDueBill && !isWalkwayCustomer
                 ? "Print Bill (Due Sale)"
-                : `Incomplete Payment (Short: ৳${Math.max(0, roundedGrandTotal - totalPaid).toFixed(2)})`}
+                : `Incomplete Payment (Short: ৳${Math.max(0, payableTotal - totalPaid).toFixed(2)})`}
             </Button>
 
             <div className="text-center text-[11px] text-muted-foreground font-medium pt-1">
@@ -2006,9 +2017,15 @@ export default function POSScreenModern({
                   <span>-৳{pointsDiscountAmount.toFixed(2)}</span>
                 </div>
               )}
+              {roundOffAmount !== 0 && (
+                <div className="flex justify-between text-muted-foreground font-medium">
+                  <span>Round Off:</span>
+                  <span>{roundOffAmount > 0 ? `+৳${roundOffAmount.toFixed(2)}` : `-৳${Math.abs(roundOffAmount).toFixed(2)}`}</span>
+                </div>
+              )}
               <div className="border-t border-border pt-1.5 flex justify-between items-center text-sm font-black text-foreground">
                 <span>Payable Total:</span>
-                <span className="text-base text-primary">৳{roundedGrandTotal.toFixed(2)}</span>
+                <span className="text-base text-primary">৳{payableTotal.toFixed(2)}</span>
               </div>
             </div>
 
@@ -2038,15 +2055,15 @@ export default function POSScreenModern({
             </div>
 
             {/* Change or Due Indicator */}
-            {totalPaid >= roundedGrandTotal ? (
+            {totalPaid >= payableTotal ? (
               <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 p-2.5 rounded-lg flex justify-between items-center text-xs font-bold">
                 <span className="uppercase tracking-wide">Change to Return:</span>
-                <span className="text-sm font-black">৳{(totalPaid - roundedGrandTotal).toFixed(2)}</span>
+                <span className="text-sm font-black">৳{(totalPaid - payableTotal).toFixed(2)}</span>
               </div>
             ) : (
               <div className="bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 p-2.5 rounded-lg flex justify-between items-center text-xs font-bold">
                 <span className="uppercase tracking-wide">Due Remaining:</span>
-                <span className="text-sm font-black">৳{(roundedGrandTotal - totalPaid).toFixed(2)}</span>
+                <span className="text-sm font-black">৳{(payableTotal - totalPaid).toFixed(2)}</span>
               </div>
             )}
           </div>

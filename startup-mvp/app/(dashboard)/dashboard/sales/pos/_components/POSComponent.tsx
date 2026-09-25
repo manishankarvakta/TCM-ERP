@@ -2313,20 +2313,23 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     }
 
     // Payment validation
+    const rawNetTotal = subTotal + tax - (effectiveDiscountAmount + effectivePointsDiscountAmount);
+    const payableBillTotal = Math.max(0, Math.round(rawNetTotal));
+    const roundOffDiff = Number((payableBillTotal - rawNetTotal).toFixed(2));
     const totalPaid = effectiveCashAmount + effectiveCardAmount + effectiveMfsAmount;
-    if (isWalkway && totalPaid < (roundedGrandTotal - 0.01)) {
+    if (isWalkway && totalPaid < (payableBillTotal - 0.01)) {
       toast({
         title: "Validation Error",
-        description: `Full payment of ৳${roundedGrandTotal.toFixed(2)} is required for Walkway Customer. Current paid amount is ৳${totalPaid.toFixed(2)}.`,
+        description: `Full payment of ৳${payableBillTotal.toFixed(2)} is required for Walkway Customer. Current paid amount is ৳${totalPaid.toFixed(2)}.`,
         variant: "destructive"
       });
       return;
     }
 
-    if (!effectiveIsDueSale && totalPaid < roundedGrandTotal) {
+    if (!effectiveIsDueSale && totalPaid < (payableBillTotal - 0.01)) {
       toast({
         title: "Validation Error",
-        description: `Full payment of ৳${roundedGrandTotal.toFixed(2)} is required unless 'Due Sale' is enabled. Current paid amount is ৳${totalPaid.toFixed(2)}.`,
+        description: `Full payment of ৳${payableBillTotal.toFixed(2)} is required unless 'Due Sale' is enabled. Current paid amount is ৳${totalPaid.toFixed(2)}.`,
         variant: "destructive"
       });
       return;
@@ -2334,10 +2337,10 @@ export default function POSComponent({ items, clients: initialClients, warehouse
 
     // Digital payment limits validation (Card + MFS cannot exceed payable total)
     const totalDigitalPaid = effectiveCardAmount + effectiveMfsAmount;
-    if (roundedGrandTotal > 0 && totalDigitalPaid > roundedGrandTotal + 0.01) {
+    if (payableBillTotal > 0 && totalDigitalPaid > payableBillTotal + 0.01) {
       toast({
         title: "Invalid Payment Amount",
-        description: `Electronic payments (Card + MFS: ৳${totalDigitalPaid.toFixed(2)}) cannot exceed the payable bill total of ৳${roundedGrandTotal.toFixed(2)}.`,
+        description: `Electronic payments (Card + MFS: ৳${totalDigitalPaid.toFixed(2)}) cannot exceed the payable bill total of ৳${payableBillTotal.toFixed(2)}.`,
         variant: "destructive"
       });
       return;
@@ -2425,7 +2428,6 @@ export default function POSComponent({ items, clients: initialClients, warehouse
       }
 
       // In POS, the final payable bill total is rounded to the nearest integer
-      const roundOffDiff = Number((roundedGrandTotal - grandTotal).toFixed(2));
       const totalDiscount = Number((effectiveDiscountAmount + effectivePointsDiscountAmount).toFixed(2));
 
       const res = await createSale({
@@ -2461,7 +2463,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
         const saleId = (res.sale as any)?.id || '';
         setCompletedSaleNumber(saleNum);
         setCompletedSaleId(saleId || '');
-        setChangeAmount(totalPaid - roundedGrandTotal);
+        setChangeAmount(Math.max(0, totalPaid - payableBillTotal));
         toast({
           title: "Success",
           description: `Order ${saleNum} processed successfully!`,
