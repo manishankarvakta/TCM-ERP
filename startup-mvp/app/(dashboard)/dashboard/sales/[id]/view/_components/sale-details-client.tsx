@@ -467,16 +467,20 @@ export default function SaleDetailsClient({
                 <span className="text-muted-foreground">Subtotal</span>
                 <span className="font-medium">{formatCurrency(sale.subTotal)}</span>
               </div>
-              {sale.discount && Number(sale.discount) > 0 && (Number(sale.discount) - extractedMembershipDiscount) > 0 && (
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">
-                    Discount {sale.coupon ? `(${sale.coupon.code})` : ""}
-                  </span>
-                  <span className="font-medium text-green-600">
-                    -{formatCurrency(Number(sale.discount) - extractedMembershipDiscount)}
-                  </span>
-                </div>
-              )}
+              {(() => {
+                const netGeneralDiscount = Number(Math.max(0, Number(sale.discount || 0) - extractedMembershipDiscount - pointsDiscount).toFixed(2));
+                if (netGeneralDiscount <= 0) return null;
+                return (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">
+                      Discount {sale.coupon ? `(${sale.coupon.code})` : ""}
+                    </span>
+                    <span className="font-medium text-green-600">
+                      -{formatCurrency(netGeneralDiscount)}
+                    </span>
+                  </div>
+                );
+              })()}
               {extractedMembershipDiscount > 0 && (
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">
