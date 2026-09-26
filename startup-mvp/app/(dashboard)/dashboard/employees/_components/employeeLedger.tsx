@@ -83,6 +83,7 @@ interface EmployeeLedgerProps {
     address?: string | null;
     email?: string | null;
     phone?: string | null;
+    logo?: string | null;
   } | null;
 }
 
@@ -178,6 +179,7 @@ export default function EmployeeLedger({
         organizationAddress={organization?.address}
         organizationEmail={organization?.email}
         organizationPhone={organization?.phone}
+        organizationLogo={organization?.logo}
       />
 
       {/* Print-only Summary Section — 2-col: entity details + account overview */}

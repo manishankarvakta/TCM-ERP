@@ -83,6 +83,7 @@ interface ClientLedgerProps {
     address?: string | null;
     email?: string | null;
     phone?: string | null;
+    logo?: string | null;
   } | null;
 }
 
@@ -159,6 +160,7 @@ export default function ClientLedger({
         organizationAddress={organization?.address}
         organizationEmail={organization?.email}
         organizationPhone={organization?.phone}
+        organizationLogo={organization?.logo}
       />
 
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 print:hidden">

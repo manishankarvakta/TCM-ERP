@@ -66,18 +66,24 @@ export default async function VoucherDetailPage({ params }: VoucherDetailPagePro
 
   const voucher = result.voucher;
 
-  // Fetch POS settings as header branding fallback
-  const posSettingsRaw = await prisma.settings.findFirst({
-    where: {
-      code: "pos_settings",
-      userId: null,
-      isGlobal: true,
-      isActive: true,
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-  });
+  // Fetch POS settings & active Organization as header branding fallback
+  const [posSettingsRaw, activeOrg] = await Promise.all([
+    prisma.settings.findFirst({
+      where: {
+        code: "pos_settings",
+        userId: null,
+        isGlobal: true,
+        isActive: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    }),
+    prisma.organization.findFirst({
+      where: { status: "active" },
+      orderBy: { createdAt: "desc" },
+    }).catch(() => null),
+  ]);
   const posSettings = posSettingsRaw?.settings ? (posSettingsRaw.settings as any) : null;
 
   // Resolve Client & Supplier data from voucher root or voucherLines
@@ -167,11 +173,18 @@ export default async function VoucherDetailPage({ params }: VoucherDetailPagePro
       email: voucher.organization.email,
       website: voucher.organization.website,
       logo: voucher.organization.logo || "/main_logo.png",
+    } : activeOrg ? {
+      name: activeOrg.name,
+      address: activeOrg.address,
+      phone: activeOrg.phone,
+      email: activeOrg.email,
+      website: activeOrg.website,
+      logo: activeOrg.logo || "/main_logo.png",
     } : {
-      name: posSettings?.headerText || "FERRARI FASHION",
-      address: posSettings?.subHeaderText || "Unique, Ashulia, Dhaka",
-      phone: "+880 19 5658 2108",
-      email: "msferrarifashion4475@gmail.com",
+      name: posSettings?.headerText || "TCM",
+      address: posSettings?.subHeaderText || "",
+      phone: posSettings?.phone || "",
+      email: posSettings?.email || "",
       website: null,
       logo: posSettings?.logoUrl || "/main_logo.png",
     },

@@ -8,6 +8,7 @@ import ClientsListClient from "./_components/clients";
 import ExportClientsButton from "./_components/ExportClientsButton";
 import PageGuard from "@/components/permissions/page-guard";
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import PrintHeader, { PrintStyle } from "../procurements/_components/print-header";
 import { hasPermission } from "@/lib/permissions";
 
@@ -39,11 +40,12 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
 
   const status = tab === "trash" ? "trash" : "all";
   
-  // Check permissions & fetch clients, warehouses, and summary metrics in parallel
-  const [result, warehousesResult, summaryResult, canView, canEdit, canMoveToTrash, canDeletePermanently, canViewLedger] = await Promise.all([
+  // Check permissions & fetch clients, warehouses, summary metrics, and active organization in parallel
+  const [result, warehousesResult, summaryResult, org, canView, canEdit, canMoveToTrash, canDeletePermanently, canViewLedger] = await Promise.all([
     getClients(page, limit, search, status, warehouse, due, clientType),
     getWarehousesForClient(),
     getClientSummaryMetrics(warehouse, clientType, status),
+    prisma.organization.findFirst({ where: { status: "active" }, orderBy: { createdAt: "desc" } }).catch(() => null),
     userId ? hasPermission(userId, "peoples.clients", "view") : false,
     userId ? hasPermission(userId, "peoples.clients", "edit") : false,
     userId ? hasPermission(userId, "peoples.clients", "move-to-trash") : false,
@@ -74,7 +76,16 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
     <PageGuard permissionKey="peoples.clients">
       <div className="space-y-6">
         <PrintStyle />
-        <PrintHeader docTitle="Clients List" docNumber="CLNT-LIST" hideBarcode={true} />
+        <PrintHeader
+          docTitle="Clients List"
+          docNumber="CLNT-LIST"
+          hideBarcode={true}
+          organizationName={org?.name}
+          organizationAddress={org?.address}
+          organizationEmail={org?.email}
+          organizationPhone={org?.phone}
+          organizationLogo={org?.logo}
+        />
         <div className="flex items-center justify-between print:hidden">
           <div>
             <h1 className="text-2xl font-semibold">Clients</h1>

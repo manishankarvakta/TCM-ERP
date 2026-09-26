@@ -7,6 +7,7 @@ import { FiPlus } from "react-icons/fi";
 import SuppliersListClient from "./_components/suppliers";
 import ExportSuppliersButton from "./_components/ExportSuppliersButton";
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import PrintHeader, { PrintStyle } from "../procurements/_components/print-header";
 import { hasPermission } from "@/lib/permissions";
 
@@ -35,10 +36,11 @@ export default async function SuppliersPage({ searchParams }: SuppliersPageProps
 
   const status = tab === "trash" ? "trash" : "all";
   
-  // Check permissions on server side for better performance
-  const [result, warehousesResult, canView, canEdit, canMoveToTrash, canDeletePermanently, canViewLedger] = await Promise.all([
+  // Check permissions & fetch active organization on server side for better performance
+  const [result, warehousesResult, org, canView, canEdit, canMoveToTrash, canDeletePermanently, canViewLedger] = await Promise.all([
     getSuppliers(page, limit, search, status, warehouse, due),
     getWarehousesForSupplier(),
+    prisma.organization.findFirst({ where: { status: "active" }, orderBy: { createdAt: "desc" } }).catch(() => null),
     userId ? hasPermission(userId, "peoples.suppliers", "view") : false,
     userId ? hasPermission(userId, "peoples.suppliers", "edit") : false,
     userId ? hasPermission(userId, "peoples.suppliers", "move-to-trash") : false,
@@ -68,7 +70,16 @@ export default async function SuppliersPage({ searchParams }: SuppliersPageProps
   return (
     <div className="space-y-6">
       <PrintStyle />
-      <PrintHeader docTitle="Suppliers List" docNumber="SUPP-LIST" hideBarcode={true} />
+      <PrintHeader
+        docTitle="Suppliers List"
+        docNumber="SUPP-LIST"
+        hideBarcode={true}
+        organizationName={org?.name}
+        organizationAddress={org?.address}
+        organizationEmail={org?.email}
+        organizationPhone={org?.phone}
+        organizationLogo={org?.logo}
+      />
       <div className="flex items-center justify-between print:hidden">
         <div>
           <h1 className="text-2xl font-semibold">Suppliers</h1>

@@ -76,8 +76,9 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
     effectiveWarehouseId = userWarehouseId || "all";
   }
 
-  const [result, canView, canEdit, canMoveToTrash, canDeletePermanently, warehousesRes, users, salesmen] = await Promise.all([
+  const [result, org, canView, canEdit, canMoveToTrash, canDeletePermanently, warehousesRes, users, salesmen] = await Promise.all([
     getSales(page, limit, search, status, { billerId, warehouseId: effectiveWarehouseId !== "all" ? effectiveWarehouseId : undefined, type, startDate, endDate, paymentStatus, salesAssistantId }),
+    prisma.organization.findFirst({ where: { status: "active" }, orderBy: { createdAt: "desc" } }).catch(() => null),
     userId ? hasPermission(userId, "sales.sales", "view") : false,
     userId ? hasPermission(userId, "sales.sales", "edit") : false,
     userId ? hasPermission(userId, "sales.sales", "move-to-trash") : false,
@@ -131,7 +132,16 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
     <PageGuard permissionKey="sales.sales" requiredOperation="view">
       <div className="space-y-6">
         <PrintStyle />
-        <PrintHeader docTitle="Sales List" docNumber="SALES-LIST" hideBarcode={true} />
+        <PrintHeader
+          docTitle="Sales List"
+          docNumber="SALES-LIST"
+          hideBarcode={true}
+          organizationName={org?.name}
+          organizationAddress={org?.address}
+          organizationEmail={org?.email}
+          organizationPhone={org?.phone}
+          organizationLogo={org?.logo}
+        />
         <div className="flex items-center justify-between print:hidden">
         <div>
           <h1 className="text-2xl font-semibold">Sales</h1>

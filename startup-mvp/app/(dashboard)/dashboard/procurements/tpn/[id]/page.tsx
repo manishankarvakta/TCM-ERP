@@ -59,13 +59,13 @@ export default async function TpnDetailPage({ params }: PageProps) {
     const posSettings = posSettingsRaw?.settings as any;
     finalOrg = {
       id: "default",
-      name: posSettings?.headerText || "Ferrari Fashion",
-      details: posSettings?.subHeaderText || "BIN 004601696-0102 | Mushak 6.3",
+      name: posSettings?.headerText || "TCM",
+      details: posSettings?.subHeaderText || null,
       address: null,
       phone: null,
       email: null,
       website: null,
-      logo: null,
+      logo: posSettings?.logoUrl || null,
       status: "active",
       createdBy: "system",
       createdAt: new Date(),

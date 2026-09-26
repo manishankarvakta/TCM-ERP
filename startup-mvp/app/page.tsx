@@ -49,8 +49,10 @@ export default async function HomePage() {
                   <span className="text-sm font-semibold text-primary">SD</span>
                 </div>
                 <div>
-                  <div className="font-semibold text-foreground">Sofia Davis</div>
-                  <div className="text-sm text-muted-foreground">Product Designer</div>
+                  <div className="font-semibold text-foreground">Manishankar Vakta
+</div>
+                  <div className="text-sm text-muted-foreground">CEO of TechSoul
+</div>
                 </div>
               </div>
             </footer>

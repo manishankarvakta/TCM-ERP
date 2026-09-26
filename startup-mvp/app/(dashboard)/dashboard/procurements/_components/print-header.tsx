@@ -153,26 +153,32 @@ export default function PrintHeader({
 
         {/* Left: Logo + Organization Info */}
         <div className="flex items-start gap-3">
-          <div className="border border-slate-800 p-1 bg-white flex items-center justify-center w-16 h-16 shrink-0">
+          <div className="flex items-center justify-center w-16 h-16 shrink-0">
             <img
               src={organizationLogo || "/main_logo.png"}
-              alt={organizationName || "Ferrari Fashion Logo"}
+              alt={organizationName || "TCM Logo"}
               className="max-h-full max-w-full object-contain"
             />
           </div>
           <div>
             <h1 className="text-base font-bold uppercase tracking-tight text-slate-900 leading-tight">
-              {organizationName || "FERRARI FASHION"}
+              {organizationName || "TCM"}
             </h1>
-            <p className="text-xs italic text-slate-600 mt-0.5">
-              {organizationAddress || "Unique, Ashulia, Dhaka"}
-            </p>
-            <p className="text-xs italic text-slate-600">
-              {organizationEmail || "msferrarifashion4475@gmail.com"}
-            </p>
-            <p className="text-xs italic text-slate-600">
-              {organizationPhone || "01956-582108, 01745-645502"}
-            </p>
+            {organizationAddress && (
+              <p className="text-xs italic text-slate-600 mt-0.5">
+                {organizationAddress}
+              </p>
+            )}
+            {organizationEmail && (
+              <p className="text-xs italic text-slate-600">
+                {organizationEmail}
+              </p>
+            )}
+            {organizationPhone && (
+              <p className="text-xs italic text-slate-600">
+                {organizationPhone}
+              </p>
+            )}
           </div>
         </div>
 

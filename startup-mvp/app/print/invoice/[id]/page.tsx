@@ -8,7 +8,7 @@ import { computeSaleDueAmount } from "@/lib/sales-utils";
 
 export default async function InvoicePrintPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = await params;
-  const [sale, posSettingsRaw, membershipSettingsRaw] = await Promise.all([
+  const [sale, posSettingsRaw, membershipSettingsRaw, activeOrg] = await Promise.all([
     prisma.sale.findUnique({
       where: { id: resolvedParams.id },
       include: {
@@ -48,7 +48,11 @@ export default async function InvoicePrintPage({ params }: { params: Promise<{ i
       orderBy: {
         createdAt: "desc",
       },
-    })
+    }),
+    prisma.organization.findFirst({
+      where: { status: "active" },
+      orderBy: { createdAt: "desc" },
+    }).catch(() => null)
   ]);
 
   if (!sale) {
@@ -142,8 +146,8 @@ export default async function InvoicePrintPage({ params }: { params: Promise<{ i
     : {
         paperSize: "80mm",
         showHeaderLogo: false,
-        headerText: "Ferrari Fashion",
-        subHeaderText: "BIN 004601696-0102 | Mushak 6.3",
+        headerText: activeOrg?.name || "TCM",
+        subHeaderText: activeOrg?.address || "",
         footerText: "Thank you for shopping with us!",
         showBiller: true,
         showTaxDetails: true,
@@ -255,8 +259,8 @@ export default async function InvoicePrintPage({ params }: { params: Promise<{ i
       )}
 
       <div className="text-center mb-6">
-        <h1 className="text-lg font-bold uppercase">{posSettings.headerText || "Ferrari Fashion"}</h1>
-        {posSettings.subHeaderText && <p className="text-[10px] text-gray-600">{posSettings.subHeaderText}</p>}
+        <h1 className="text-lg font-bold uppercase">{activeOrg?.name || posSettings.headerText || "TCM"}</h1>
+        {(posSettings.subHeaderText || activeOrg?.address) && <p className="text-[10px] text-gray-600">{posSettings.subHeaderText || activeOrg?.address}</p>}
         <p className="font-bold mt-1 text-xs">
           {sale.orderType === "EXCHANGE" ? "Exchange Invoice No:" : isReturn ? "Return Invoice No:" : "Invoice No:"} {sale.saleNumber}
         </p>
@@ -271,7 +275,7 @@ export default async function InvoicePrintPage({ params }: { params: Promise<{ i
         <div className="text-right">
           <p>Date: {sale.createdAt.toLocaleDateString()}</p>
           <p>Time: {sale.createdAt.toLocaleTimeString()}</p>
-          <p>Outlet: {sale.warehouse?.name || posSettings.headerText || "Ferrari Fashion"}</p>
+          <p>Outlet: {sale.warehouse?.name || activeOrg?.name || posSettings.headerText || "TCM"}</p>
         </div>
       </div>
 

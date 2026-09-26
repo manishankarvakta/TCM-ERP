@@ -31,11 +31,11 @@ export interface LeaveApplicationPrintTemplateProps {
 const LeaveApplicationPrintTemplate = forwardRef<HTMLDivElement, LeaveApplicationPrintTemplateProps>(
   ({ cardNoOrDept, employeeName, designation, reason, dateText, daysCount, organization, signatures }, ref) => {
     // Dynamic Organization fallbacks
-    const orgName = organization?.name || "FERRARI FASHION LTD.";
-    const orgDetails = organization?.details || "Garments Manufacturing & Export Industry • HR & Payroll Department";
-    const orgAddress = organization?.address || "Ashulia, Savar, Dhaka, Bangladesh";
-    const orgPhone = organization?.phone || "+880 19 5658 2108";
-    const orgEmail = organization?.email || "info@ferrarifashion.com";
+    const orgName = organization?.name || "TCM";
+    const orgDetails = organization?.details || "HR & Payroll Department";
+    const orgAddress = organization?.address || "";
+    const orgPhone = organization?.phone || "";
+    const orgEmail = organization?.email || "";
 
     const rawLogo = organization?.logo;
     const logoUrl =
@@ -84,7 +84,7 @@ const LeaveApplicationPrintTemplate = forwardRef<HTMLDivElement, LeaveApplicatio
           <div className="border-b-2 border-black pb-3">
             <div className="flex items-center justify-between gap-4">
               {/* Organization Logo */}
-              <div className="w-20 h-20 flex-shrink-0 flex items-center justify-center border border-gray-200 rounded p-1">
+              <div className="w-20 h-20 flex-shrink-0 flex items-center justify-center">
                 <img
                   src={logoUrl}
                   alt={orgName}

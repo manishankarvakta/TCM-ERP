@@ -70,10 +70,10 @@ const VoucherPrintTemplate = forwardRef<HTMLDivElement, VoucherPrintTemplateProp
     const org = voucher.organization;
     const rawLogo = org?.logo;
     const logoUrl = (rawLogo && rawLogo.trim() !== "" && rawLogo !== "null" && rawLogo !== "undefined") ? rawLogo : "/main_logo.png";
-    const orgName = org?.name || "FERRARI FASHION";
-    const orgAddress = org?.address || "Unique, Ashulia, Dhaka";
-    const orgEmail = org?.email || "msferrarifashion4475@gmail.com";
-    const orgPhone = org?.phone || "+880 19 5658 2108";
+    const orgName = org?.name || "TCM";
+    const orgAddress = org?.address || "";
+    const orgEmail = org?.email || "";
+    const orgPhone = org?.phone || "";
 
     const formattedAmountInWords = numberToWords(totalDebit > 0 ? totalDebit : totalCredit);
 
@@ -83,7 +83,7 @@ const VoucherPrintTemplate = forwardRef<HTMLDivElement, VoucherPrintTemplateProp
         <div className="border-b-2 border-slate-800 pb-4 mb-6">
           <div className="flex justify-between items-start">
              <div className="flex items-start gap-3.5">
-                <div className="border border-slate-700 p-1 rounded-sm bg-white flex-shrink-0">
+                <div className="flex items-center justify-center flex-shrink-0">
                    <img
                      src={logoUrl}
                      alt="Logo"

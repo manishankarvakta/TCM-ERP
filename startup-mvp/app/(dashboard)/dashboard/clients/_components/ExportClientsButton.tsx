@@ -29,7 +29,7 @@ export default function ExportClientsButton({
   const [isExporting, setIsExporting] = useState(false);
   const { toast } = useToast();
 
-  const handleExport = (format: "csv" | "excel") => {
+  const handleExport = async (format: "csv" | "excel") => {
     try {
       setIsExporting(true);
       const params = new URLSearchParams();
@@ -42,28 +42,35 @@ export default function ExportClientsButton({
 
       const url = `/api/export/clients?${params.toString()}`;
 
-      const iframe = document.createElement("iframe");
-      iframe.style.display = "none";
-      iframe.src = url;
-      document.body.appendChild(iframe);
+      const res = await fetch(url);
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || `Export failed with HTTP status ${res.status}`);
+      }
 
-      setTimeout(() => {
-        if (document.body.contains(iframe)) {
-          document.body.removeChild(iframe);
-        }
-        setIsExporting(false);
-        toast({
-          title: "Export Triggered",
-          description: `Downloading clients list as ${format.toUpperCase()}...`,
-        });
-      }, 1200);
-    } catch (err: any) {
-      setIsExporting(false);
+      const blob = await res.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = downloadUrl;
+      const dateStr = new Date().toISOString().split("T")[0];
+      link.download = `clients-export-${dateStr}.${format === "excel" ? "xlsx" : "csv"}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(downloadUrl);
+
       toast({
-        title: "Error",
+        title: "Export Completed",
+        description: `Downloaded clients list as ${format.toUpperCase()}.`,
+      });
+    } catch (err: any) {
+      toast({
+        title: "Export Failed",
         description: err.message || "An unexpected error occurred during export",
         variant: "destructive",
       });
+    } finally {
+      setIsExporting(false);
     }
   };
 

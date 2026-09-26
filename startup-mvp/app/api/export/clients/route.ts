@@ -79,38 +79,57 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    const clientsWithDue = await Promise.all(
-      clients.map(async (client) => {
-        let dueAmount = 0;
-        const coaId = client.ChartOfAccount?.id;
-        if (coaId) {
-          const balanceResult = await prisma.journalEntryLine.aggregate({
-            where: { chartOfAccountId: coaId },
-            _sum: { debitAmount: true, creditAmount: true },
-          });
-          const totalDebit = Number(balanceResult._sum.debitAmount || 0);
-          const totalCredit = Number(balanceResult._sum.creditAmount || 0);
-          let due = totalDebit - totalCredit;
+    const coaIds = clients.map((c) => c.ChartOfAccount?.id).filter(Boolean) as string[];
 
-          const hasOpeningJournal = await prisma.journalEntryLine.findFirst({
+    // Batch aggregate all journal entry lines in 1 single query for maximum performance
+    const [journalAggregates, openingJournals] = await Promise.all([
+      coaIds.length > 0
+        ? prisma.journalEntryLine.groupBy({
+            by: ["chartOfAccountId"],
+            where: { chartOfAccountId: { in: coaIds } },
+            _sum: { debitAmount: true, creditAmount: true },
+          })
+        : [],
+      coaIds.length > 0
+        ? prisma.journalEntryLine.findMany({
             where: {
-              chartOfAccountId: coaId,
+              chartOfAccountId: { in: coaIds },
               description: { contains: "opening balance", mode: "insensitive" },
             },
-          });
-          if (Number(client.openingBalance || 0) > 0 && !hasOpeningJournal) {
-            due += Number(client.openingBalance || 0);
-          }
-          dueAmount = due;
-        }
+            select: { chartOfAccountId: true },
+          })
+        : [],
+    ]);
 
-        return {
-          ...client,
-          openingBalance: Number(client.openingBalance || 0),
-          dueAmount,
-        };
-      })
-    );
+    const journalMap = new Map<string, { debit: number; credit: number }>();
+    journalAggregates.forEach((j) => {
+      if (j.chartOfAccountId) {
+        journalMap.set(j.chartOfAccountId, {
+          debit: Number(j._sum.debitAmount || 0),
+          credit: Number(j._sum.creditAmount || 0),
+        });
+      }
+    });
+
+    const openingJournalSet = new Set(openingJournals.map((o) => o.chartOfAccountId));
+
+    const clientsWithDue = clients.map((client) => {
+      let due = 0;
+      const coaId = client.ChartOfAccount?.id;
+      if (coaId && journalMap.has(coaId)) {
+        const j = journalMap.get(coaId)!;
+        due = j.debit - j.credit;
+      }
+      if (Number(client.openingBalance || 0) > 0 && (!coaId || !openingJournalSet.has(coaId))) {
+        due += Number(client.openingBalance || 0);
+      }
+
+      return {
+        ...client,
+        openingBalance: Number(client.openingBalance || 0),
+        dueAmount: Math.max(0, due),
+      };
+    });
 
     const filteredClients = clientsWithDue.filter((c) => {
       if (dueStatus === "has_due") return c.dueAmount > 0;

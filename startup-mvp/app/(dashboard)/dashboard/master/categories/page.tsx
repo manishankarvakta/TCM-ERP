@@ -7,6 +7,7 @@ import { FiPlus } from "react-icons/fi";
 import CategoriesListClient from "./_components/categories";
 import ExportCategoriesButton from "./_components/ExportCategoriesButton";
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import PrintHeader, { PrintStyle } from "../../procurements/_components/print-header";
 import { hasPermission } from "@/lib/permissions";
 import PageGuard from "@/components/permissions/page-guard";
@@ -30,9 +31,10 @@ export default async function CategoriesPage({ searchParams }: CategoriesPagePro
   const session = await auth();
   const userId = session?.user?.id;
 
-  // Check permissions on server side for better performance
-  const [result, canView, canEdit, canMoveToTrash, canDeletePermanently] = await Promise.all([
+  // Check permissions & fetch active organization on server side for better performance
+  const [result, org, canView, canEdit, canMoveToTrash, canDeletePermanently] = await Promise.all([
     getCategories(page, limit, search, tab === "trash" ? "trash" : "all"),
+    prisma.organization.findFirst({ where: { status: "active" }, orderBy: { createdAt: "desc" } }).catch(() => null),
     userId ? hasPermission(userId, "master.categories", "view") : false,
     userId ? hasPermission(userId, "master.categories", "edit") : false,
     userId ? hasPermission(userId, "master.categories", "move-to-trash") : false,
@@ -62,7 +64,16 @@ export default async function CategoriesPage({ searchParams }: CategoriesPagePro
     <PageGuard permissionKey="master.categories" requiredOperation="view">
       <div className="space-y-6">
         <PrintStyle />
-        <PrintHeader docTitle="Categories List" docNumber="CAT-LIST" hideBarcode={true} />
+        <PrintHeader
+          docTitle="Categories List"
+          docNumber="CAT-LIST"
+          hideBarcode={true}
+          organizationName={org?.name}
+          organizationAddress={org?.address}
+          organizationEmail={org?.email}
+          organizationPhone={org?.phone}
+          organizationLogo={org?.logo}
+        />
         <div className="flex items-center justify-between print:hidden">
           <div>
             <h1 className="text-2xl font-semibold">Categories</h1>

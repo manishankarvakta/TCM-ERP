@@ -37,26 +37,32 @@ export default async function DueReceiptPrintPage({ params }: { params: Promise<
     return notFound();
   }
 
-  // 2. Fetch POS Settings for headers & styling
-  const posSettingsRaw = await prisma.settings.findFirst({
-    where: {
-      code: "pos_settings",
-      userId: null,
-      isGlobal: true,
-      isActive: true,
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-  });
+  // 2. Fetch POS Settings & active Organization for headers & styling
+  const [posSettingsRaw, activeOrg] = await Promise.all([
+    prisma.settings.findFirst({
+      where: {
+        code: "pos_settings",
+        userId: null,
+        isGlobal: true,
+        isActive: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    }),
+    prisma.organization.findFirst({
+      where: { status: "active" },
+      orderBy: { createdAt: "desc" },
+    }).catch(() => null),
+  ]);
 
   const posSettings = posSettingsRaw?.settings
     ? (posSettingsRaw.settings as any)
     : {
         paperSize: "80mm",
         showHeaderLogo: false,
-        headerText: "Ferrari Fashion",
-        subHeaderText: "BIN 004601696-0102 | Mushak 6.3",
+        headerText: activeOrg?.name || "TCM",
+        subHeaderText: activeOrg?.address || "",
         footerText: "Thank you for shopping with us!",
         showBiller: true,
       };
@@ -180,8 +186,8 @@ export default async function DueReceiptPrintPage({ params }: { params: Promise<
 
       {/* Company Header Title */}
       <div className="text-center mb-6">
-        <h1 className="text-lg font-bold uppercase">{posSettings.headerText || "Ferrari Fashion"}</h1>
-        {posSettings.subHeaderText && <p className="text-[10px] text-gray-600">{posSettings.subHeaderText}</p>}
+        <h1 className="text-lg font-bold uppercase">{activeOrg?.name || posSettings.headerText || "TCM"}</h1>
+        {(posSettings.subHeaderText || activeOrg?.address) && <p className="text-[10px] text-gray-600">{posSettings.subHeaderText || activeOrg?.address}</p>}
         <p className="font-bold mt-1 text-xs">
           Receipt No: {voucher.voucherNumber || voucher.reference}
         </p>
@@ -197,7 +203,7 @@ export default async function DueReceiptPrintPage({ params }: { params: Promise<
         <div className="text-right">
           <p>Date: {createdAtDate.toLocaleDateString()}</p>
           <p>Time: {createdAtDate.toLocaleTimeString()}</p>
-          <p>Outlet: {voucher.warehouse?.name || posSettings.headerText || "Ferrari Fashion"}</p>
+          <p>Outlet: {voucher.warehouse?.name || activeOrg?.name || posSettings.headerText || "TCM"}</p>
         </div>
       </div>
 
