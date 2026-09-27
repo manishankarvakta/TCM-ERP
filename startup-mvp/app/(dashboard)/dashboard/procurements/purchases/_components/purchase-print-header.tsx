@@ -44,6 +44,14 @@ export function PurchasePrintStyle() {
           print-color-adjust: exact !important;
         }
 
+        html, body {
+          height: auto !important;
+          min-height: 100% !important;
+          max-height: none !important;
+          overflow: visible !important;
+          position: static !important;
+        }
+
         .dark table, .dark tr, .dark td, .dark th, .dark div, .dark span, .dark p {
           color: #000000 !important;
         }
@@ -51,12 +59,69 @@ export function PurchasePrintStyle() {
         /* Override Next.js dashboard layout containers that clip content to viewport height */
         div.flex.h-screen.overflow-hidden,
         div.flex.flex-1.flex-col.overflow-hidden,
-        main.flex-1.overflow-y-auto {
+        div.h-screen,
+        div.overflow-hidden,
+        div.overflow-y-auto,
+        main.flex-1.overflow-y-auto,
+        main {
           display: block !important;
           height: auto !important;
           min-height: 0 !important;
           max-height: none !important;
           overflow: visible !important;
+          position: static !important;
+        }
+
+        /* Eliminate print-only scrollbars and overflow indicators */
+        .overflow-x-auto,
+        .overflow-y-auto,
+        .overflow-auto,
+        div.overflow-x-auto,
+        div.overflow-y-auto,
+        div.overflow-auto {
+          overflow: visible !important;
+          display: block !important;
+          scrollbar-width: none !important;
+          -ms-overflow-style: none !important;
+        }
+        .overflow-x-auto::-webkit-scrollbar,
+        .overflow-y-auto::-webkit-scrollbar,
+        .overflow-auto::-webkit-scrollbar {
+          display: none !important;
+        }
+
+        /* Force tables to wrap text and stretch full width without horizontal clipping */
+        table {
+          width: 100% !important;
+          table-layout: auto !important;
+        }
+        th, td {
+          word-break: break-word !important;
+          white-space: normal !important;
+        }
+
+        /* Repeat table headers on subsequent pages */
+        thead {
+          display: table-header-group !important;
+        }
+
+        tbody {
+          display: table-row-group !important;
+        }
+
+        /* Prevent table rows from splitting awkwardly across pages */
+        tr {
+          page-break-inside: avoid !important;
+          break-inside: avoid !important;
+        }
+
+        /* Force hidden elements to display none and collapse borders */
+        .print\:hidden,
+        th.print\:hidden,
+        td.print\:hidden,
+        th.print\:!hidden,
+        td.print\:!hidden {
+          display: none !important;
         }
 
         @page {
