@@ -21,11 +21,13 @@ export default async function DashboardLayout({
   return (
     <div className="flex h-screen overflow-hidden">
       <style dangerouslySetInnerHTML={{ __html: `
-        html, body {
-          margin: 0 !important;
-          padding: 0 !important;
-          overflow: hidden !important;
-          height: 100vh !important;
+        @media screen {
+          html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+            height: 100vh !important;
+          }
         }
       `}} />
       <div className="flex flex-1 flex-col overflow-hidden">

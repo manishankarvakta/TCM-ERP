@@ -22,13 +22,14 @@ import {
 import { createReturnToVendor } from "../_actions/rtv.action";
 import { ReturnToVendorStatus } from "@prisma/client";
 import { useToast } from "@/hooks/use-toast";
-import { FiTrash2, FiPlus, FiSearch, FiAlertCircle } from "react-icons/fi";
+import { FiTrash2, FiPlus, FiSearch, FiAlertCircle, FiUploadCloud } from "react-icons/fi";
 import { format } from "date-fns";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { getItemVariants } from "@/app/(dashboard)/dashboard/master/items/_actions/item.action";
 import { cn } from "@/lib/utils";
+import RTVCsvImportDialog from "./rtv-csv-import-dialog";
 
 const isDiscreteUnit = (unit?: string | null): boolean => {
   if (!unit) return false;
@@ -96,6 +97,7 @@ export default function RTVForm({ suppliers, warehouses, items, purchase }: any)
     );
   }, [localSuppliers, supplierSearch]);
 
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [stockMap, setStockMap] = useState<Record<string, number>>({});
   const [skuModalOpen, setSkuModalOpen] = useState(false);
   const [skuModalItem, setSkuModalItem] = useState<{ id: string; description: string; code: string } | null>(null);
@@ -286,6 +288,51 @@ export default function RTVForm({ suppliers, warehouses, items, purchase }: any)
     setItemSearch("");
   };
 
+  const handleImportItems = (importedItems: any[]) => {
+    if (purchase) {
+      // In purchase mode, update matching items in the purchase list
+      const currentItems = getValues("items") || [];
+      const updated = currentItems.map((cur) => {
+        const match = importedItems.find(
+          (imp) => imp.itemId === cur.itemId && (imp.variantId || null) === (cur.variantId || null)
+        );
+        if (match) {
+          return {
+            ...cur,
+            quantity: match.quantity,
+            amount: match.quantity * (cur.unitPrice || 0),
+            reason: match.reason || cur.reason,
+          };
+        }
+        return cur;
+      });
+      setValue("items", updated, { shouldValidate: true, shouldDirty: true });
+    } else {
+      const currentItems = getValues("items") || [];
+      const hasOnlyOneEmpty = currentItems.length === 1 && !currentItems[0].itemId;
+
+      if (hasOnlyOneEmpty) {
+        setValue("items", importedItems, { shouldValidate: true, shouldDirty: true });
+      } else {
+        const newItems = [...currentItems];
+        importedItems.forEach((imp) => {
+          const existingIdx = newItems.findIndex(
+            (it) => it.itemId === imp.itemId && (it.variantId || null) === (imp.variantId || null)
+          );
+          if (existingIdx !== -1) {
+            newItems[existingIdx].quantity = imp.quantity;
+            newItems[existingIdx].unitPrice = imp.unitPrice;
+            newItems[existingIdx].amount = imp.amount;
+            newItems[existingIdx].reason = imp.reason || newItems[existingIdx].reason;
+          } else {
+            newItems.push(imp);
+          }
+        });
+        setValue("items", newItems, { shouldValidate: true, shouldDirty: true });
+      }
+    }
+  };
+
   const onSubmit = async (data: RTVFormData, status: ReturnToVendorStatus) => {
     try {
       setLoading(true);
@@ -352,7 +399,7 @@ export default function RTVForm({ suppliers, warehouses, items, purchase }: any)
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label htmlFor="supplierId">Supplier *</Label>
@@ -478,38 +525,51 @@ export default function RTVForm({ suppliers, warehouses, items, purchase }: any)
               />
               {errors.date && <p className="text-sm text-destructive">{errors.date.message}</p>}
             </div>
+          </div>
 
-            <div className="space-y-2 col-span-1 md:col-span-2">
-              <Label htmlFor="notes">Notes</Label>
-              <Controller
-                name="notes"
-                control={control}
-                render={({ field }) => (
-                  <RichTextEditor
-                    value={field.value || ""}
-                    onChange={field.onChange}
-                    disabled={loading}
-                    placeholder="Reason or notes..."
-                  />
-                )}
-              />
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="notes">Notes</Label>
+            <Controller
+              name="notes"
+              control={control}
+              render={({ field }) => (
+                <RichTextEditor
+                  value={field.value || ""}
+                  onChange={field.onChange}
+                  disabled={loading}
+                  placeholder="Reason or notes..."
+                />
+              )}
+            />
           </div>
 
           <div className="space-y-3 pt-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <h3 className="text-sm font-semibold">Items to Return</h3>
-              {!purchase && (
+              <div className="flex items-center gap-2">
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => prepend({ itemId: "", variantId: "", description: "", availableQuantity: 0, quantity: 1, unitPrice: 0, amount: 0, reason: "" })}
+                  onClick={() => setIsImportModalOpen(true)}
+                  disabled={loading}
                 >
-                  <FiPlus className="mr-2 h-4 w-4" />
-                  Add Item
+                  <FiUploadCloud className="mr-2 h-4 w-4 text-indigo-600" />
+                  Import Items (CSV)
                 </Button>
-              )}
+                {!purchase && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => prepend({ itemId: "", variantId: "", description: "", availableQuantity: 0, quantity: 1, unitPrice: 0, amount: 0, reason: "" })}
+                    disabled={loading}
+                  >
+                    <FiPlus className="mr-2 h-4 w-4" />
+                    Add Item
+                  </Button>
+                )}
+              </div>
             </div>
 
             <div className="border rounded-lg overflow-x-auto">
@@ -966,6 +1026,18 @@ export default function RTVForm({ suppliers, warehouses, items, purchase }: any)
         </div>
       </DialogContent>
     </Dialog>
+
+    <RTVCsvImportDialog
+      open={isImportModalOpen}
+      onOpenChange={setIsImportModalOpen}
+      items={items}
+      suppliers={localSuppliers}
+      stockMap={stockMap}
+      purchase={purchase}
+      supplierId={watchedSupplierId}
+      onSelectSupplier={(id) => setValue("supplierId", id, { shouldValidate: true, shouldDirty: true })}
+      onImport={handleImportItems}
+    />
     </>
   );
 }

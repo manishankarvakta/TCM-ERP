@@ -32,11 +32,12 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
-import { FiAlertCircle, FiPlus, FiTrash2, FiSearch } from "react-icons/fi";
+import { FiAlertCircle, FiPlus, FiTrash2, FiSearch, FiUploadCloud } from "react-icons/fi";
 import { createPurchase, updatePurchase } from "../_actions/purchase.action";
 import { getItemVariants } from "../../../master/items/_actions/item.action";
 import { getWarehouseStocks } from "../../../inventory/stock/_actions/stock.action";
 import { cn } from "@/lib/utils";
+import PurchaseCsvImportDialog from "./purchase-csv-import-dialog";
 import { Badge } from "@/components/ui/badge";
 import { PurchaseStatus } from "@prisma/client";
 import { format } from "date-fns";
@@ -169,6 +170,7 @@ export default function PurchaseForm({
   const [loading, setLoading] = useState(false);
   const [supplierSearch, setSupplierSearch] = useState("");
   const [itemSearch, setItemSearch] = useState("");
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [stockMap, setStockMap] = useState<Record<string, number>>({});
   const [localSuppliers, setLocalSuppliers] = useState(suppliers);
   const [isSupplierDialogOpen, setIsSupplierDialogOpen] = useState(false);
@@ -257,6 +259,47 @@ export default function PurchaseForm({
     });
     
     setSkuModalOpen(false);
+  };
+
+  const handleImportItems = (importedItems: any[]) => {
+    const currentItems = getValues("items") || [];
+    const hasOnlyOneEmpty = currentItems.length === 1 && !currentItems[0].itemId;
+
+    let finalItems: any[];
+    if (hasOnlyOneEmpty) {
+      finalItems = importedItems;
+    } else {
+      const newItems = [...currentItems];
+      importedItems.forEach((imp) => {
+        const existingIdx = newItems.findIndex(
+          (it) => it.itemId === imp.itemId && (it.variantId || null) === (imp.variantId || null)
+        );
+        if (existingIdx !== -1) {
+          newItems[existingIdx].quantity = imp.quantity;
+          newItems[existingIdx].unitPrice = imp.unitPrice;
+          newItems[existingIdx].amount = imp.amount;
+        } else {
+          newItems.push(imp);
+        }
+      });
+      finalItems = newItems;
+    }
+
+    setValue("items", finalItems, { shouldValidate: true, shouldDirty: true });
+
+    // Sync Redux purchase state for immediate financial calculations
+    dispatch(initializePurchase({
+      items: finalItems.map(item => ({
+        itemId: item.itemId || "",
+        variantId: item.variantId || "",
+        description: item.description || "",
+        quantity: Number(item.quantity) || 1,
+        unitPrice: Number(item.unitPrice) || 0,
+        amount: Number(item.amount) || 0,
+      })),
+      discount: Number(watchedDiscount) || 0,
+      tax: Number(watchedTax) || 0,
+    }));
   };
 
   useEffect(() => {
@@ -721,34 +764,47 @@ export default function PurchaseForm({
 
             {/* Row 2: Items Table and Calculations */}
             <div className="space-y-3">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <h3 className="text-sm font-semibold">Items</h3>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    prepend({
-                      itemId: "",
-                      description: "",
-                      quantity: 1,
-                      unitPrice: 0,
-                      amount: 0,
-                    });
-                    // Sync with Redux
-                    dispatch(prependReduxItem());
-                    // Auto-focus the new item's select dropdown after render (which is at index 0)
-                    setTimeout(() => {
-                      const newSelectTrigger = document.querySelector(`[data-item-select-index="0"]`);
-                      if (newSelectTrigger instanceof HTMLElement) {
-                        newSelectTrigger.click();
-                      }
-                    }, 100);
-                  }}
-                >
-                  <FiPlus className="mr-2 h-4 w-4" />
-                  Add Item
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsImportModalOpen(true)}
+                    disabled={loading}
+                  >
+                    <FiUploadCloud className="mr-2 h-4 w-4 text-indigo-600" />
+                    Import Items (CSV)
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      prepend({
+                        itemId: "",
+                        description: "",
+                        quantity: 1,
+                        unitPrice: 0,
+                        amount: 0,
+                      });
+                      // Sync with Redux
+                      dispatch(prependReduxItem());
+                      // Auto-focus the new item's select dropdown after render (which is at index 0)
+                      setTimeout(() => {
+                        const newSelectTrigger = document.querySelector(`[data-item-select-index="0"]`);
+                        if (newSelectTrigger instanceof HTMLElement) {
+                          newSelectTrigger.click();
+                        }
+                      }, 100);
+                    }}
+                    disabled={loading}
+                  >
+                    <FiPlus className="mr-2 h-4 w-4" />
+                    Add Item
+                  </Button>
+                </div>
               </div>
 
               <div className="border rounded-lg overflow-hidden">
@@ -1251,6 +1307,18 @@ export default function PurchaseForm({
         </div>
       </DialogContent>
     </Dialog>
+
+    <PurchaseCsvImportDialog
+      open={isImportModalOpen}
+      onOpenChange={setIsImportModalOpen}
+      items={items}
+      suppliers={localSuppliers}
+      stockMap={stockMap}
+      supplierId={watchedSupplierId}
+      onSelectSupplier={(id) => setValue("supplierId", id, { shouldValidate: true, shouldDirty: true })}
+      onImport={handleImportItems}
+    />
+
     <Toaster toasts={toasts as any} onClose={closeToast} />
     </>
   );

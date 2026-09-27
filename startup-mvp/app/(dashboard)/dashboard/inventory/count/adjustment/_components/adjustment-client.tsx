@@ -409,9 +409,14 @@ export default function AdjustmentClient({ warehouses, defaultWarehouseId, isNor
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Create Stock Adjustment</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to generate a stock auto-adjustment for all discrepancies? 
-              This will reconcile the current physical counts for the selected warehouse.
+            <AlertDialogDescription className="space-y-2 text-sm text-muted-foreground">
+              <span>
+                Are you sure you want to generate a stock auto-adjustment for all discrepancies? 
+                This will reconcile the current physical counts for the selected warehouse.
+              </span>
+              <span className="block p-2.5 rounded bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/40 text-amber-800 dark:text-amber-300 text-xs font-medium">
+                ⚠️ <strong>Important:</strong> Count Reconciliation is intended for store-wide physical audits. It sets system stock to match scanned counts. If you are adding newly arrived stock or making manual quantity fixes, please use <strong>Inventory &gt; Adjustments (+ Add Stock)</strong> or <strong>Purchases (GRN)</strong> instead.
+              </span>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

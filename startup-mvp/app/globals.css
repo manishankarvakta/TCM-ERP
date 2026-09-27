@@ -215,6 +215,46 @@
   body {
     background-color: #ffffff !important;
     color: #000000 !important;
+    height: auto !important;
+    min-height: 100% !important;
+    max-height: none !important;
+    overflow: visible !important;
+    position: static !important;
+  }
+
+  /* Reset dashboard layout wrappers and scroll containers for clean multi-page printing */
+  div.h-screen,
+  div.overflow-hidden,
+  div.overflow-y-auto,
+  div.overflow-x-auto,
+  div.overflow-auto,
+  main,
+  section,
+  article {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+    position: static !important;
+  }
+
+  /* Ensure tables paginate cleanly */
+  table {
+    width: 100% !important;
+    table-layout: auto !important;
+  }
+
+  thead {
+    display: table-header-group !important;
+  }
+
+  tbody {
+    display: table-row-group !important;
+  }
+
+  tr {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
 
   .bg-white,
