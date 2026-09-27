@@ -8,15 +8,19 @@ export interface ProcurementStats {
     total: number;
     pending: number;
     completed: number;
+    totalValue?: number;
   };
   grns: {
     total: number;
+    totalValue?: number;
   };
   rtvs: {
     total: number;
+    totalValue?: number;
   };
   tpns: {
     total: number;
+    totalValue?: number;
   };
 }
 
@@ -44,29 +48,40 @@ export default function ProcurementsStats({ stats }: ProcurementsStatsProps) {
     );
   }
 
+  const formatCurrency = (amount: number) => {
+    return `৳${amount.toLocaleString("en-BD", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+  };
+
   const statsData = [
     {
       title: "Total Purchases",
       value: stats.purchases.total.toLocaleString(),
       description: `${stats.purchases.pending} pending, ${stats.purchases.completed} completed`,
+      totalValue: stats.purchases.totalValue,
       icon: FiShoppingCart,
     },
     {
       title: "Total GRNs",
       value: stats.grns.total.toLocaleString(),
       description: "Goods Receipt Notes",
+      totalValue: stats.grns.totalValue,
       icon: FiBox,
     },
     {
       title: "Return To Vendor",
       value: stats.rtvs.total.toLocaleString(),
       description: "Total RTVs processed",
+      totalValue: stats.rtvs.totalValue,
       icon: FiRotateCcw,
     },
     {
       title: "Transfer Purchases",
       value: stats.tpns.total.toLocaleString(),
       description: "Total TPNs",
+      totalValue: stats.tpns.totalValue,
       icon: FiTruck,
     },
   ];
@@ -86,9 +101,16 @@ export default function ProcurementsStats({ stats }: ProcurementsStatsProps) {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stat.value}</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {stat.description}
-              </p>
+              <div className="flex items-center justify-between gap-2 mt-2 pt-1 border-t border-border/40">
+                <p className="text-xs text-muted-foreground truncate">
+                  {stat.description}
+                </p>
+                {stat.totalValue !== undefined && (
+                  <span className="text-xs font-bold font-mono text-foreground bg-muted/70 dark:bg-muted/40 px-2 py-0.5 rounded border border-border/60 shrink-0">
+                    {formatCurrency(stat.totalValue)}
+                  </span>
+                )}
+              </div>
             </CardContent>
           </Card>
         );

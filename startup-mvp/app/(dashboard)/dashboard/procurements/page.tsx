@@ -42,6 +42,16 @@ export default async function ProcurementsDashboardPage() {
     completedPurchases,
     purchaseStatusGroup,
     recentPurchases,
+    purchaseSum,
+    totalGRNs,
+    recentGRNs,
+    grnItems,
+    totalRTVs,
+    recentRTVs,
+    rtvSum,
+    totalTPNs,
+    recentTPNs,
+    tpnItems,
   ] = await Promise.all([
     prisma.purchase.count({ where: purchaseWhere }),
     prisma.purchase.count({ where: { ...purchaseWhere, status: "DRAFT" } }), // Or PENDING if there was a pending status
@@ -66,16 +76,11 @@ export default async function ProcurementsDashboardPage() {
         },
       },
     }),
-  ]);
-
-  // Transform purchase status for chart
-  const purchaseStatusBreakdown = purchaseStatusGroup.map((group) => ({
-    status: group.status,
-    count: group._count,
-  }));
-
-  // Fetch GRNs Data
-  const [totalGRNs, recentGRNs] = await Promise.all([
+    prisma.purchase.aggregate({
+      where: purchaseWhere,
+      _sum: { grandTotal: true },
+    }),
+    // Fetch GRNs Data
     prisma.gRN.count({ where: grnWhere }),
     prisma.gRN.findMany({
       where: grnWhere,
@@ -89,10 +94,16 @@ export default async function ProcurementsDashboardPage() {
         warehouse: { select: { name: true } },
       },
     }),
-  ]);
-
-  // Fetch RTVs Data
-  const [totalRTVs, recentRTVs] = await Promise.all([
+    prisma.gRNItem.findMany({
+      where: { grn: grnWhere },
+      select: {
+        receivedQuantity: true,
+        purchaseItem: { select: { unitPrice: true } },
+        variant: { select: { costPrice: true } },
+        item: { select: { costPrice: true } },
+      },
+    }),
+    // Fetch RTVs Data
     prisma.returnToVendor.count({ where: rtvWhere }),
     prisma.returnToVendor.findMany({
       where: rtvWhere,
@@ -107,10 +118,11 @@ export default async function ProcurementsDashboardPage() {
         supplier: { select: { name: true, company: true } },
       },
     }),
-  ]);
-
-  // Fetch TPNs Data
-  const [totalTPNs, recentTPNs] = await Promise.all([
+    prisma.returnToVendor.aggregate({
+      where: rtvWhere,
+      _sum: { grandTotal: true },
+    }),
+    // Fetch TPNs Data
     prisma.transferPurchaseNote.count({ where: tpnWhere }),
     prisma.transferPurchaseNote.findMany({
       where: tpnWhere,
@@ -125,7 +137,38 @@ export default async function ProcurementsDashboardPage() {
         destinationWarehouse: { select: { name: true } },
       },
     }),
+    prisma.transferPurchaseNoteItem.findMany({
+      where: { tpn: tpnWhere },
+      select: {
+        quantity: true,
+        variant: { select: { costPrice: true } },
+        item: { select: { costPrice: true } },
+      },
+    }),
   ]);
+
+  // Transform purchase status for chart
+  const purchaseStatusBreakdown = purchaseStatusGroup.map((group) => ({
+    status: group.status,
+    count: group._count,
+  }));
+
+  // Calculate closing monetary values
+  const purchasesTotalValue = Number(purchaseSum._sum.grandTotal || 0);
+
+  const grnsTotalValue = grnItems.reduce((sum, item) => {
+    const price = Number(
+      item.purchaseItem?.unitPrice ?? item.variant?.costPrice ?? item.item?.costPrice ?? 0
+    );
+    return sum + (Number(item.receivedQuantity) * price);
+  }, 0);
+
+  const rtvsTotalValue = Number(rtvSum._sum.grandTotal || 0);
+
+  const tpnsTotalValue = tpnItems.reduce((sum, item) => {
+    const price = Number(item.variant?.costPrice ?? item.item?.costPrice ?? 0);
+    return sum + (Number(item.quantity) * price);
+  }, 0);
 
   // Stats formatting
   const stats = {
@@ -133,15 +176,19 @@ export default async function ProcurementsDashboardPage() {
       total: totalPurchases,
       pending: pendingPurchases,
       completed: completedPurchases,
+      totalValue: purchasesTotalValue,
     },
     grns: {
       total: totalGRNs,
+      totalValue: grnsTotalValue,
     },
     rtvs: {
       total: totalRTVs,
+      totalValue: rtvsTotalValue,
     },
     tpns: {
       total: totalTPNs,
+      totalValue: tpnsTotalValue,
     },
   };
 

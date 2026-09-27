@@ -114,11 +114,11 @@ export default function LedgerView({
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
+    const formatted = Math.abs(amount).toLocaleString("en-US", {
       minimumFractionDigits: 2,
-    }).format(amount);
+      maximumFractionDigits: 2,
+    });
+    return amount < 0 ? `-৳${formatted}` : `৳${formatted}`;
   };
 
   // Filter accounts based on search term
