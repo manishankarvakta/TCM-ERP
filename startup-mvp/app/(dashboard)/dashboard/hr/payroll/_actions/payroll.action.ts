@@ -28,6 +28,15 @@ function applyNetPayRounding(value: number, mode: string): number {
   return value;
 }
 
+/**
+ * Safely extracts a percentage number from a policy field, preserving 0%.
+ */
+function getPercent(val: any, fallback: number): number {
+  if (val === null || val === undefined || val === "") return fallback;
+  const num = Number(val);
+  return isNaN(num) ? fallback : num;
+}
+
 
 /**
  * Generate a new Payroll for a given month and year
@@ -331,9 +340,9 @@ export async function generatePayroll(month: number, year: number, options?: Gen
       const empTypePolicies = emp.employeeType;
       let originalBasic = 0;
       if (empTypePolicies?.salaryStructurePolicy) {
-        originalBasic = Number((originalRawSalary * (Number(empTypePolicies.salaryStructurePolicy.basicPercent || 55) / 100)).toFixed(2));
+        originalBasic = Number((originalRawSalary * (getPercent(empTypePolicies.salaryStructurePolicy.basicPercent, 55) / 100)).toFixed(2));
       } else if (defaultSalaryStructurePolicy) {
-        originalBasic = Number((originalRawSalary * (Number(defaultSalaryStructurePolicy.basicPercent || 55) / 100)).toFixed(2));
+        originalBasic = Number((originalRawSalary * (getPercent(defaultSalaryStructurePolicy.basicPercent, 55) / 100)).toFixed(2));
       } else {
         originalBasic = Number((originalRawSalary * 0.55).toFixed(2));
       }
@@ -350,11 +359,11 @@ export async function generatePayroll(month: number, year: number, options?: Gen
       if (empTypePolicies?.salaryStructurePolicy) {
         // Priority 1: EmployeeType SalaryStructurePolicy
         const policy = empTypePolicies.salaryStructurePolicy;
-        const basicPercent = Number(policy.basicPercent) || 55;
-        const rentPercent = Number(policy.houseRentPercent) || 26;
-        const medicalPercent = Number(policy.medicalPercent) || 5;
-        const transportPercent = Number(policy.transportPercent) || 4;
-        const foodPercent = Number(policy.foodPercent) || 10;
+        const basicPercent = getPercent(policy.basicPercent, 55);
+        const rentPercent = getPercent(policy.houseRentPercent, 26);
+        const medicalPercent = getPercent(policy.medicalPercent, 5);
+        const transportPercent = getPercent(policy.transportPercent, 4);
+        const foodPercent = getPercent(policy.foodPercent, 10);
 
         basic = Number((rawSalary * (basicPercent / 100)).toFixed(2));
         houseRent = Number((rawSalary * (rentPercent / 100)).toFixed(2));
@@ -363,11 +372,11 @@ export async function generatePayroll(month: number, year: number, options?: Gen
         foodAllowance = Number((rawSalary * (foodPercent / 100)).toFixed(2));
       } else if (defaultSalaryStructurePolicy) {
         // Priority 2: Default SalaryStructurePolicy
-        const basicPercent = Number(defaultSalaryStructurePolicy.basicPercent) || 55;
-        const rentPercent = Number(defaultSalaryStructurePolicy.houseRentPercent) || 26;
-        const medicalPercent = Number(defaultSalaryStructurePolicy.medicalPercent) || 5;
-        const transportPercent = Number(defaultSalaryStructurePolicy.transportPercent) || 4;
-        const foodPercent = Number(defaultSalaryStructurePolicy.foodPercent) || 10;
+        const basicPercent = getPercent(defaultSalaryStructurePolicy.basicPercent, 55);
+        const rentPercent = getPercent(defaultSalaryStructurePolicy.houseRentPercent, 26);
+        const medicalPercent = getPercent(defaultSalaryStructurePolicy.medicalPercent, 5);
+        const transportPercent = getPercent(defaultSalaryStructurePolicy.transportPercent, 4);
+        const foodPercent = getPercent(defaultSalaryStructurePolicy.foodPercent, 10);
 
         basic = Number((rawSalary * (basicPercent / 100)).toFixed(2));
         houseRent = Number((rawSalary * (rentPercent / 100)).toFixed(2));
@@ -1833,9 +1842,9 @@ export async function recalculatePayroll(payrollId: string) {
       const empTypePolicies = emp.employeeType;
       let originalBasic = 0;
       if (empTypePolicies?.salaryStructurePolicy) {
-        originalBasic = Number((originalRawSalary * (Number(empTypePolicies.salaryStructurePolicy.basicPercent || 55) / 100)).toFixed(2));
+        originalBasic = Number((originalRawSalary * (getPercent(empTypePolicies.salaryStructurePolicy.basicPercent, 55) / 100)).toFixed(2));
       } else if (defaultSalaryStructurePolicy) {
-        originalBasic = Number((originalRawSalary * (Number(defaultSalaryStructurePolicy.basicPercent || 55) / 100)).toFixed(2));
+        originalBasic = Number((originalRawSalary * (getPercent(defaultSalaryStructurePolicy.basicPercent, 55) / 100)).toFixed(2));
       } else {
         originalBasic = Number((originalRawSalary * 0.55).toFixed(2));
       }
@@ -1845,17 +1854,29 @@ export async function recalculatePayroll(payrollId: string) {
 
       if (empTypePolicies?.salaryStructurePolicy) {
         const policy = empTypePolicies.salaryStructurePolicy;
-        basic = Number((rawSalary * (Number(policy.basicPercent || 55) / 100)).toFixed(2));
-        houseRent = Number((rawSalary * (Number(policy.houseRentPercent || 26) / 100)).toFixed(2));
-        medical = Number((rawSalary * (Number(policy.medicalPercent || 5) / 100)).toFixed(2));
-        transport = Number((rawSalary * (Number(policy.transportPercent || 4) / 100)).toFixed(2));
-        foodAllowance = Number((rawSalary * (Number(policy.foodPercent || 10) / 100)).toFixed(2));
+        const basicPercent = getPercent(policy.basicPercent, 55);
+        const rentPercent = getPercent(policy.houseRentPercent, 26);
+        const medicalPercent = getPercent(policy.medicalPercent, 5);
+        const transportPercent = getPercent(policy.transportPercent, 4);
+        const foodPercent = getPercent(policy.foodPercent, 10);
+
+        basic = Number((rawSalary * (basicPercent / 100)).toFixed(2));
+        houseRent = Number((rawSalary * (rentPercent / 100)).toFixed(2));
+        medical = Number((rawSalary * (medicalPercent / 100)).toFixed(2));
+        transport = Number((rawSalary * (transportPercent / 100)).toFixed(2));
+        foodAllowance = Number((rawSalary * (foodPercent / 100)).toFixed(2));
       } else if (defaultSalaryStructurePolicy) {
-        basic = Number((rawSalary * (Number(defaultSalaryStructurePolicy.basicPercent || 55) / 100)).toFixed(2));
-        houseRent = Number((rawSalary * (Number(defaultSalaryStructurePolicy.houseRentPercent || 26) / 100)).toFixed(2));
-        medical = Number((rawSalary * (Number(defaultSalaryStructurePolicy.medicalPercent || 5) / 100)).toFixed(2));
-        transport = Number((rawSalary * (Number(defaultSalaryStructurePolicy.transportPercent || 4) / 100)).toFixed(2));
-        foodAllowance = Number((rawSalary * (Number(defaultSalaryStructurePolicy.foodPercent || 10) / 100)).toFixed(2));
+        const basicPercent = getPercent(defaultSalaryStructurePolicy.basicPercent, 55);
+        const rentPercent = getPercent(defaultSalaryStructurePolicy.houseRentPercent, 26);
+        const medicalPercent = getPercent(defaultSalaryStructurePolicy.medicalPercent, 5);
+        const transportPercent = getPercent(defaultSalaryStructurePolicy.transportPercent, 4);
+        const foodPercent = getPercent(defaultSalaryStructurePolicy.foodPercent, 10);
+
+        basic = Number((rawSalary * (basicPercent / 100)).toFixed(2));
+        houseRent = Number((rawSalary * (rentPercent / 100)).toFixed(2));
+        medical = Number((rawSalary * (medicalPercent / 100)).toFixed(2));
+        transport = Number((rawSalary * (transportPercent / 100)).toFixed(2));
+        foodAllowance = Number((rawSalary * (foodPercent / 100)).toFixed(2));
       } else {
         basic = Number((rawSalary * 0.55).toFixed(2));
         houseRent = Number((rawSalary * 0.26).toFixed(2));

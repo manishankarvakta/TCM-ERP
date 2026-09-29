@@ -61,6 +61,11 @@ export interface SalaryBreakdownOutput {
   food: number;
   totalComponents: number;
   isValid: boolean;
+  basicPct: number;
+  rentPct: number;
+  medicalPct: number;
+  transportPct: number;
+  foodPct: number;
 }
 
 export function calculateSalaryBreakdown(input: SalaryBreakdownInput): SalaryBreakdownOutput {
@@ -102,6 +107,11 @@ export function calculateSalaryBreakdown(input: SalaryBreakdownInput): SalaryBre
     food,
     totalComponents,
     isValid,
+    basicPct,
+    rentPct,
+    medicalPct,
+    transportPct,
+    foodPct,
   };
 }
 

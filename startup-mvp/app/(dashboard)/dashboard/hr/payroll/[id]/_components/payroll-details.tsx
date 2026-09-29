@@ -345,11 +345,11 @@ export default function PayrollDetailsClient({
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[180px] min-w-[180px] max-w-[180px] sticky left-0 bg-background z-20 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Employee</TableHead>
-                  <TableHead className="text-right">Basic (55%)</TableHead>
-                  <TableHead className="text-right">House Rent (26%)</TableHead>
-                  <TableHead className="text-right">Medical (5%)</TableHead>
-                  <TableHead className="text-right">Transport (4%)</TableHead>
-                  <TableHead className="text-right">Food (10%)</TableHead>
+                  <TableHead className="text-right">Basic</TableHead>
+                  <TableHead className="text-right">House Rent</TableHead>
+                  <TableHead className="text-right">Medical</TableHead>
+                  <TableHead className="text-right">Transport</TableHead>
+                  <TableHead className="text-right">Food</TableHead>
                   <TableHead className="text-right">Base Gross</TableHead>
                   <TableHead className="text-right">OT Pay</TableHead>
                   <TableHead className="text-right">Tiffin</TableHead>
