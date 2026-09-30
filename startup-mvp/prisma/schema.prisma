@@ -1291,6 +1291,7 @@ model Shift {
   graceMinutes      Int          @default(0)
   lateAfter         Int          @default(15)
   halfDayAfter      Int          @default(120)
+  allowOvertime     Boolean      @default(true)
   otStartAfter      Int          @default(30)
   status            String       @default("active")
   isTrash      Boolean      @default(false)

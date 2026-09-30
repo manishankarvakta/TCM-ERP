@@ -52,6 +52,7 @@ interface Shift {
   graceMinutes: number;
   lateAfter: number;
   halfDayAfter: number;
+  allowOvertime?: boolean;
   otStartAfter: number;
   status: string;
   isTrash: boolean;
@@ -361,6 +362,17 @@ export default function ShiftsListClient({
                       <div className="flex flex-col gap-1 text-xs text-muted-foreground">
                         <span>Late after: {shift.lateAfter} mins</span>
                         <span>Half-day after: {shift.halfDayAfter} mins</span>
+                        <div className="mt-0.5">
+                          {shift.allowOvertime !== false ? (
+                            <Badge variant="outline" className="text-[10px] text-emerald-700 bg-emerald-50/70 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-800">
+                              OT: After {shift.otStartAfter}m
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary" className="text-[10px] text-amber-800 bg-amber-100/70 dark:bg-amber-950/40 dark:text-amber-300">
+                              OT Disabled
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell>

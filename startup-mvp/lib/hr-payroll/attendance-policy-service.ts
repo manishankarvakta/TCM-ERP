@@ -11,7 +11,8 @@ import {
   determineAttendanceStatus,
   calculateWorkHoursWithBreak,
   calculateOTHours,
-  getShiftWindow
+  getShiftWindow,
+  resolveEffectiveShift
 } from "@/lib/hr/shift-utils";
 import {
   calculateOvertimePreview,
@@ -63,6 +64,7 @@ export interface DailyAttendancePolicyInput {
     graceMinutes: number;
     lateAfter: number;
     halfDayAfter: number;
+    allowOvertime?: boolean;
     otStartAfter: number;
     breakStartTime?: string | null;
     breakEndTime?: string | null;
@@ -133,6 +135,7 @@ export function calculateDailyAttendancePolicyValues(input: DailyAttendancePolic
       graceMinutes: shift.graceMinutes,
       lateAfter: shift.lateAfter,
       halfDayAfter: shift.halfDayAfter,
+      allowOvertime: shift.allowOvertime,
       otStartAfter: shift.otStartAfter,
       breakStartTime: shift.breakStartTime,
       breakEndTime: shift.breakEndTime,
@@ -385,7 +388,11 @@ export async function applyDailyAttendancePolicyValues(
     };
 
     const grossSalary = attendance.employee.salary ? Number(attendance.employee.salary) : 0;
-    const activeShift = attendance.shift || attendance.employee.shift;
+    const { shift: activeShift, shiftId: activeShiftId } = await resolveEffectiveShift(
+      attendance.employeeId,
+      attendance.date,
+      attendance.employee.shift
+    );
 
     const result = calculateDailyAttendancePolicyValues({
       attendance,
@@ -397,6 +404,7 @@ export async function applyDailyAttendancePolicyValues(
         graceMinutes: activeShift.graceMinutes,
         lateAfter: activeShift.lateAfter,
         halfDayAfter: activeShift.halfDayAfter,
+        allowOvertime: activeShift.allowOvertime,
         otStartAfter: activeShift.otStartAfter,
         breakStartTime: activeShift.breakStartTime,
         breakEndTime: activeShift.breakEndTime,
@@ -427,6 +435,7 @@ export async function applyDailyAttendancePolicyValues(
         holidayBillAmount: new Prisma.Decimal(result.holidayBillAmount),
         calculatedOvertimeAmount: new Prisma.Decimal(result.calculatedOvertimeAmount),
         policyCalculationNote: result.policyCalculationNote,
+        shiftId: activeShiftId || attendance.shiftId || null,
       }
     });
 
@@ -532,7 +541,12 @@ export async function reprocessAttendancePoliciesForDateRange(input: {
         continue;
       }
 
-      const activeShift = att.shift || att.employee.shift;
+      const { shift: activeShift, shiftId: activeShiftId } = await resolveEffectiveShift(
+        att.employeeId,
+        att.date,
+        att.employee.shift
+      );
+
       if (!activeShift) {
         // Record missing shift, update policy fields to 0, write warning note
         try {
@@ -587,6 +601,7 @@ export async function reprocessAttendancePoliciesForDateRange(input: {
             graceMinutes: activeShift.graceMinutes,
             lateAfter: activeShift.lateAfter,
             halfDayAfter: activeShift.halfDayAfter,
+            allowOvertime: activeShift.allowOvertime,
             otStartAfter: activeShift.otStartAfter,
             breakStartTime: activeShift.breakStartTime,
             breakEndTime: activeShift.breakEndTime,
@@ -617,6 +632,7 @@ export async function reprocessAttendancePoliciesForDateRange(input: {
             holidayBillAmount: new Prisma.Decimal(result.holidayBillAmount),
             calculatedOvertimeAmount: new Prisma.Decimal(result.calculatedOvertimeAmount),
             policyCalculationNote: result.policyCalculationNote,
+            shiftId: activeShiftId || att.shiftId || null,
           }
         });
 
