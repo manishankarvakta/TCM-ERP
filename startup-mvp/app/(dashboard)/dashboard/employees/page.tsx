@@ -199,8 +199,16 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
           </div>
         </div>
 
-        <Tabs defaultValue={tab} className="w-full">
-          <TabsContent value="all" className="mt-0">
+        <Tabs value={tab} className="w-full">
+          <TabsList>
+            <TabsTrigger value="all" asChild>
+              <Link href="/dashboard/employees?tab=all&page=1">All Employees</Link>
+            </TabsTrigger>
+            <TabsTrigger value="trash" asChild>
+              <Link href="/dashboard/employees?tab=trash&page=1">Trash</Link>
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="all" className="mt-4">
             <EmployeesListClient
               initialEmployees={result.employees || []}
               initialPagination={result.pagination || {

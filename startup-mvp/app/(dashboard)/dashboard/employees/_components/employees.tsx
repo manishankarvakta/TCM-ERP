@@ -32,7 +32,6 @@ import Link from "next/link";
 import { FiSearch, FiEdit, FiTrash2, FiX, FiCircle, FiCheck, FiMoreVertical, FiEye, FiRotateCw, FiImage, FiBook } from "react-icons/fi";
 import { deleteEmployee, bulkUpdateEmployeeStatus, deleteEmployeesPermanently } from "../_actions/employee.action";
 import ProtectedAction from "@/components/permissions/protected-action";
-import { TabsList, TabsTrigger } from "@/components/ui/tabs";
 import SyncBiometricButton from "./sync-biometric-button";
 import ExportButtons from "./export-buttons";
 import {
@@ -491,19 +490,10 @@ export default function EmployeesListClient({
 
   return (
     <div className="space-y-4">
-      {/* Subheader: Tabs & Bulk Actions on left, Actions on right */}
+      {/* Subheader: Bulk Actions on left, Actions on right */}
       <div className="flex justify-between items-center flex-wrap gap-4 mb-2">
         <div className="flex items-center gap-3 flex-wrap">
-          <TabsList>
-            <TabsTrigger value="all" asChild>
-              <Link href="/dashboard/employees?tab=all&page=1">All Employees</Link>
-            </TabsTrigger>
-            <TabsTrigger value="trash" asChild>
-              <Link href="/dashboard/employees?tab=trash&page=1">Trash</Link>
-            </TabsTrigger>
-          </TabsList>
-
-          {/* Bulk Actions Dropdown beside Tabs */}
+          {/* Bulk Actions Dropdown */}
           <div className="flex items-center gap-2">
             {selectedEmployees.size > 0 && (
               <span className="text-sm text-muted-foreground whitespace-nowrap font-medium">
