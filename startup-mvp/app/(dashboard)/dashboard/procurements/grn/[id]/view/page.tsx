@@ -55,11 +55,13 @@ export default async function GRNDetailsPage({ params }: GRNDetailsPageProps) {
   };
 
   const totalAmount = grn.items.reduce((sum, item) => {
-    const unitPrice = item.purchaseItem 
-      ? Number(item.purchaseItem.unitPrice) 
-      : (item.variant?.costPrice 
-          ? Number(item.variant.costPrice) 
-          : (item.item?.costPrice ? Number(item.item.costPrice) : 0));
+    const unitPrice = item.unitPrice !== null && item.unitPrice !== undefined
+      ? Number(item.unitPrice)
+      : (item.purchaseItem 
+          ? Number(item.purchaseItem.unitPrice) 
+          : (item.variant?.costPrice 
+              ? Number(item.variant.costPrice) 
+              : (item.item?.costPrice ? Number(item.item.costPrice) : 0)));
     return sum + (Number(item.receivedQuantity) * unitPrice);
   }, 0);
 
@@ -268,7 +270,7 @@ export default async function GRNDetailsPage({ params }: GRNDetailsPageProps) {
               <p>No items in this GRN</p>
             </div>
           ) : (
-            <div className="rounded-md border">
+            <div className="rounded-md border overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -276,17 +278,27 @@ export default async function GRNDetailsPage({ params }: GRNDetailsPageProps) {
                     <TableHead className="print:py-1 print:px-2 print:text-xs">Item Code</TableHead>
                     <TableHead className="print:py-1 print:px-2 print:text-xs">Item Details</TableHead>
                     <TableHead className="text-right print:py-1 print:px-2 print:text-xs">Received Qty</TableHead>
-                    <TableHead className="text-right print:py-1 print:px-2 print:text-xs">Unit Price</TableHead>
+                    <TableHead className="text-right print:py-1 print:px-2 print:text-xs">Received TP</TableHead>
+                    <TableHead className="text-right print:py-1 print:px-2 print:text-xs">MRP</TableHead>
                     <TableHead className="text-right print:py-1 print:px-2 print:text-xs">Total</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {grn.items.map((item, index) => {
-                    const unitPrice = item.purchaseItem 
-                      ? Number(item.purchaseItem.unitPrice) 
-                      : (item.variant?.costPrice 
-                          ? Number(item.variant.costPrice) 
-                          : (item.item?.costPrice ? Number(item.item.costPrice) : 0));
+                    const unitPrice = item.unitPrice !== null && item.unitPrice !== undefined
+                      ? Number(item.unitPrice)
+                      : (item.purchaseItem 
+                          ? Number(item.purchaseItem.unitPrice) 
+                          : (item.variant?.costPrice 
+                              ? Number(item.variant.costPrice) 
+                              : (item.item?.costPrice ? Number(item.item.costPrice) : 0)));
+
+                    const salesPrice = item.salesPrice !== null && item.salesPrice !== undefined
+                      ? Number(item.salesPrice)
+                      : (item.item?.salesPrice !== undefined && item.item?.salesPrice !== null
+                          ? Number(item.item.salesPrice)
+                          : (item.variant?.salesPrice ? Number(item.variant.salesPrice) : null));
+
                     const amount = Number(item.receivedQuantity) * unitPrice;
 
                     return (
@@ -321,6 +333,9 @@ export default async function GRNDetailsPage({ params }: GRNDetailsPageProps) {
                         <TableCell className="text-right font-mono print:py-1.5 print:px-2 print:text-xs">
                           {formatCurrency(unitPrice)}
                         </TableCell>
+                        <TableCell className="text-right font-mono print:py-1.5 print:px-2 print:text-xs">
+                          {salesPrice !== null ? formatCurrency(salesPrice) : "-"}
+                        </TableCell>
                         <TableCell className="text-right font-mono font-semibold print:py-1.5 print:px-2 print:text-xs">
                           {formatCurrency(amount)}
                         </TableCell>
@@ -333,7 +348,7 @@ export default async function GRNDetailsPage({ params }: GRNDetailsPageProps) {
                       <TableCell className="text-right font-mono print:py-1.5 print:px-2 print:text-xs">
                         {totalReceivedQuantity.toFixed(2)}
                       </TableCell>
-                      <TableCell className="text-right print:py-1.5 print:px-2"></TableCell>
+                      <TableCell className="text-right print:py-1.5 print:px-2" colSpan={2}></TableCell>
                       <TableCell className="text-right font-mono font-semibold print:py-1.5 print:px-2 print:text-xs">
                         {formatCurrency(totalAmount)}
                       </TableCell>

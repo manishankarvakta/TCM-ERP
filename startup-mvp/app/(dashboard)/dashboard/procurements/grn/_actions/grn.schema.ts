@@ -4,6 +4,8 @@ const grnItemSchema = z.object({
   purchaseItemId: z.string().optional().nullable(),
   tpnItemId: z.string().optional().nullable(),
   receivedQuantity: z.coerce.number().min(0),
+  unitPrice: z.coerce.number().min(0, "Unit price must be 0 or greater").optional().nullable(),
+  salesPrice: z.coerce.number().min(0, "MRP must be 0 or greater").optional().nullable(),
 }).refine(data => data.purchaseItemId || data.tpnItemId, {
   message: "Either purchaseItemId or tpnItemId must be provided",
   path: ["purchaseItemId"]
@@ -15,6 +17,7 @@ export const createGRNSchema = z.object({
   warehouseId: z.string(),
   date: z.coerce.date(),
   notes: z.string().optional().nullable(),
+  updateMasterPrices: z.boolean().default(true).optional(),
   items: z.array(grnItemSchema).min(1, "At least one item is required"),
 }).refine(data => data.purchaseId || data.tpnId, {
   message: "Either purchaseId or tpnId must be provided",

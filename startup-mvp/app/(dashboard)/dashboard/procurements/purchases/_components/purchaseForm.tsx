@@ -1037,11 +1037,18 @@ export default function PurchaseForm({
                         </td>
                         <td className="px-3 py-2 align-top text-right">
                           <div className="text-sm font-medium">
-                            {selectedItem 
-                              ? (selectedItem.itemType === "RETAIL" || selectedItem.itemType === "READY_PRODUCT")
-                                ? (stockMap[watch(`items.${index}.variantId`) || ""] ?? 0)
-                                : (stockMap[selectedItem.id] ?? 0) 
-                              : 0}
+                            {(() => {
+                              if (!selectedItem) return 0;
+                              const currentVariantId = watch(`items.${index}.variantId`);
+                              if (currentVariantId) {
+                                return stockMap[currentVariantId] ?? 0;
+                              }
+                              if (selectedItem.variants && selectedItem.variants.length > 0) {
+                                const variantStockSum = selectedItem.variants.reduce((sum: number, v: any) => sum + (stockMap[v.id] ?? 0), 0);
+                                return variantStockSum || (stockMap[selectedItem.id] ?? selectedItem.stock ?? 0);
+                              }
+                              return stockMap[selectedItem.id] ?? selectedItem.stock ?? 0;
+                            })()}
                           </div> 
                           {selectedItem && (
                               <span className="text-sm text-muted-foreground">

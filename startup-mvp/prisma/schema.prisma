@@ -1292,6 +1292,7 @@ model Shift {
   lateAfter         Int          @default(15)
   halfDayAfter      Int          @default(120)
   otStartAfter      Int          @default(30)
+  allowOvertime     Boolean      @default(false)
   status            String       @default("active")
   isTrash      Boolean      @default(false)
   createdBy    String
@@ -2398,7 +2399,8 @@ model GRN {
   updatedAt   DateTime  @updatedAt
   createdBy   String
   updatedBy   String?
-  voucherId   String?
+  voucherId          String?
+  updateMasterPrices Boolean   @default(true)
 
   purchase  Purchase?             @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
   tpn       TransferPurchaseNote? @relation(fields: [tpnId], references: [id], onDelete: Cascade)
@@ -2427,6 +2429,8 @@ model GRNItem {
   itemId           String?
   variantId        String?
   receivedQuantity Decimal  @db.Decimal(14, 3)
+  unitPrice        Decimal? @db.Decimal(10, 2)
+  salesPrice       Decimal? @db.Decimal(10, 2)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 

@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Checkbox } from "@/components/ui/checkbox";
 import { FiAlertCircle, FiSave, FiCheckCircle } from "react-icons/fi";
 import { createGRN, confirmGRN, getPendingPurchasesForWarehouse, getPendingTPNsForWarehouse } from "../_actions/grn.action";
 import { createGRNSchema, type GRNFormData } from "../_actions/grn.schema";
@@ -89,11 +90,25 @@ export default function CreateGRNForm({ warehouses, allowPurchaseSelect, initial
       warehouseId: selectedWarehouseId,
       date: new Date(),
       notes: "",
-      items: pendingItems.map((item: any) => ({
-        purchaseItemId: sourceType === "PURCHASE" ? item.id : null,
-        tpnItemId: sourceType === "TPN" ? item.id : null,
-        receivedQuantity: item.quantity - (item.receivedQuantity || 0),
-      })),
+      updateMasterPrices: true,
+      items: pendingItems.map((item: any) => {
+        const defaultTp = item.unitPrice !== undefined 
+          ? Number(item.unitPrice) 
+          : (item.variant?.costPrice 
+              ? Number(item.variant.costPrice) 
+              : (item.item?.costPrice ? Number(item.item.costPrice) : 0));
+        const defaultMrp = item.item?.salesPrice !== undefined && item.item?.salesPrice !== null
+          ? Number(item.item.salesPrice)
+          : (item.variant?.salesPrice ? Number(item.variant.salesPrice) : (item.salesPrice ? Number(item.salesPrice) : 0));
+
+        return {
+          purchaseItemId: sourceType === "PURCHASE" ? item.id : null,
+          tpnItemId: sourceType === "TPN" ? item.id : null,
+          receivedQuantity: item.quantity - (item.receivedQuantity || 0),
+          unitPrice: defaultTp,
+          salesPrice: defaultMrp,
+        };
+      }),
     },
   });
 
@@ -113,11 +128,14 @@ export default function CreateGRNForm({ warehouses, allowPurchaseSelect, initial
   const currentReceivingAmount = watchedItems.reduce((sum: number, wItem: any, index: number) => {
     const item = pendingItems[index];
     if (!item) return sum;
-    const unitPrice = item.unitPrice !== undefined 
+    const defaultPrice = item.unitPrice !== undefined 
       ? Number(item.unitPrice) 
       : (item.variant?.costPrice 
           ? Number(item.variant.costPrice) 
           : (item.item?.costPrice ? Number(item.item.costPrice) : 0));
+    const unitPrice = wItem?.unitPrice !== undefined && !isNaN(Number(wItem?.unitPrice))
+      ? Number(wItem.unitPrice)
+      : defaultPrice;
     const receiveQty = Number(wItem?.receivedQuantity) || 0;
     return sum + (receiveQty * unitPrice);
   }, 0);
@@ -144,11 +162,24 @@ export default function CreateGRNForm({ warehouses, allowPurchaseSelect, initial
       setValue("purchaseId", sourceType === "PURCHASE" ? doc.id : null);
       setValue("tpnId", sourceType === "TPN" ? doc.id : null);
       setValue("warehouseId", selectedWarehouseId);
-      setValue("items", pItems.map((item: any) => ({
-        purchaseItemId: sourceType === "PURCHASE" ? item.id : null,
-        tpnItemId: sourceType === "TPN" ? item.id : null,
-        receivedQuantity: item.quantity - (item.receivedQuantity || 0),
-      })));
+      setValue("items", pItems.map((item: any) => {
+        const defaultTp = item.unitPrice !== undefined 
+          ? Number(item.unitPrice) 
+          : (item.variant?.costPrice 
+              ? Number(item.variant.costPrice) 
+              : (item.item?.costPrice ? Number(item.item.costPrice) : 0));
+        const defaultMrp = item.item?.salesPrice !== undefined && item.item?.salesPrice !== null
+          ? Number(item.item.salesPrice)
+          : (item.variant?.salesPrice ? Number(item.variant.salesPrice) : (item.salesPrice ? Number(item.salesPrice) : 0));
+
+        return {
+          purchaseItemId: sourceType === "PURCHASE" ? item.id : null,
+          tpnItemId: sourceType === "TPN" ? item.id : null,
+          receivedQuantity: item.quantity - (item.receivedQuantity || 0),
+          unitPrice: defaultTp,
+          salesPrice: defaultMrp,
+        };
+      }));
     }
   };
 
@@ -310,7 +341,7 @@ export default function CreateGRNForm({ warehouses, allowPurchaseSelect, initial
                 </div>
               </div>
 
-              <div className="border rounded-lg overflow-hidden mt-6">
+              <div className="border rounded-lg overflow-x-auto mt-6">
                 <table className="w-full text-sm">
                   <thead className="bg-muted">
                     <tr>
@@ -319,7 +350,8 @@ export default function CreateGRNForm({ warehouses, allowPurchaseSelect, initial
                       <th className="text-right px-3 py-2">Previously Received</th>
                       <th className="text-right px-3 py-2">Remaining</th>
                       <th className="text-right px-3 py-2 w-28">Receive Qty</th>
-                      <th className="text-right px-3 py-2">Unit Price</th>
+                      <th className="text-right px-3 py-2 w-32">Received TP (৳)</th>
+                      <th className="text-right px-3 py-2 w-32">New MRP (৳)</th>
                       <th className="text-right px-3 py-2">Total</th>
                     </tr>
                   </thead>
@@ -331,13 +363,18 @@ export default function CreateGRNForm({ warehouses, allowPurchaseSelect, initial
                       const received = item.receivedQuantity || 0;
                       const remaining = item.quantity - received;
 
-                      const unitPrice = item.unitPrice !== undefined 
+                      const defaultPrice = item.unitPrice !== undefined 
                         ? Number(item.unitPrice) 
                         : (item.variant?.costPrice 
                             ? Number(item.variant.costPrice) 
                             : (item.item?.costPrice ? Number(item.item.costPrice) : 0));
+                      
+                      const currentUnitPrice = watchedItems[index]?.unitPrice !== undefined && !isNaN(Number(watchedItems[index]?.unitPrice))
+                        ? Number(watchedItems[index]?.unitPrice)
+                        : defaultPrice;
+
                       const receiveQty = Number(watchedItems[index]?.receivedQuantity) || 0;
-                      const itemTotalAmount = receiveQty * unitPrice;
+                      const itemTotalAmount = receiveQty * currentUnitPrice;
                       
                       const itemUnit = item.unit || item.item?.unit?.symbol || item.item?.unit;
                       const isIntegerOnlyUnit = isDiscreteUnit(itemUnit);
@@ -385,8 +422,29 @@ export default function CreateGRNForm({ warehouses, allowPurchaseSelect, initial
                               </p>
                             )}
                           </td>
-                          <td className="px-3 py-2 text-right align-middle font-mono">
-                            {formatCurrency(unitPrice)}
+                          <td className="px-3 py-2 text-right">
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min={0}
+                              className="text-right h-8 font-mono"
+                              {...register(`items.${index}.unitPrice` as const, {
+                                valueAsNumber: true,
+                              })}
+                              disabled={loading}
+                            />
+                          </td>
+                          <td className="px-3 py-2 text-right">
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min={0}
+                              className="text-right h-8 font-mono"
+                              {...register(`items.${index}.salesPrice` as const, {
+                                valueAsNumber: true,
+                              })}
+                              disabled={loading}
+                            />
                           </td>
                           <td className="px-3 py-2 text-right align-middle font-mono font-semibold">
                             {formatCurrency(itemTotalAmount)}
@@ -404,7 +462,7 @@ export default function CreateGRNForm({ warehouses, allowPurchaseSelect, initial
                       <td className="px-3 py-2 text-right align-middle pr-6 font-bold text-primary">
                         {currentReceivingTotal.toFixed(2)}
                       </td>
-                      <td className="px-3 py-2 text-right align-middle"></td>
+                      <td className="px-3 py-2 text-right align-middle" colSpan={2}></td>
                       <td className="px-3 py-2 text-right align-middle font-bold text-primary font-mono">
                         {formatCurrency(currentReceivingAmount)}
                       </td>
@@ -439,6 +497,24 @@ export default function CreateGRNForm({ warehouses, allowPurchaseSelect, initial
                   <p className="text-xs text-muted-foreground">Total Receipt Value</p>
                   <p className="text-lg font-bold text-primary">{formatCurrency(currentReceivingAmount)}</p>
                 </div>
+              </div>
+
+              <div className="flex items-center space-x-2 py-2">
+                <Controller
+                  name="updateMasterPrices"
+                  control={control}
+                  render={({ field }) => (
+                    <Checkbox
+                      id="updateMasterPrices"
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                      disabled={loading}
+                    />
+                  )}
+                />
+                <Label htmlFor="updateMasterPrices" className="text-sm font-medium cursor-pointer">
+                  Update Item Master Prices (TP & MRP) with received rates
+                </Label>
               </div>
 
               {errors.items && <p className="text-sm text-destructive">{errors.items.message}</p>}

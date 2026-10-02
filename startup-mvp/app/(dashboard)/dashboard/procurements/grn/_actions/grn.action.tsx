@@ -88,7 +88,7 @@ async function createGRNAccountingVoucher(
       const quantity = Number(grnItem.receivedQuantity);
       if (quantity <= 0) continue;
       
-      const unitPrice = Number(grnItem.purchaseItem?.unitPrice || 0);
+      const unitPrice = Number(grnItem.unitPrice ?? grnItem.purchaseItem?.unitPrice ?? 0);
       const totalCost = quantity * unitPrice;
 
       itemsByType[grnItem.item.itemType].push({
@@ -271,6 +271,8 @@ export async function createGRN(input: z.infer<typeof createGRNSchema>) {
             itemId: pItem.itemId,
             variantId: pItem.variantId,
             receivedQuantity: new Prisma.Decimal(item.receivedQuantity),
+            unitPrice: item.unitPrice !== undefined && item.unitPrice !== null ? new Prisma.Decimal(item.unitPrice) : (pItem.unitPrice ? new Prisma.Decimal(pItem.unitPrice) : null),
+            salesPrice: item.salesPrice !== undefined && item.salesPrice !== null ? new Prisma.Decimal(item.salesPrice) : null,
           });
         }
       } else if (validated.tpnId) {
@@ -305,6 +307,8 @@ export async function createGRN(input: z.infer<typeof createGRNSchema>) {
             itemId: tItem.itemId,
             variantId: tItem.variantId,
             receivedQuantity: new Prisma.Decimal(item.receivedQuantity),
+            unitPrice: item.unitPrice !== undefined && item.unitPrice !== null ? new Prisma.Decimal(item.unitPrice) : null,
+            salesPrice: item.salesPrice !== undefined && item.salesPrice !== null ? new Prisma.Decimal(item.salesPrice) : null,
           });
         }
       } else {
@@ -324,6 +328,7 @@ export async function createGRN(input: z.infer<typeof createGRNSchema>) {
           date: validated.date,
           status: "DRAFT",
           notes: validated.notes,
+          updateMasterPrices: validated.updateMasterPrices ?? true,
           createdBy: userId,
           items: {
             create: grnItemsData,
@@ -399,6 +404,45 @@ export async function confirmGRN(grnId: string) {
               where: { id: purchase.id },
               data: { status: newStatus },
             });
+          }
+        }
+
+        // 3.5 Update Item Master prices (TP / costPrice and MRP / salesPrice) if enabled
+        if (grn.updateMasterPrices) {
+          for (const item of grn.items) {
+            if (!item.itemId) continue;
+
+            const itemUpdateData: Prisma.ItemUpdateInput = {};
+            if (item.unitPrice !== null && item.unitPrice !== undefined) {
+              itemUpdateData.costPrice = item.unitPrice;
+            }
+            if (item.salesPrice !== null && item.salesPrice !== undefined) {
+              itemUpdateData.salesPrice = item.salesPrice;
+            }
+
+            if (Object.keys(itemUpdateData).length > 0) {
+              await tx.item.update({
+                where: { id: item.itemId },
+                data: itemUpdateData,
+              });
+            }
+
+            // Also update variant prices if applicable
+            if (item.variantId) {
+              const variantUpdateData: Prisma.ProductVariantUpdateInput = {};
+              if (item.unitPrice !== null && item.unitPrice !== undefined) {
+                variantUpdateData.costPrice = item.unitPrice;
+              }
+              if (item.salesPrice !== null && item.salesPrice !== undefined) {
+                variantUpdateData.salesPrice = item.salesPrice;
+              }
+              if (Object.keys(variantUpdateData).length > 0) {
+                await tx.productVariant.update({
+                  where: { id: item.variantId },
+                  data: variantUpdateData,
+                });
+              }
+            }
           }
         }
 
@@ -517,10 +561,6 @@ export async function getGRNs(
       prisma.gRN.count({ where }),
     ]);
 
-    // Calculate total amount per GRN from its purchase?
-    // Actually, GRN doesn't have a direct total cost stored. We can fetch items or just omit total.
-    // For UI parity, we might need a total. Let's fetch items to calculate total, or just skip grandTotal.
-    // Let's just fetch items to sum up the cost.
     const grnIds = grns.map(g => g.id);
     const grnItems = await prisma.gRNItem.findMany({
       where: { grnId: { in: grnIds } },
@@ -536,7 +576,9 @@ export async function getGRNs(
     const formattedGrns = grns.map((grn) => {
       const items = itemsByGrn[grn.id] || [];
       const totalAmount = items.reduce((sum, item) => {
-        const unitPrice = item.purchaseItem ? Number(item.purchaseItem.unitPrice) : 0;
+        const unitPrice = item.unitPrice !== null && item.unitPrice !== undefined
+          ? Number(item.unitPrice)
+          : (item.purchaseItem ? Number(item.purchaseItem.unitPrice) : 0);
         return sum + (Number(item.receivedQuantity) * unitPrice);
       }, 0);
 
