@@ -88,6 +88,7 @@ export async function createShift(input: {
   graceMinutes?: number;
   lateAfter?: number;
   halfDayAfter?: number;
+  allowOvertime?: boolean;
   otStartAfter?: number;
   status?: string;
 }) {
@@ -116,6 +117,7 @@ export async function createShift(input: {
         graceMinutes: input.graceMinutes ?? 0,
         lateAfter: input.lateAfter ?? 15,
         halfDayAfter: input.halfDayAfter ?? 120,
+        allowOvertime: input.allowOvertime ?? true,
         otStartAfter: input.otStartAfter ?? 30,
         status: input.status || "active",
         createdBy: session.user.id,
@@ -148,6 +150,7 @@ export async function updateShift(id: string, input: {
   graceMinutes?: number;
   lateAfter?: number;
   halfDayAfter?: number;
+  allowOvertime?: boolean;
   otStartAfter?: number;
   status?: string;
 }) {
@@ -182,6 +185,7 @@ export async function updateShift(id: string, input: {
         graceMinutes: input.graceMinutes,
         lateAfter: input.lateAfter,
         halfDayAfter: input.halfDayAfter,
+        allowOvertime: input.allowOvertime,
         otStartAfter: input.otStartAfter,
         status: input.status,
       },

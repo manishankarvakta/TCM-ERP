@@ -9,6 +9,7 @@ export interface ShiftPolicy {
   graceMinutes: number;
   lateAfter: number;
   halfDayAfter: number;
+  allowOvertime?: boolean;
   otStartAfter: number;
   breakStartTime?: string | null;
   breakEndTime?: string | null;
@@ -60,6 +61,40 @@ export async function syncTimezoneFromDb() {
  */
 export function formatBusinessDateKey(date: Date, timezone: string = HR_BUSINESS_TIMEZONE): string {
   return formatInTimeZone(date, timezone, "yyyy-MM-dd");
+}
+
+/**
+ * Resolves effective shift for an employee on a target date using the Roster Overlay Architecture.
+ */
+export async function resolveEffectiveShift(employeeId: string, date: Date, defaultShift: any = null) {
+  try {
+    const rosterEntry = await prisma.employeeRoster.findUnique({
+      where: {
+        employeeId_date: {
+          employeeId,
+          date,
+        },
+      },
+      include: { shift: true },
+    });
+
+    if (rosterEntry) {
+      if (rosterEntry.isOffDay) {
+        return { isOffDay: true, shift: null, shiftId: null };
+      }
+      if (rosterEntry.shift) {
+        return { isOffDay: false, shift: rosterEntry.shift, shiftId: rosterEntry.shiftId };
+      }
+    }
+  } catch (err) {
+    console.error("Error resolving roster shift:", err);
+  }
+
+  return {
+    isOffDay: false,
+    shift: defaultShift,
+    shiftId: defaultShift?.id || null,
+  };
 }
 
 /**
@@ -290,6 +325,11 @@ export function calculateOTHours(
   shift: ShiftPolicy,
   workHours?: number
 ): number {
+  // If Overtime is explicitly disabled for this shift, no OT is granted
+  if (shift.allowOvertime === false) {
+    return 0;
+  }
+
   const { shiftStartDateTime, shiftEndDateTime, otStartAfterDateTime } = getShiftWindow(attendanceDate, shift);
   
   // Calculate required shift working hours: (shiftEndTime - shiftStartTime) - breakDuration

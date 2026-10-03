@@ -3281,23 +3281,23 @@ export default function PayrollSettings() {
                           <span>Value</span>
                         </div>
                         <div className="flex justify-between text-sm">
-                          <span>Basic Salary (55%)</span>
+                          <span>Basic Salary ({previewResult.preview.salaryBreakdown.basicPct ?? 55}%)</span>
                           <span>{previewResult.preview.salaryBreakdown.basicSalary.toLocaleString()} BDT</span>
                         </div>
                         <div className="flex justify-between text-sm">
-                          <span>House Rent (26%)</span>
+                          <span>House Rent ({previewResult.preview.salaryBreakdown.rentPct ?? 26}%)</span>
                           <span>{previewResult.preview.salaryBreakdown.houseRent.toLocaleString()} BDT</span>
                         </div>
                         <div className="flex justify-between text-sm">
-                          <span>Medical Allowance (5%)</span>
+                          <span>Medical Allowance ({previewResult.preview.salaryBreakdown.medicalPct ?? 5}%)</span>
                           <span>{previewResult.preview.salaryBreakdown.medical.toLocaleString()} BDT</span>
                         </div>
                         <div className="flex justify-between text-sm">
-                          <span>Transport Allowance (4%)</span>
+                          <span>Transport Allowance ({previewResult.preview.salaryBreakdown.transportPct ?? 4}%)</span>
                           <span>{previewResult.preview.salaryBreakdown.transport.toLocaleString()} BDT</span>
                         </div>
                         <div className="flex justify-between text-sm">
-                          <span>Food Allowance (10%)</span>
+                          <span>Food Allowance ({previewResult.preview.salaryBreakdown.foodPct ?? 10}%)</span>
                           <span>{previewResult.preview.salaryBreakdown.food.toLocaleString()} BDT</span>
                         </div>
                         <div className="flex justify-between text-sm font-semibold border-t pt-2 mt-2">

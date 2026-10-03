@@ -341,19 +341,16 @@ export default function PayrollDetailsClient({
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
-            <Table className="min-w-[2200px]">
+            <Table className="min-w-[1900px]">
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[180px] min-w-[180px] max-w-[180px] sticky left-0 bg-background z-20 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Employee</TableHead>
-                  <TableHead className="text-right">Basic (55%)</TableHead>
-                  <TableHead className="text-right">House Rent (26%)</TableHead>
-                  <TableHead className="text-right">Medical (5%)</TableHead>
-                  <TableHead className="text-right">Transport (4%)</TableHead>
-                  <TableHead className="text-right">Food (10%)</TableHead>
+                  <TableHead className="text-right">Basic</TableHead>
+                  <TableHead className="text-right">House Rent</TableHead>
+                  <TableHead className="text-right">Medical</TableHead>
+                  <TableHead className="text-right">Transport</TableHead>
+                  <TableHead className="text-right">Food</TableHead>
                   <TableHead className="text-right">Base Gross</TableHead>
-                  <TableHead className="text-right">OT Pay</TableHead>
-                  <TableHead className="text-right">Tiffin</TableHead>
-                  <TableHead className="text-right">Night</TableHead>
                   <TableHead className="text-right">Holiday</TableHead>
                   <TableHead className="text-right">Bonus/Oth</TableHead>
                   <TableHead className="text-right">Custom Bonus</TableHead>
@@ -392,9 +389,6 @@ export default function PayrollDetailsClient({
                       <TableCell className="text-right">{formatCurrency(item.transport)}</TableCell>
                       <TableCell className="text-right">{formatCurrency(item.foodAllowance)}</TableCell>
                       <TableCell className="text-right">{formatCurrency(baseGrossSalary)}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(item.otAmount)}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(item.tiffinAllowance)}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(item.nightAllowance)}</TableCell>
                       <TableCell className="text-right">{formatCurrency(item.holidayAllowance)}</TableCell>
                       <TableCell className="text-right">
                         <div>{formatCurrency(bonusAndOth)}</div>

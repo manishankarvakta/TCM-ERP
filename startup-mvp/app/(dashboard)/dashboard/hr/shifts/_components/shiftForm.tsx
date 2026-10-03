@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { FiAlertCircle, FiClock, FiSettings, FiBriefcase } from "react-icons/fi";
+import { Switch } from "@/components/ui/switch";
 import { createShift, updateShift } from "../_actions/shift.action";
 import { getBasePathFromPathname } from "@/lib/route-utils-client";
 import { useToast } from "@/hooks/use-toast";
@@ -34,7 +35,8 @@ const shiftFormSchema = z.object({
   graceMinutes: z.coerce.number().min(0, "Grace minutes cannot be negative"),
   lateAfter: z.coerce.number().min(0, "Late after cannot be negative"),
   halfDayAfter: z.coerce.number().min(0, "Half-day after cannot be negative"),
-  otStartAfter: z.coerce.number().min(0, "OT start after cannot be negative"),
+  allowOvertime: z.boolean().default(true),
+  otStartAfter: z.coerce.number().min(0, "OT start after cannot be negative").optional(),
   status: z.enum(["active", "inactive"]),
 });
 
@@ -56,6 +58,7 @@ interface ShiftFormProps {
     graceMinutes: number;
     lateAfter: number;
     halfDayAfter: number;
+    allowOvertime?: boolean | null;
     otStartAfter: number;
     status: string;
   };
@@ -90,7 +93,8 @@ export default function ShiftForm({ mode, initialData }: ShiftFormProps) {
           graceMinutes: initialData.graceMinutes,
           lateAfter: initialData.lateAfter,
           halfDayAfter: initialData.halfDayAfter,
-          otStartAfter: initialData.otStartAfter,
+          allowOvertime: initialData.allowOvertime ?? true,
+          otStartAfter: initialData.otStartAfter ?? 30,
           status: (initialData.status === "trash" ? "active" : initialData.status) as "active" | "inactive",
         }
       : {
@@ -106,6 +110,7 @@ export default function ShiftForm({ mode, initialData }: ShiftFormProps) {
           graceMinutes: 0,
           lateAfter: 15,
           halfDayAfter: 120,
+          allowOvertime: true,
           otStartAfter: 30,
           status: "active",
         },
@@ -118,6 +123,8 @@ export default function ShiftForm({ mode, initialData }: ShiftFormProps) {
 
       const payload = {
         ...data,
+        allowOvertime: data.allowOvertime,
+        otStartAfter: data.allowOvertime ? (data.otStartAfter ?? 30) : 0,
         breakStartTime: data.breakType === "TRACKED" && data.breakStartTime !== "" ? data.breakStartTime : null,
         breakEndTime: data.breakType === "TRACKED" && data.breakEndTime !== "" ? data.breakEndTime : null,
         breakGraceMinutes: data.breakType === "TRACKED" ? data.breakGraceMinutes : 0,
@@ -412,7 +419,7 @@ export default function ShiftForm({ mode, initialData }: ShiftFormProps) {
                     )}
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="space-y-2 md:col-span-2">
                     <Label htmlFor="halfDayAfter">Mark Half-Day After (minutes)</Label>
                     <Input
                       id="halfDayAfter"
@@ -426,21 +433,47 @@ export default function ShiftForm({ mode, initialData }: ShiftFormProps) {
                       <p className="text-sm text-destructive">{errors.halfDayAfter.message}</p>
                     )}
                   </div>
+                </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="otStartAfter">Overtime Starts After (minutes)</Label>
-                    <Input
-                      id="otStartAfter"
-                      type="number"
-                      placeholder="e.g., 30"
-                      {...register("otStartAfter")}
+                {/* Overtime Policy Toggle & Threshold Card */}
+                <div className="border rounded-lg p-4 bg-muted/20 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="allowOvertime" className="text-sm font-semibold cursor-pointer">
+                        Allow Overtime (OT) for this Shift
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        When enabled, employees on this shift who stay past the threshold will accrue OT hours. If disabled, no OT is calculated for this shift.
+                      </p>
+                    </div>
+                    <Switch
+                      id="allowOvertime"
+                      checked={watch("allowOvertime")}
+                      onCheckedChange={(checked) => setValue("allowOvertime", checked)}
                       disabled={loading}
                     />
-                    <p className="text-xs text-muted-foreground">Minutes after end time before Overtime is counted.</p>
-                    {errors.otStartAfter && (
-                      <p className="text-sm text-destructive">{errors.otStartAfter.message}</p>
-                    )}
                   </div>
+
+                  {watch("allowOvertime") ? (
+                    <div className="pt-2 border-t border-border/50 max-w-sm space-y-2">
+                      <Label htmlFor="otStartAfter">Overtime Starts After (minutes)</Label>
+                      <Input
+                        id="otStartAfter"
+                        type="number"
+                        placeholder="e.g., 30"
+                        {...register("otStartAfter")}
+                        disabled={loading}
+                      />
+                      <p className="text-xs text-muted-foreground">Minutes after end time before Overtime begins counting.</p>
+                      {errors.otStartAfter && (
+                        <p className="text-sm text-destructive">{errors.otStartAfter.message}</p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="pt-2 border-t border-border/50 text-xs text-amber-600 dark:text-amber-400 font-medium">
+                      Overtime calculation is turned OFF for this shift.
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

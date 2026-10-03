@@ -1129,6 +1129,7 @@ export async function updateEmployee(input: {
         status: true,
         salaryPayableAccountId: true,
         advanceAccountId: true,
+        shiftId: true,
       },
     });
 
@@ -1555,9 +1556,21 @@ export async function updateEmployee(input: {
       }
     );
 
+    // If shift changed, synchronize roster and unlocked attendance for this employee
+    if (input.shiftId !== undefined && input.shiftId !== existingEmployee.shiftId) {
+      try {
+        const { reprocessAttendanceForEmployee } = await import("@/app/(dashboard)/dashboard/hr/attendance/_actions/attendance.action");
+        await reprocessAttendanceForEmployee({
+          employeeId: employee.id,
+          syncRoster: true,
+        });
+      } catch (syncErr) {
+        console.error("Failed to auto-sync attendance after shift update:", syncErr);
+      }
+    }
+
     // Revalidate employees page
     revalidateBothPaths("employees");
-    revalidatePath(`/dashboard/employees/${employee.id}`);
     revalidatePath(`/dashboard/employees/${employee.id}`);
 
     return {

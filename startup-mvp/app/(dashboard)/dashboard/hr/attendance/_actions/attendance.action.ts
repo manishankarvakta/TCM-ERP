@@ -14,6 +14,7 @@ import {
   ShiftPolicy,
   calculateWorkHoursWithBreak,
   combineDateAndTime,
+  resolveEffectiveShift,
 } from "@/lib/hr/shift-utils";
 import { Prisma } from "@prisma/client";
 import { startOfDay, endOfDay } from "date-fns";
@@ -22,39 +23,8 @@ import { applyDailyAttendancePolicyValues } from "@/lib/hr-payroll/attendance-po
 import { syncTimezoneFromDb } from "@/lib/hr/shift-utils";
 import { serializeDecimalAndDate } from "@/lib/utils/serialization";
 
-/**
- * Resolves effective shift for an employee on a target date using the Roster Overlay Architecture.
- */
-export async function resolveEffectiveShift(employeeId: string, date: Date, defaultShift: any = null) {
-  try {
-    const rosterEntry = await prisma.employeeRoster.findUnique({
-      where: {
-        employeeId_date: {
-          employeeId,
-          date,
-        },
-      },
-      include: { shift: true },
-    });
-
-    if (rosterEntry) {
-      if (rosterEntry.isOffDay) {
-        return { isOffDay: true, shift: null, shiftId: null };
-      }
-      if (rosterEntry.shift) {
-        return { isOffDay: false, shift: rosterEntry.shift, shiftId: rosterEntry.shiftId };
-      }
-    }
-  } catch (err) {
-    console.error("Error resolving roster shift:", err);
-  }
-
-  return {
-    isOffDay: false,
-    shift: defaultShift,
-    shiftId: defaultShift?.id || null,
-  };
-}
+// Re-export resolveEffectiveShift for backwards compatibility
+export { resolveEffectiveShift };
 
 /**
  * Log raw biometric/manual attendance punch
@@ -175,21 +145,28 @@ export async function processManualAttendance(input: {
         graceMinutes: activeShift.graceMinutes,
         lateAfter: activeShift.lateAfter,
         halfDayAfter: activeShift.halfDayAfter,
+        allowOvertime: activeShift.allowOvertime,
         otStartAfter: activeShift.otStartAfter,
         breakStartTime: activeShift.breakStartTime,
         breakEndTime: activeShift.breakEndTime,
         breakGraceMinutes: activeShift.breakGraceMinutes,
-        breakLateAfter: activeShift.breakLateAfter
+        breakLateAfter: activeShift.breakLateAfter,
+        breakType: activeShift.breakType,
+        breakDuration: activeShift.breakDuration,
       } : null;
 
       let breakDurationMins = 0;
-      if (shiftPolicy?.breakStartTime && shiftPolicy?.breakEndTime) {
+      if (shiftPolicy?.breakType === "FIXED") {
+        breakDurationMins = shiftPolicy.breakDuration ?? 0;
+      } else if (shiftPolicy?.breakStartTime && shiftPolicy?.breakEndTime) {
         const { breakStartDateTime, breakEndDateTime } = getShiftWindow(targetDate, shiftPolicy);
         if (breakStartDateTime && breakEndDateTime) {
           breakDurationMins = Math.abs(breakEndDateTime.getTime() - breakStartDateTime.getTime()) / 60000;
         } else {
-          breakDurationMins = 60; // 1 hour fallback
+          breakDurationMins = shiftPolicy.breakDuration ?? 60; // 1 hour fallback
         }
+      } else {
+        breakDurationMins = shiftPolicy?.breakDuration ?? 0;
       }
 
       workHours = calculateWorkHoursWithBreak(
@@ -197,7 +174,8 @@ export async function processManualAttendance(input: {
         checkOutDate,
         breakCheckOutDate,
         breakCheckInDate,
-        breakDurationMins
+        breakDurationMins,
+        shiftPolicy?.breakType || "NONE"
       );
 
       if (checkOutDate && shiftPolicy) {
@@ -821,23 +799,30 @@ export async function closeShiftBulk(attendanceIds: string[]) {
         graceMinutes: activeShift.graceMinutes,
         lateAfter: activeShift.lateAfter,
         halfDayAfter: activeShift.halfDayAfter,
+        allowOvertime: activeShift.allowOvertime,
         otStartAfter: activeShift.otStartAfter,
         breakStartTime: activeShift.breakStartTime,
         breakEndTime: activeShift.breakEndTime,
         breakGraceMinutes: activeShift.breakGraceMinutes,
-        breakLateAfter: activeShift.breakLateAfter
+        breakLateAfter: activeShift.breakLateAfter,
+        breakType: activeShift.breakType,
+        breakDuration: activeShift.breakDuration,
       };
 
       const checkOutDate = combineDateAndTime(att.date, activeShift.endTime);
 
       let breakDurationMins = 0;
-      if (shiftPolicy.breakStartTime && shiftPolicy.breakEndTime) {
+      if (shiftPolicy.breakType === "FIXED") {
+        breakDurationMins = shiftPolicy.breakDuration ?? 0;
+      } else if (shiftPolicy.breakStartTime && shiftPolicy.breakEndTime) {
         const { breakStartDateTime, breakEndDateTime } = getShiftWindow(att.date, shiftPolicy);
         if (breakStartDateTime && breakEndDateTime) {
           breakDurationMins = Math.abs(breakEndDateTime.getTime() - breakStartDateTime.getTime()) / 60000;
         } else {
-          breakDurationMins = 60;
+          breakDurationMins = shiftPolicy.breakDuration ?? 60;
         }
+      } else {
+        breakDurationMins = shiftPolicy.breakDuration ?? 0;
       }
 
       const workHours = calculateWorkHoursWithBreak(
@@ -845,7 +830,8 @@ export async function closeShiftBulk(attendanceIds: string[]) {
         checkOutDate,
         att.breakCheckOut,
         att.breakCheckIn,
-        breakDurationMins
+        breakDurationMins,
+        shiftPolicy.breakType || "NONE"
       );
 
       const otHours = calculateOTHours(checkOutDate, att.date, shiftPolicy as any, workHours);
@@ -901,4 +887,217 @@ export async function closeShiftBulk(attendanceIds: string[]) {
     return { success: false, error: error instanceof Error ? error.message : "Failed to close shifts" };
   }
 }
+
+/**
+ * Reprocesses attendance records for a specific employee across a date range.
+ * When syncRoster is true, also updates non-offday roster entries to match the employee's current shift.
+ */
+export async function reprocessAttendanceForEmployee(input: {
+  employeeId: string;
+  fromDate?: string | Date;
+  toDate?: string | Date;
+  syncRoster?: boolean;
+}) {
+  try {
+    await syncTimezoneFromDb();
+
+    let session: any = null;
+    try {
+      session = await auth();
+    } catch (e) {
+      if (process.env.NODE_ENV !== "production") {
+        session = { user: { id: "cli-user" } };
+      }
+    }
+
+    if (!session?.user) return { success: false, error: "Unauthorized" };
+
+    let canEdit = true;
+    try {
+      if (session.user.id !== "cli-user") {
+        canEdit = await hasPermission(session.user.id, "hr.attendance", "edit");
+      }
+    } catch (e) {
+      // ignore
+    }
+    if (!canEdit) return { success: false, error: "Permission denied" };
+
+    const employee = await prisma.employee.findUnique({
+      where: { id: input.employeeId },
+      include: { shift: true },
+    });
+
+    if (!employee) return { success: false, error: "Employee not found" };
+
+    // Determine date boundaries (default to current month if not specified)
+    const now = new Date();
+    const startDate = input.fromDate
+      ? new Date(formatBusinessDateKey(new Date(input.fromDate)) + "T00:00:00.000Z")
+      : new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1));
+    const endDate = input.toDate
+      ? new Date(formatBusinessDateKey(new Date(input.toDate)) + "T23:59:59.999Z")
+      : new Date(Date.UTC(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999));
+
+    // If syncRoster is true, synchronize EmployeeRoster entries in this range with the employee's default shift
+    if (input.syncRoster && employee.shiftId) {
+      await prisma.employeeRoster.updateMany({
+        where: {
+          employeeId: employee.id,
+          date: { gte: startDate, lte: endDate },
+          isOffDay: false,
+        },
+        data: {
+          shiftId: employee.shiftId,
+        },
+      });
+    }
+
+    // Fetch unlocked attendance records in the range
+    const attendances = await prisma.attendance.findMany({
+      where: {
+        employeeId: employee.id,
+        date: { gte: startDate, lte: endDate },
+        isLocked: false,
+      },
+    });
+
+    let reprocessedCount = 0;
+
+    for (const att of attendances) {
+      const { isOffDay: rosterIsOff, shift: activeShift, shiftId: activeShiftId } = await resolveEffectiveShift(
+        employee.id,
+        att.date,
+        employee.shift
+      );
+
+      let workHours = 0;
+      let otHours = 0;
+      let status = att.status;
+
+      if (att.status === "ABSENT" || (rosterIsOff && !att.checkIn)) {
+        workHours = 0;
+        otHours = 0;
+        status = rosterIsOff ? "WEEKEND" : "ABSENT";
+      } else if (activeShift) {
+        const shiftPolicy: ShiftPolicy = {
+          startTime: activeShift.startTime,
+          endTime: activeShift.endTime,
+          graceMinutes: activeShift.graceMinutes,
+          lateAfter: activeShift.lateAfter,
+          halfDayAfter: activeShift.halfDayAfter,
+          allowOvertime: activeShift.allowOvertime,
+          otStartAfter: activeShift.otStartAfter,
+          breakStartTime: activeShift.breakStartTime,
+          breakEndTime: activeShift.breakEndTime,
+          breakGraceMinutes: activeShift.breakGraceMinutes,
+          breakLateAfter: activeShift.breakLateAfter,
+          breakType: activeShift.breakType,
+          breakDuration: activeShift.breakDuration,
+        };
+
+        let breakDurationMins = 0;
+        if (shiftPolicy.breakType === "FIXED") {
+          breakDurationMins = shiftPolicy.breakDuration ?? 0;
+        } else if (shiftPolicy.breakStartTime && shiftPolicy.breakEndTime) {
+          const { breakStartDateTime, breakEndDateTime } = getShiftWindow(att.date, shiftPolicy);
+          if (breakStartDateTime && breakEndDateTime) {
+            breakDurationMins = Math.abs(breakEndDateTime.getTime() - breakStartDateTime.getTime()) / 60000;
+          } else {
+            breakDurationMins = shiftPolicy.breakDuration ?? 60;
+          }
+        } else {
+          breakDurationMins = shiftPolicy.breakDuration ?? 0;
+        }
+
+        workHours = calculateWorkHoursWithBreak(
+          att.checkIn,
+          att.checkOut,
+          att.breakCheckOut,
+          att.breakCheckIn,
+          breakDurationMins,
+          shiftPolicy.breakType || "NONE"
+        );
+
+        if (att.checkOut) {
+          otHours = calculateOTHours(att.checkOut, att.date, shiftPolicy, workHours);
+        }
+
+        status = determineAttendanceStatus(att.checkIn, att.date, shiftPolicy, att.breakCheckIn);
+      }
+
+      await prisma.attendance.update({
+        where: { id: att.id },
+        data: {
+          workHours,
+          otHours,
+          status,
+          shiftId: activeShiftId || employee.shiftId,
+        },
+      });
+
+      try {
+        await applyDailyAttendancePolicyValues(att.id, { force: true });
+      } catch (err) {
+        console.error(`Failed to apply daily attendance policy to ${att.id}:`, err);
+      }
+
+      reprocessedCount++;
+    }
+
+    try {
+      revalidateBothPaths("hr/attendance");
+      revalidateBothPaths("hr/payroll");
+    } catch (e) {}
+
+    return {
+      success: true,
+      count: reprocessedCount,
+      message: `Successfully reprocessed ${reprocessedCount} attendance record(s).`,
+    };
+  } catch (error: any) {
+    console.error("reprocessAttendanceForEmployee error:", error);
+    return { success: false, error: error.message || "Failed to reprocess attendance" };
+  }
+}
+
+/**
+ * Bulk reprocess attendance records across a date range and optional employee filter.
+ */
+export async function reprocessAttendanceRecords(input: {
+  employeeId?: string;
+  fromDate: string;
+  toDate: string;
+  syncRoster?: boolean;
+}) {
+  try {
+    const { reprocessAttendancePoliciesForDateRange } = await import("@/lib/hr-payroll/attendance-policy-service");
+    
+    if (input.syncRoster && input.employeeId) {
+      return await reprocessAttendanceForEmployee({
+        employeeId: input.employeeId,
+        fromDate: input.fromDate,
+        toDate: input.toDate,
+        syncRoster: true,
+      });
+    }
+
+    const summary = await reprocessAttendancePoliciesForDateRange({
+      fromDate: input.fromDate,
+      toDate: input.toDate,
+      employeeId: input.employeeId,
+      force: false,
+    });
+
+    try {
+      revalidateBothPaths("hr/attendance");
+      revalidateBothPaths("hr/payroll");
+    } catch (e) {}
+
+    return { success: true, summary };
+  } catch (error: any) {
+    console.error("reprocessAttendanceRecords error:", error);
+    return { success: false, error: error.message || "Failed to reprocess attendance records" };
+  }
+}
+
 

@@ -21,6 +21,7 @@ import PrintButton from "@/app/(dashboard)/dashboard/procurements/purchases/_com
 import { numberToWords } from "@/lib/utils/number-to-words";
 import PrintHeader, { PrintStyle } from "@/app/(dashboard)/dashboard/procurements/_components/print-header";
 import { prisma } from "@/lib/prisma";
+import RTVStatusActions from "../../_components/rtv-status-actions";
 
 interface RTVDetailsPageProps {
   params: Promise<{ id: string }>;
@@ -54,6 +55,8 @@ export default async function RTVDetailsPage({ params }: RTVDetailsPageProps) {
         return "secondary";
       case "COMPLETED":
         return "default";
+      case "CANCELLED":
+        return "destructive";
       default:
         return "secondary";
     }
@@ -96,6 +99,9 @@ export default async function RTVDetailsPage({ params }: RTVDetailsPageProps) {
           <p className="text-sm text-muted-foreground">Return to Vendor Details</p>
         </div>
         <div className="flex items-center gap-2">
+          {rtv.status === "DRAFT" && (
+            <RTVStatusActions rtvId={rtv.id} status={rtv.status} />
+          )}
           <PrintButton />
           <Button variant="ghost" asChild>
             <Link href="/dashboard/procurements/rtv">
