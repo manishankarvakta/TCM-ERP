@@ -36,7 +36,7 @@ export default auth(async (req) => {
     loginUrl.searchParams.set("from", pathname)
     return NextResponse.redirect(loginUrl)
   }
-
+// 
   // Redirect /admin to /dashboard for all users
   if (isAdminRoute && isLoggedIn) {
     const newPathname = pathname.replace("/admin", "/dashboard")
