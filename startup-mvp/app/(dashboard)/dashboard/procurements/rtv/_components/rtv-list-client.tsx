@@ -312,7 +312,15 @@ export default function RTVListClient({
                     </TableCell>
                     <TableCell className="text-right">৳{Number(rtv.grandTotal).toLocaleString()}</TableCell>
                     <TableCell className="text-center">
-                      <Badge variant={rtv.status === 'COMPLETED' ? 'default' : 'secondary'}>
+                      <Badge
+                        variant={
+                          rtv.status === 'COMPLETED'
+                            ? 'default'
+                            : rtv.status === 'CANCELLED'
+                            ? 'destructive'
+                            : 'secondary'
+                        }
+                      >
                         {rtv.status}
                       </Badge>
                     </TableCell>

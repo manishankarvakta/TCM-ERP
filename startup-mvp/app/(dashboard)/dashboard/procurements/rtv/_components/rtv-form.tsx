@@ -19,7 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { createReturnToVendor } from "../_actions/rtv.action";
+import { createReturnToVendor, updateReturnToVendor } from "../_actions/rtv.action";
 import { ReturnToVendorStatus } from "@prisma/client";
 import { useToast } from "@/hooks/use-toast";
 import { FiTrash2, FiPlus, FiSearch, FiAlertCircle, FiUploadCloud } from "react-icons/fi";
@@ -63,7 +63,7 @@ const rtvFormSchema = z.object({
   warehouseId: z.string().min(1, "Warehouse is required"),
   purchaseId: z.string().optional().nullable(),
   date: z.coerce.date(),
-  status: z.nativeEnum(ReturnToVendorStatus),
+  status: z.nativeEnum(ReturnToVendorStatus).optional(),
   notes: z.string().optional().nullable(),
   tax: z.coerce.number().min(0).optional().nullable(),
   items: z.array(rtvItemSchema).min(1, "At least one item is required"),
@@ -71,7 +71,16 @@ const rtvFormSchema = z.object({
 
 type RTVFormData = z.infer<typeof rtvFormSchema>;
 
-export default function RTVForm({ suppliers, warehouses, items, purchase }: any) {
+interface RTVFormProps {
+  mode?: "create" | "edit";
+  initialData?: any;
+  suppliers: any[];
+  warehouses: any[];
+  items: any[];
+  purchase?: any;
+}
+
+export default function RTVForm({ mode = "create", initialData, suppliers, warehouses, items, purchase }: RTVFormProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -111,10 +120,19 @@ export default function RTVForm({ suppliers, warehouses, items, purchase }: any)
 
   const defaultDate = new Date();
 
-  const defaultItems = purchase?.items?.map((item: any) => ({
+  const defaultItems = initialData?.items?.map((item: any) => ({
     itemId: item.itemId,
     variantId: item.variantId || "",
-    description: item.item.name,
+    description: item.item?.name || item.description || "",
+    availableQuantity: item.quantity,
+    quantity: Number(item.quantity || 0),
+    unitPrice: Number(item.unitPrice || 0),
+    amount: Number(item.amount || 0),
+    reason: item.reason || "",
+  })) || purchase?.items?.map((item: any) => ({
+    itemId: item.itemId,
+    variantId: item.variantId || "",
+    description: item.item?.name || item.item?.description || "",
     availableQuantity: item.quantity - (item.returnedQuantity || 0),
     quantity: 0,
     unitPrice: item.unitPrice,
@@ -133,13 +151,13 @@ export default function RTVForm({ suppliers, warehouses, items, purchase }: any)
   } = useForm<RTVFormData>({
     resolver: zodResolver(rtvFormSchema) as any,
     defaultValues: {
-      supplierId: purchase?.supplier?.id || "",
-      warehouseId: purchase?.warehouse?.id || warehouses[0]?.id || "",
-      purchaseId: purchase?.id || "",
-      date: defaultDate,
+      supplierId: initialData?.supplierId || initialData?.supplier?.id || purchase?.supplier?.id || "",
+      warehouseId: initialData?.warehouseId || initialData?.warehouse?.id || purchase?.warehouse?.id || warehouses[0]?.id || "",
+      purchaseId: initialData?.purchaseId || purchase?.id || "",
+      date: initialData?.date ? new Date(initialData.date) : defaultDate,
       status: "DRAFT",
-      notes: purchase ? `Return for Purchase #${purchase.purchaseNumber}` : "",
-      tax: 0,
+      notes: initialData?.notes !== undefined ? (initialData.notes || "") : (purchase ? `Return for Purchase #${purchase.purchaseNumber}` : ""),
+      tax: initialData?.tax ? Number(initialData.tax) : 0,
       items: defaultItems,
     },
   });
@@ -333,7 +351,7 @@ export default function RTVForm({ suppliers, warehouses, items, purchase }: any)
     }
   };
 
-  const onSubmit = async (data: RTVFormData, status: ReturnToVendorStatus) => {
+  const onSubmit = async (data: RTVFormData) => {
     try {
       setLoading(true);
       setError("");
@@ -362,17 +380,26 @@ export default function RTVForm({ suppliers, warehouses, items, purchase }: any)
 
       const payload = {
         ...data,
-        status,
+        status: ReturnToVendorStatus.DRAFT,
         items: validItems,
       };
 
-      const result = await createReturnToVendor(payload);
-
-      if (result.success) {
-        toast({ title: "Success", description: "RTV created successfully" });
-        router.push("/dashboard/procurements/rtv");
+      if (mode === "edit" && initialData?.id) {
+        const result = await updateReturnToVendor(initialData.id, payload);
+        if (result.success) {
+          toast({ title: "Success", description: "RTV updated successfully" });
+          router.push(`/dashboard/procurements/rtv/${initialData.id}/view`);
+        } else {
+          throw new Error(result.error || "Failed to update return");
+        }
       } else {
-        throw new Error(result.error || "Failed to create return");
+        const result = await createReturnToVendor(payload);
+        if (result.success) {
+          toast({ title: "Success", description: "RTV created successfully as Draft" });
+          router.push("/dashboard/procurements/rtv");
+        } else {
+          throw new Error(result.error || "Failed to create return");
+        }
       }
     } catch (err: any) {
       setError(err.message || "An unexpected error occurred.");
@@ -385,9 +412,19 @@ export default function RTVForm({ suppliers, warehouses, items, purchase }: any)
     <>
     <Card className="w-full shadow-sm">
       <CardHeader>
-        <CardTitle>{purchase ? "Return Items from Purchase" : "Standalone Return to Vendor"}</CardTitle>
+        <CardTitle>
+          {mode === "edit"
+            ? `Edit Return to Vendor #${initialData?.rtvNumber || ""}`
+            : purchase
+            ? "Return Items from Purchase"
+            : "Standalone Return to Vendor"}
+        </CardTitle>
         <CardDescription>
-          {purchase ? `Returning items from Purchase Order #${purchase.purchaseNumber}` : "Create a direct return without a purchase reference"}
+          {mode === "edit"
+            ? "Update items, quantities, or details for this draft return"
+            : purchase
+            ? `Returning items from Purchase Order #${purchase.purchaseNumber}`
+            : "Create a new return in draft status"}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -890,18 +927,10 @@ export default function RTVForm({ suppliers, warehouses, items, purchase }: any)
             </Button>
             <Button
               type="button"
-              variant="secondary"
-              onClick={handleSubmit((data) => onSubmit(data as any, "DRAFT")) as any}
+              onClick={handleSubmit((data) => onSubmit(data as any)) as any}
               disabled={loading}
             >
-              Save as Draft
-            </Button>
-            <Button
-              type="button"
-              onClick={handleSubmit((data) => onSubmit(data as any, "COMPLETED")) as any}
-              disabled={loading}
-            >
-              Complete Return
+              {mode === "edit" ? "Update Return" : "Save Return (Draft)"}
             </Button>
           </div>
         </form>
