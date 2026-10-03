@@ -1293,7 +1293,6 @@ model Shift {
   halfDayAfter      Int          @default(120)
   allowOvertime     Boolean      @default(true)
   otStartAfter      Int          @default(30)
-  allowOvertime     Boolean      @default(false)
   status            String       @default("active")
   isTrash      Boolean      @default(false)
   createdBy    String
