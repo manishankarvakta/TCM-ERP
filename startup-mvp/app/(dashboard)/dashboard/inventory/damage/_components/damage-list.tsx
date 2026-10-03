@@ -58,6 +58,15 @@ interface DamageListProps {
   endDate: string;
   canChangeWarehouse: boolean;
   isTrash?: boolean;
+  userId?: string;
+  permissions?: {
+    view: boolean;
+    create: boolean;
+    edit: boolean;
+    approve: boolean;
+    moveToTrash: boolean;
+    deletePermanently: boolean;
+  };
 }
 
 export default function DamageList({
@@ -69,6 +78,8 @@ export default function DamageList({
   endDate,
   canChangeWarehouse,
   isTrash = false,
+  userId,
+  permissions,
 }: DamageListProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -371,17 +382,23 @@ export default function DamageList({
                               permissionKey="inventory.damage"
                               action="edit"
                               href={`/dashboard/inventory/damage/${damage.id}/edit`}
+                              userId={userId}
+                              hasAccess={permissions?.edit}
                             />
                             <ProtectedAction
                               permissionKey="inventory.damage"
                               action="move-to-trash"
                               onClick={() => handleAction(trashDamage, damage.id, "Moved to trash")}
+                              userId={userId}
+                              hasAccess={permissions?.moveToTrash}
                               buttonProps={{ disabled: isPending, className: "text-destructive hover:text-destructive" }}
                             />
                             <ProtectedAction
                               permissionKey="inventory.damage"
                               action="delete-permanently"
                               onClick={() => setDeleteId(damage.id)}
+                              userId={userId}
+                              hasAccess={permissions?.deletePermanently}
                               buttonProps={{ disabled: isPending, className: "text-destructive hover:text-destructive" }}
                             />
                           </>
@@ -401,6 +418,8 @@ export default function DamageList({
                               permissionKey="inventory.damage"
                               action="delete-permanently"
                               onClick={() => setDeleteId(damage.id)}
+                              userId={userId}
+                              hasAccess={permissions?.deletePermanently}
                               buttonProps={{ disabled: isPending, className: "text-destructive hover:text-destructive" }}
                             />
                           </>

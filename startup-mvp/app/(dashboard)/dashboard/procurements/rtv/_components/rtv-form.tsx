@@ -65,6 +65,7 @@ const rtvFormSchema = z.object({
   date: z.coerce.date(),
   status: z.nativeEnum(ReturnToVendorStatus).optional(),
   notes: z.string().optional().nullable(),
+  discount: z.coerce.number().min(0, "Discount must be 0 or greater").optional().nullable(),
   tax: z.coerce.number().min(0).optional().nullable(),
   items: z.array(rtvItemSchema).min(1, "At least one item is required"),
 });
@@ -157,6 +158,7 @@ export default function RTVForm({ mode = "create", initialData, suppliers, wareh
       date: initialData?.date ? new Date(initialData.date) : defaultDate,
       status: "DRAFT",
       notes: initialData?.notes !== undefined ? (initialData.notes || "") : (purchase ? `Return for Purchase #${purchase.purchaseNumber}` : ""),
+      discount: initialData?.discount ? Number(initialData.discount) : 0,
       tax: initialData?.tax ? Number(initialData.tax) : 0,
       items: defaultItems,
     },
@@ -179,6 +181,7 @@ export default function RTVForm({ mode = "create", initialData, suppliers, wareh
     });
     return set;
   }, [skuModalIndex, watchedItems]);
+  const watchedDiscount = watch("discount");
   const watchedTax = watch("tax");
   const watchedWarehouseId = watch("warehouseId");
   const watchedSupplierId = watch("supplierId");
@@ -231,7 +234,9 @@ export default function RTVForm({ mode = "create", initialData, suppliers, wareh
     return acc + (qty * price);
   }, 0);
   
-  const grandTotal = subTotal + (Number(watchedTax) || 0);
+  const discountAmount = Number(watchedDiscount) || 0;
+  const taxAmount = Number(watchedTax) || 0;
+  const grandTotal = Math.max(0, subTotal - discountAmount) + taxAmount;
 
   const totalItems = watchedItems.filter((item: any) => !!item.itemId && (Number(item.quantity) || 0) > 0).length;
   const totalQuantity = watchedItems.reduce((sum: number, item: any) => sum + (Number(item.quantity) || 0), 0);
@@ -877,12 +882,28 @@ export default function RTVForm({ mode = "create", initialData, suppliers, wareh
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
             <div className="space-y-2">
               <Label>Sub Total</Label>
               <div className="rounded-md border bg-muted/50 px-3 py-2 text-sm text-right font-medium">
                 {subTotal.toFixed(2)}
               </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="discount">Discount Amount</Label>
+              <Input
+                id="discount"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="0.00"
+                className="text-right"
+                {...register("discount")}
+                disabled={loading}
+              />
+              {errors.discount && (
+                <p className="text-xs text-destructive mt-1">{errors.discount.message}</p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="tax">Tax Amount</Label>
@@ -891,10 +912,14 @@ export default function RTVForm({ mode = "create", initialData, suppliers, wareh
                 type="number"
                 min="0"
                 step="0.01"
+                placeholder="0.00"
                 className="text-right"
                 {...register("tax")}
                 disabled={loading}
               />
+              {errors.tax && (
+                <p className="text-xs text-destructive mt-1">{errors.tax.message}</p>
+              )}
             </div>
             <div className="space-y-2">
               <Label>Total Items</Label>

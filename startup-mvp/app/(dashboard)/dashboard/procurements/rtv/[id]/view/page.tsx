@@ -285,13 +285,23 @@ export default async function RTVDetailsPage({ params }: RTVDetailsPageProps) {
           )}
 
           {/* Financial Summary Cards */}
-          <div className="mt-6 print:mt-2 grid grid-cols-1 md:grid-cols-5 gap-4 print:grid-cols-5 print:gap-2">
+          <div className="mt-6 print:mt-2 grid grid-cols-1 md:grid-cols-6 gap-4 print:grid-cols-6 print:gap-2">
             <Card className="bg-muted/50 print:bg-transparent print:shadow-none print:border-0">
               <CardContent className="pt-6 print:p-1">
                 <div className="space-y-1 print:space-y-0">
                   <p className="text-sm font-medium text-muted-foreground print:text-xs">Subtotal</p>
                   <p className="text-2xl font-bold print:text-sm">
                     {formatCurrency(rtv.subTotal)}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="bg-muted/50 print:bg-transparent print:shadow-none print:border-0">
+              <CardContent className="pt-6 print:p-1">
+                <div className="space-y-1 print:space-y-0">
+                  <p className="text-sm font-medium text-muted-foreground print:text-xs">Discount</p>
+                  <p className="text-2xl font-bold print:text-sm text-amber-600 dark:text-amber-400">
+                    {rtv.discount && rtv.discount > 0 ? formatCurrency(rtv.discount) : formatCurrency(0)}
                   </p>
                 </div>
               </CardContent>

@@ -36,12 +36,26 @@ export default async function DamagePage({ searchParams }: DamagePageProps) {
   const startDate = params.startDate || todayStr;
   const endDate = params.endDate || todayStr;
 
-  const canCreate = await hasPermission(userId, "inventory.damage", "create");
-
-  const dbUser = userId ? await prisma.user.findUnique({
-    where: { id: userId },
-    include: { defaultWarehouse: true },
-  }) : null;
+  const [
+    canView,
+    canCreate,
+    canEdit,
+    canApprove,
+    canMoveToTrash,
+    canDeletePermanently,
+    dbUser,
+  ] = await Promise.all([
+    userId ? hasPermission(userId, "inventory.damage", "view") : false,
+    userId ? hasPermission(userId, "inventory.damage", "create") : false,
+    userId ? hasPermission(userId, "inventory.damage", "edit") : false,
+    userId ? hasPermission(userId, "inventory.damage", "approve") : false,
+    userId ? hasPermission(userId, "inventory.damage", "move-to-trash") : false,
+    userId ? hasPermission(userId, "inventory.damage", "delete-permanently") : false,
+    userId ? prisma.user.findUnique({
+      where: { id: userId },
+      include: { defaultWarehouse: true },
+    }) : null,
+  ]);
 
   const isNormalUser = dbUser?.role !== "admin" && dbUser?.role !== "superadmin";
 
@@ -118,6 +132,15 @@ export default async function DamagePage({ searchParams }: DamagePageProps) {
             endDate={endDate}
             canChangeWarehouse={!isNormalUser}
             isTrash={false}
+            userId={userId || undefined}
+            permissions={{
+              view: canView,
+              create: canCreate,
+              edit: canEdit,
+              approve: canApprove,
+              moveToTrash: canMoveToTrash,
+              deletePermanently: canDeletePermanently,
+            }}
           />
         </TabsContent>
         <TabsContent value="trash" className="mt-4">
@@ -130,6 +153,15 @@ export default async function DamagePage({ searchParams }: DamagePageProps) {
             endDate={endDate}
             canChangeWarehouse={!isNormalUser}
             isTrash={true}
+            userId={userId || undefined}
+            permissions={{
+              view: canView,
+              create: canCreate,
+              edit: canEdit,
+              approve: canApprove,
+              moveToTrash: canMoveToTrash,
+              deletePermanently: canDeletePermanently,
+            }}
           />
         </TabsContent>
       </Tabs>
