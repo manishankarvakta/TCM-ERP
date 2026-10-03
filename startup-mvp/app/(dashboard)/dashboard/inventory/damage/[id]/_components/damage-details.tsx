@@ -35,9 +35,16 @@ import {
 
 interface DamageDetailsProps {
   initialData: any;
+  userId?: string;
+  permissions?: {
+    edit: boolean;
+    approve: boolean;
+    moveToTrash: boolean;
+    deletePermanently: boolean;
+  };
 }
 
-export default function DamageDetails({ initialData }: DamageDetailsProps) {
+export default function DamageDetails({ initialData, userId, permissions }: DamageDetailsProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [isApproving, setIsApproving] = useState(false);
@@ -163,6 +170,8 @@ export default function DamageDetails({ initialData }: DamageDetailsProps) {
                 permissionKey="inventory.damage"
                 action="edit"
                 href={`/dashboard/inventory/damage/${initialData.id}/edit`}
+                userId={userId}
+                hasAccess={permissions?.edit}
                 buttonProps={{ disabled: isDeleting || isApproving, variant: "outline", size: "sm" }}
               />
 
@@ -170,6 +179,8 @@ export default function DamageDetails({ initialData }: DamageDetailsProps) {
                 permissionKey="inventory.damage"
                 action="move-to-trash"
                 onClick={() => handleAction(trashDamage, initialData.id, "Moved to trash", true)}
+                userId={userId}
+                hasAccess={permissions?.moveToTrash}
                 buttonProps={{ disabled: isDeleting, variant: "destructive", size: "sm" }}
               />
 
@@ -177,29 +188,33 @@ export default function DamageDetails({ initialData }: DamageDetailsProps) {
                 permissionKey="inventory.damage"
                 action="delete-permanently"
                 onClick={() => setShowDeleteDialog(true)}
+                userId={userId}
+                hasAccess={permissions?.deletePermanently}
                 buttonProps={{ disabled: isDeleting, variant: "destructive", size: "sm" }}
               />
 
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button size="sm" disabled={isApproving}>
-                    <CheckCircle className="h-4 w-4 mr-2" /> 
-                    {isApproving ? "Approving..." : "Approve Damage"}
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Approve Damage?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Approving this will permanently reduce stock quantities for the items listed and create accounting entries. This action cannot be undone.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleApprove}>Approve</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+              {(permissions?.approve ?? true) && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button size="sm" disabled={isApproving}>
+                      <CheckCircle className="h-4 w-4 mr-2" /> 
+                      {isApproving ? "Approving..." : "Approve Damage"}
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Approve Damage?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Approving this will permanently reduce stock quantities for the items listed and create accounting entries. This action cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleApprove}>Approve</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
             </>
           )}
 
@@ -217,6 +232,8 @@ export default function DamageDetails({ initialData }: DamageDetailsProps) {
                 permissionKey="inventory.damage"
                 action="delete-permanently"
                 onClick={() => setShowDeleteDialog(true)}
+                userId={userId}
+                hasAccess={permissions?.deletePermanently}
                 buttonProps={{ disabled: isDeleting, variant: "destructive", size: "sm" }}
               />
               
