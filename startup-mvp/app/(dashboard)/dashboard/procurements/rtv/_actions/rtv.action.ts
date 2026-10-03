@@ -28,6 +28,7 @@ const rtvSchema = z.object({
   date: z.coerce.date(),
   status: z.nativeEnum(ReturnToVendorStatus).optional(),
   notes: z.string().optional().nullable(),
+  discount: z.coerce.number().min(0).optional().nullable(),
   tax: z.coerce.number().min(0).optional().nullable(),
   items: z.array(rtvItemSchema).min(1, "At least one item is required"),
 });
@@ -106,8 +107,9 @@ export async function createReturnToVendor(input: z.infer<typeof rtvSchema>) {
       }));
       
       const subTotal = calculatedItems.reduce((sum, item) => sum + item.amount, 0);
+      const discount = validated.discount ?? 0;
       const tax = validated.tax ?? 0;
-      const grandTotal = subTotal + tax;
+      const grandTotal = Math.max(0, subTotal - discount) + tax;
 
       const rtv = await tx.returnToVendor.create({
         data: {
@@ -119,6 +121,7 @@ export async function createReturnToVendor(input: z.infer<typeof rtvSchema>) {
           status: ReturnToVendorStatus.DRAFT, // Always created as DRAFT
           notes: validated.notes || null,
           subTotal: new Prisma.Decimal(subTotal),
+          discount: discount ? new Prisma.Decimal(discount) : null,
           tax: tax ? new Prisma.Decimal(tax) : null,
           grandTotal: new Prisma.Decimal(grandTotal),
           createdBy: userId,
@@ -213,8 +216,9 @@ export async function updateReturnToVendor(rtvId: string, input: z.infer<typeof 
       }));
       
       const subTotal = calculatedItems.reduce((sum, item) => sum + item.amount, 0);
+      const discount = validated.discount ?? 0;
       const tax = validated.tax ?? 0;
-      const grandTotal = subTotal + tax;
+      const grandTotal = Math.max(0, subTotal - discount) + tax;
 
       // Delete old items and recreate new items
       await tx.returnToVendorItem.deleteMany({
@@ -230,6 +234,7 @@ export async function updateReturnToVendor(rtvId: string, input: z.infer<typeof 
           date: validated.date,
           notes: validated.notes || null,
           subTotal: new Prisma.Decimal(subTotal),
+          discount: discount ? new Prisma.Decimal(discount) : null,
           tax: tax ? new Prisma.Decimal(tax) : null,
           grandTotal: new Prisma.Decimal(grandTotal),
           items: {
@@ -536,6 +541,7 @@ export async function getReturnsToVendor(
       rtvs: rtvs.map(r => ({
         ...r,
         subTotal: Number(r.subTotal),
+        discount: r.discount ? Number(r.discount) : null,
         tax: r.tax ? Number(r.tax) : null,
         grandTotal: Number(r.grandTotal),
       })),
@@ -580,6 +586,7 @@ export async function getReturnToVendorById(rtvId: string) {
       rtv: {
         ...rtv,
         subTotal: Number(rtv.subTotal),
+        discount: rtv.discount ? Number(rtv.discount) : null,
         tax: rtv.tax ? Number(rtv.tax) : null,
         grandTotal: Number(rtv.grandTotal),
         creator: creator,

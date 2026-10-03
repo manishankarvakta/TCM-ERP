@@ -2277,6 +2277,7 @@ model ReturnToVendor {
   status      ReturnToVendorStatus @default(DRAFT)
   notes       String?
   subTotal    Decimal              @db.Decimal(12, 2)
+  discount    Decimal?             @db.Decimal(12, 2)
   tax         Decimal?             @db.Decimal(5, 2)
   grandTotal  Decimal              @db.Decimal(12, 2)
   createdBy   String
