@@ -6,6 +6,7 @@ const AUTH_ROUTES = ["/login", "/registration", "/auth/"]
 
 export default auth(async (req) => {
   const pathname = req.nextUrl.pathname
+  // 
 
   // Validate session
   const isLoggedIn = !!(req.auth?.user?.id && req.auth?.user?.email)
