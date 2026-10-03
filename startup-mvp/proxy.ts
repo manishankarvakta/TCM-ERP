@@ -42,7 +42,7 @@ export default auth(async (req) => {
     const newPathname = pathname.replace("/admin", "/dashboard")
     return NextResponse.redirect(new URL(newPathname, req.url))
   }
-
+// 
   // /dashboard/settings is admin-only - redirect non-admin users
   if (pathname.startsWith("/dashboard/settings") && isLoggedIn && userRole !== "admin") {
     return NextResponse.redirect(new URL("/dashboard", req.url))
